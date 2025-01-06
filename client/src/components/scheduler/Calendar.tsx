@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Calendar as CalendarIcon } from "lucide-react";
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight } from "lucide-react";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import {
   Select,
@@ -9,8 +9,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
-import { format, startOfWeek, endOfWeek, addWeeks, startOfMonth, endOfMonth, addMonths, startOfYear, endOfYear } from "date-fns";
+import { format, startOfWeek, endOfWeek, addWeeks, startOfMonth, endOfMonth, addMonths, startOfYear, endOfYear, subWeeks, subMonths, subYears, addYears } from "date-fns";
 import { PROVIDERS } from "@/lib/constants";
 import type { Shift } from "@/lib/types";
 
@@ -69,6 +70,34 @@ export function Calendar() {
     ));
   };
 
+  const handlePrevious = () => {
+    switch (view) {
+      case "week":
+        setDate(subWeeks(date, 1));
+        break;
+      case "month":
+        setDate(subMonths(date, 1));
+        break;
+      case "year":
+        setDate(subYears(date, 1));
+        break;
+    }
+  };
+
+  const handleNext = () => {
+    switch (view) {
+      case "week":
+        setDate(addWeeks(date, 1));
+        break;
+      case "month":
+        setDate(addMonths(date, 1));
+        break;
+      case "year":
+        setDate(addYears(date, 1));
+        break;
+    }
+  };
+
   const renderCalendarHeader = () => {
     const range = getDateRange();
     switch (view) {
@@ -84,7 +113,25 @@ export function Calendar() {
   return (
     <Card className="h-full">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-xl font-bold">{renderCalendarHeader()}</CardTitle>
+        <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handlePrevious}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handleNext}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+          <CardTitle className="text-xl font-bold">{renderCalendarHeader()}</CardTitle>
+        </div>
         <div className="flex items-center space-x-2">
           <Select value={view} onValueChange={(v: "week" | "month" | "year") => setView(v)}>
             <SelectTrigger className="w-[120px]">
@@ -116,8 +163,8 @@ export function Calendar() {
                 borderRadius: "4px",
               },
             }}
-            fromDate={getDateRange().start}
-            toDate={getDateRange().end}
+            numberOfMonths={view === "year" ? 12 : view === "month" ? 1 : 1}
+            showOutsideDays={view !== "year"}
           />
         </div>
 

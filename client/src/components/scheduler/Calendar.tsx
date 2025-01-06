@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
-import { format, startOfWeek, addWeeks } from "date-fns";
+import { format, startOfWeek, endOfWeek, addWeeks, startOfMonth, endOfMonth, addMonths, startOfYear, endOfYear } from "date-fns";
 import { PROVIDERS } from "@/lib/constants";
 import type { Shift } from "@/lib/types";
 
@@ -18,18 +18,73 @@ export function Calendar() {
   const [view, setView] = useState<"week" | "month" | "year">("week");
   const [date, setDate] = useState<Date>(new Date());
 
+  const getDateRange = () => {
+    switch (view) {
+      case "week":
+        return {
+          start: startOfWeek(date, { weekStartsOn: 5 }), // Start from Friday
+          end: endOfWeek(date, { weekStartsOn: 5 }),
+        };
+      case "month":
+        return {
+          start: startOfMonth(date),
+          end: endOfMonth(date),
+        };
+      case "year":
+        return {
+          start: startOfYear(date),
+          end: endOfYear(date),
+        };
+    }
+  };
+
   const { data: shifts } = useQuery<Shift[]>({
-    queryKey: ["/api/shifts"],
+    queryKey: ["/api/shifts", view, getDateRange()],
   });
 
   const getProviderColor = (providerId: number) => {
     return PROVIDERS.find(p => p.id === providerId)?.color || "hsl(0, 0%, 50%)";
   };
 
+  const renderShifts = () => {
+    if (!shifts?.length) return <div className="text-muted-foreground">No shifts scheduled</div>;
+
+    return shifts.map(shift => (
+      <div
+        key={shift.id}
+        className="flex items-center p-2 rounded-md mb-2"
+        style={{
+          backgroundColor: getProviderColor(shift.providerId),
+          color: "white",
+        }}
+      >
+        <span className="flex-1">
+          {PROVIDERS.find(p => p.id === shift.providerId)?.name}
+        </span>
+        <span>
+          {format(new Date(shift.startDate), "MMM d")} - 
+          {format(new Date(shift.endDate), "MMM d")}
+        </span>
+      </div>
+    ));
+  };
+
+  const renderCalendarHeader = () => {
+    const range = getDateRange();
+    switch (view) {
+      case "week":
+        return `${format(range.start, "MMM d")} - ${format(range.end, "MMM d, yyyy")}`;
+      case "month":
+        return format(date, "MMMM yyyy");
+      case "year":
+        return format(date, "yyyy");
+    }
+  };
+
   return (
     <Card className="h-full">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-xl font-bold">Schedule</CardTitle>
+        <CardTitle className="text-xl font-bold">{renderCalendarHeader()}</CardTitle>
         <div className="flex items-center space-x-2">
           <Select value={view} onValueChange={(v: "week" | "month" | "year") => setView(v)}>
             <SelectTrigger className="w-[120px]">
@@ -45,7 +100,7 @@ export function Calendar() {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="rounded-md border">
+        <div className="rounded-md border mb-4">
           <CalendarComponent
             mode="single"
             selected={date}
@@ -61,28 +116,13 @@ export function Calendar() {
                 borderRadius: "4px",
               },
             }}
+            fromDate={getDateRange().start}
+            toDate={getDateRange().end}
           />
         </div>
-        
-        <div className="mt-4 space-y-1">
-          {shifts?.map(shift => (
-            <div
-              key={shift.id}
-              className="flex items-center p-2 rounded-md"
-              style={{
-                backgroundColor: getProviderColor(shift.providerId),
-                color: "white",
-              }}
-            >
-              <span className="flex-1">
-                {PROVIDERS.find(p => p.id === shift.providerId)?.name}
-              </span>
-              <span>
-                {format(new Date(shift.startDate), "MMM d")} - 
-                {format(new Date(shift.endDate), "MMM d")}
-              </span>
-            </div>
-          ))}
+
+        <div className="space-y-1">
+          {renderShifts()}
         </div>
       </CardContent>
     </Card>

@@ -23,8 +23,8 @@ export function Calendar() {
     switch (view) {
       case "week":
         return {
-          start: startOfWeek(date, { weekStartsOn: 5 }), // Start from Friday
-          end: endOfWeek(date, { weekStartsOn: 5 }),
+          start: startOfWeek(date),  // Start from Sunday by default
+          end: endOfWeek(date),
         };
       case "month":
         return {
@@ -147,26 +147,55 @@ export function Calendar() {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="rounded-md border mb-4">
-          <CalendarComponent
-            mode="single"
-            selected={date}
-            onSelect={(date) => date && setDate(date)}
-            className="rounded-md"
-            modifiers={{
-              hasShift: shifts?.map(s => new Date(s.startDate)) || [],
-            }}
-            modifiersStyles={{
-              hasShift: {
-                backgroundColor: "var(--primary)",
-                color: "white",
-                borderRadius: "4px",
-              },
-            }}
-            numberOfMonths={view === "year" ? 12 : view === "month" ? 1 : 1}
-            showOutsideDays={view !== "year"}
-          />
-        </div>
+        {view === "year" ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {Array.from({ length: 12 }, (_, i) => (
+              <div key={i} className="rounded-md border">
+                <CalendarComponent
+                  mode="single"
+                  selected={date}
+                  onSelect={(date) => date && setDate(date)}
+                  month={new Date(date.getFullYear(), i)}
+                  className="rounded-md"
+                  modifiers={{
+                    hasShift: shifts?.map(s => new Date(s.startDate)) || [],
+                  }}
+                  modifiersStyles={{
+                    hasShift: {
+                      backgroundColor: "var(--primary)",
+                      color: "white",
+                      borderRadius: "4px",
+                    },
+                  }}
+                  showOutsideDays={false}
+                />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-md border mb-4">
+            <CalendarComponent
+              mode="single"
+              selected={date}
+              onSelect={(date) => date && setDate(date)}
+              className="rounded-md"
+              modifiers={{
+                hasShift: shifts?.map(s => new Date(s.startDate)) || [],
+              }}
+              modifiersStyles={{
+                hasShift: {
+                  backgroundColor: "var(--primary)",
+                  color: "white",
+                  borderRadius: "4px",
+                },
+              }}
+              numberOfMonths={view === "week" ? 1 : 1}
+              showOutsideDays={true}
+              fromDate={view === "week" ? getDateRange().start : undefined}
+              toDate={view === "week" ? getDateRange().end : undefined}
+            />
+          </div>
+        )}
 
         <div className="space-y-1">
           {renderShifts()}

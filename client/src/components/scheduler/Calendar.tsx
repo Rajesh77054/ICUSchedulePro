@@ -121,7 +121,7 @@ export function Calendar() {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="h-[600px]">
+        <div className="h-[600px] [&_.fc-toolbar-title]:text-sm [&_.fc-col-header-cell-cushion]:text-sm [&_.fc-daygrid-day-number]:text-sm">
           <FullCalendar
             ref={calendarRef}
             plugins={[dayGridPlugin, interactionPlugin]}
@@ -148,10 +148,11 @@ export function Calendar() {
               dayGridYear: {
                 titleFormat: { year: 'numeric' },
                 duration: { years: 1 },
-                monthMode: true,
-                multiMonthYear: true,
-                multiMonthMaxColumns: 4, // 4 columns for desktop
-                multiMonthMinWidth: 250, // Adjust based on screen size
+                fixedWeekCount: true,
+                buttonText: 'Year',
+                titleFormat: { year: 'numeric' },
+                dayHeaderFormat: { weekday: 'narrow' },
+                monthHeaderFormat: { month: 'short' }
               }
             }}
             datesSet={(dateInfo) => {

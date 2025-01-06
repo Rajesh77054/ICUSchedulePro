@@ -1,204 +1,121 @@
 import { useState } from "react";
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight } from "lucide-react";
-import { Calendar as CalendarComponent } from "@/components/ui/calendar";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import FullCalendar from '@fullcalendar/react';
+import dayGridPlugin from '@fullcalendar/daygrid';
+import interactionPlugin from '@fullcalendar/interaction';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
-import { format, startOfWeek, endOfWeek, addWeeks, startOfMonth, endOfMonth, addMonths, startOfYear, endOfYear, subWeeks, subMonths, subYears, addYears } from "date-fns";
+import { format } from "date-fns";
 import { PROVIDERS } from "@/lib/constants";
 import type { Shift } from "@/lib/types";
 
-export function Calendar() {
-  const [view, setView] = useState<"week" | "month" | "year">("week");
-  const [date, setDate] = useState<Date>(new Date());
+type CalendarView = 'dayGridWeek' | 'dayGridMonth' | 'dayGridYear';
 
-  const getDateRange = () => {
-    switch (view) {
-      case "week":
-        return {
-          start: startOfWeek(date),  // Start from Sunday by default
-          end: endOfWeek(date),
-        };
-      case "month":
-        return {
-          start: startOfMonth(date),
-          end: endOfMonth(date),
-        };
-      case "year":
-        return {
-          start: startOfYear(date),
-          end: endOfYear(date),
-        };
-    }
-  };
+export function Calendar() {
+  const [date, setDate] = useState<Date>(new Date());
+  const [view, setView] = useState<CalendarView>('dayGridWeek');
 
   const { data: shifts } = useQuery<Shift[]>({
-    queryKey: ["/api/shifts", view, getDateRange()],
+    queryKey: ["/api/shifts", view, date],
   });
 
   const getProviderColor = (providerId: number) => {
     return PROVIDERS.find(p => p.id === providerId)?.color || "hsl(0, 0%, 50%)";
   };
 
-  const renderShifts = () => {
-    if (!shifts?.length) return <div className="text-muted-foreground">No shifts scheduled</div>;
+  const calendarEvents = shifts?.map(shift => ({
+    id: shift.id.toString(),
+    title: PROVIDERS.find(p => p.id === shift.providerId)?.name || 'Unknown',
+    start: shift.startDate,
+    end: shift.endDate,
+    backgroundColor: getProviderColor(shift.providerId),
+    borderColor: getProviderColor(shift.providerId),
+    textColor: 'white',
+  })) || [];
 
-    return shifts.map(shift => (
-      <div
-        key={shift.id}
-        className="flex items-center p-2 rounded-md mb-2"
-        style={{
-          backgroundColor: getProviderColor(shift.providerId),
-          color: "white",
-        }}
-      >
-        <span className="flex-1">
-          {PROVIDERS.find(p => p.id === shift.providerId)?.name}
-        </span>
-        <span>
-          {format(new Date(shift.startDate), "MMM d")} - 
-          {format(new Date(shift.endDate), "MMM d")}
-        </span>
-      </div>
-    ));
+  const handleViewChange = (newView: CalendarView) => {
+    setView(newView);
   };
 
-  const handlePrevious = () => {
-    switch (view) {
-      case "week":
-        setDate(subWeeks(date, 1));
-        break;
-      case "month":
-        setDate(subMonths(date, 1));
-        break;
-      case "year":
-        setDate(subYears(date, 1));
-        break;
-    }
-  };
-
-  const handleNext = () => {
-    switch (view) {
-      case "week":
-        setDate(addWeeks(date, 1));
-        break;
-      case "month":
-        setDate(addMonths(date, 1));
-        break;
-      case "year":
-        setDate(addYears(date, 1));
-        break;
-    }
-  };
-
-  const renderCalendarHeader = () => {
-    const range = getDateRange();
-    switch (view) {
-      case "week":
-        return `${format(range.start, "MMM d")} - ${format(range.end, "MMM d, yyyy")}`;
-      case "month":
-        return format(date, "MMMM yyyy");
-      case "year":
-        return format(date, "yyyy");
-    }
+  const handleDateChange = (date: Date) => {
+    setDate(date);
   };
 
   return (
     <Card className="h-full">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2">
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={handlePrevious}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={handleNext}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-          <CardTitle className="text-xl font-bold">{renderCalendarHeader()}</CardTitle>
+          <CardTitle className="text-xl font-bold">ICU Schedule</CardTitle>
         </div>
         <div className="flex items-center space-x-2">
-          <Select value={view} onValueChange={(v: "week" | "month" | "year") => setView(v)}>
-            <SelectTrigger className="w-[120px]">
-              <CalendarIcon className="mr-2 h-4 w-4" />
-              <SelectValue placeholder="View" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="week">Week</SelectItem>
-              <SelectItem value="month">Month</SelectItem>
-              <SelectItem value="year">Year</SelectItem>
-            </SelectContent>
-          </Select>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleViewChange('dayGridWeek')}
+            className={view === 'dayGridWeek' ? 'bg-primary text-primary-foreground' : ''}
+          >
+            Week
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleViewChange('dayGridMonth')}
+            className={view === 'dayGridMonth' ? 'bg-primary text-primary-foreground' : ''}
+          >
+            Month
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleViewChange('dayGridYear')}
+            className={view === 'dayGridYear' ? 'bg-primary text-primary-foreground' : ''}
+          >
+            Year
+          </Button>
         </div>
       </CardHeader>
       <CardContent>
-        {view === "year" ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {Array.from({ length: 12 }, (_, i) => (
-              <div key={i} className="rounded-md border">
-                <CalendarComponent
-                  mode="single"
-                  selected={date}
-                  onSelect={(date) => date && setDate(date)}
-                  month={new Date(date.getFullYear(), i)}
-                  className="rounded-md"
-                  modifiers={{
-                    hasShift: shifts?.map(s => new Date(s.startDate)) || [],
-                  }}
-                  modifiersStyles={{
-                    hasShift: {
-                      backgroundColor: "var(--primary)",
-                      color: "white",
-                      borderRadius: "4px",
-                    },
-                  }}
-                  showOutsideDays={false}
-                />
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="rounded-md border mb-4">
-            <CalendarComponent
-              mode="single"
-              selected={date}
-              onSelect={(date) => date && setDate(date)}
-              className="rounded-md"
-              modifiers={{
-                hasShift: shifts?.map(s => new Date(s.startDate)) || [],
-              }}
-              modifiersStyles={{
-                hasShift: {
-                  backgroundColor: "var(--primary)",
-                  color: "white",
-                  borderRadius: "4px",
-                },
-              }}
-              numberOfMonths={view === "week" ? 1 : 1}
-              showOutsideDays={true}
-              fromDate={view === "week" ? getDateRange().start : undefined}
-              toDate={view === "week" ? getDateRange().end : undefined}
-            />
-          </div>
-        )}
-
-        <div className="space-y-1">
-          {renderShifts()}
+        <div className="h-[600px]">
+          <FullCalendar
+            plugins={[dayGridPlugin, interactionPlugin]}
+            initialView={view}
+            headerToolbar={{
+              left: 'prev,next today',
+              center: 'title',
+              right: '',
+            }}
+            events={calendarEvents}
+            initialDate={date}
+            weekends={true}
+            firstDay={0} // Start week on Sunday
+            height="100%"
+            dayMaxEvents={true}
+            navLinks={true}
+            editable={false}
+            selectable={true}
+            selectMirror={true}
+            views={{
+              dayGridWeek: {
+                titleFormat: { year: 'numeric', month: 'short', day: 'numeric' },
+                duration: { weeks: 1 }
+              },
+              dayGridMonth: {
+                titleFormat: { year: 'numeric', month: 'long' }
+              },
+              dayGridYear: {
+                titleFormat: { year: 'numeric' },
+                duration: { years: 1 },
+                monthMode: true,
+                multiMonthYear: true,
+                multiMonthMaxColumns: 4, // 4 columns for desktop
+                multiMonthMinWidth: 250, // Adjust based on screen size
+              }
+            }}
+            datesSet={(dateInfo) => {
+              handleDateChange(dateInfo.view.currentStart);
+            }}
+          />
         </div>
       </CardContent>
     </Card>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight } from "lucide-react";
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
@@ -15,6 +15,7 @@ type CalendarView = 'dayGridWeek' | 'dayGridMonth' | 'dayGridYear';
 export function Calendar() {
   const [date, setDate] = useState<Date>(new Date());
   const [view, setView] = useState<CalendarView>('dayGridWeek');
+  const calendarRef = useRef<FullCalendar>(null);
 
   const { data: shifts } = useQuery<Shift[]>({
     queryKey: ["/api/shifts", view, date],
@@ -34,12 +35,33 @@ export function Calendar() {
     textColor: 'white',
   })) || [];
 
-  const handleViewChange = (newView: CalendarView) => {
-    setView(newView);
+  const handleNext = () => {
+    const calendar = calendarRef.current;
+    if (calendar) {
+      calendar.getApi().next();
+    }
   };
 
-  const handleDateChange = (date: Date) => {
-    setDate(date);
+  const handlePrev = () => {
+    const calendar = calendarRef.current;
+    if (calendar) {
+      calendar.getApi().prev();
+    }
+  };
+
+  const handleToday = () => {
+    const calendar = calendarRef.current;
+    if (calendar) {
+      calendar.getApi().today();
+    }
+  };
+
+  const handleViewChange = (newView: CalendarView) => {
+    const calendar = calendarRef.current;
+    if (calendar) {
+      calendar.getApi().changeView(newView);
+      setView(newView);
+    }
   };
 
   return (
@@ -49,6 +71,29 @@ export function Calendar() {
           <CardTitle className="text-xl font-bold">ICU Schedule</CardTitle>
         </div>
         <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 mr-4">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handlePrev}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleToday}
+            >
+              Today
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handleNext}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
           <Button
             variant="outline"
             size="sm"
@@ -78,13 +123,10 @@ export function Calendar() {
       <CardContent>
         <div className="h-[600px]">
           <FullCalendar
+            ref={calendarRef}
             plugins={[dayGridPlugin, interactionPlugin]}
             initialView={view}
-            headerToolbar={{
-              left: 'prev,next today',
-              center: 'title',
-              right: '',
-            }}
+            headerToolbar={false}
             events={calendarEvents}
             initialDate={date}
             weekends={true}
@@ -113,7 +155,8 @@ export function Calendar() {
               }
             }}
             datesSet={(dateInfo) => {
-              handleDateChange(dateInfo.view.currentStart);
+              setDate(dateInfo.view.currentStart);
+              setView(dateInfo.view.type as CalendarView);
             }}
           />
         </div>

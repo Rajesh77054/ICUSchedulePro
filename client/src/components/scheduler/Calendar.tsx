@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight } from "lucide-react";
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, ArrowRightLeft } from "lucide-react";
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import multiMonthPlugin from '@fullcalendar/multimonth';
@@ -14,6 +14,13 @@ import { ShiftDialog } from "./ShiftDialog";
 import { useToast } from "@/hooks/use-toast";
 import { detectShiftConflicts } from "@/lib/utils";
 import { ConflictVisualizer } from "./ConflictVisualizer";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import { ShiftSwap } from "./ShiftSwap";
 
 type CalendarView = 'dayGridWeek' | 'dayGridMonth' | 'multiMonth';
 
@@ -29,6 +36,7 @@ export function Calendar() {
   const calendarRef = useRef<FullCalendar>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [swapShift, setSwapShift] = useState<Shift | null>(null);
 
   const { data: shifts } = useQuery<Shift[]>({
     queryKey: ["/api/shifts", view, date],
@@ -149,6 +157,25 @@ export function Calendar() {
     setActiveConflicts(null);
   };
 
+  const renderEventContent = (eventInfo: any) => {
+    const shift: Shift = eventInfo.event.extendedProps.shift;
+    return (
+      <ContextMenu>
+        <ContextMenuTrigger className="block w-full h-full">
+          <div className="p-1">
+            {eventInfo.event.title}
+          </div>
+        </ContextMenuTrigger>
+        <ContextMenuContent>
+          <ContextMenuItem onClick={() => setSwapShift(shift)}>
+            <ArrowRightLeft className="mr-2 h-4 w-4" />
+            Request Swap
+          </ContextMenuItem>
+        </ContextMenuContent>
+      </ContextMenu>
+    );
+  };
+
   return (
     <Card className="h-full">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -236,6 +263,7 @@ export function Calendar() {
             eventDrop={handleEventDrop}
             eventMouseEnter={handleEventMouseEnter}
             eventMouseLeave={handleEventMouseLeave}
+            eventContent={renderEventContent}
             views={{
               dayGridWeek: {
                 titleFormat: { year: 'numeric', month: 'long', day: 'numeric' },
@@ -265,6 +293,12 @@ export function Calendar() {
           onOpenChange={setDialogOpen}
           startDate={selectedDates.start}
           endDate={selectedDates.end}
+        />
+      )}
+      {swapShift && (
+        <ShiftSwap
+          shift={swapShift}
+          onClose={() => setSwapShift(null)}
         />
       )}
     </Card>

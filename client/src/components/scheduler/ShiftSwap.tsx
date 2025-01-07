@@ -5,7 +5,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,12 +17,14 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { PROVIDERS } from "@/lib/constants";
 import type { Shift, SwapRequest } from "@/lib/types";
+import { format } from "date-fns";
 
 interface ShiftSwapProps {
   shift: Shift;
+  onClose: () => void;
 }
 
-export function ShiftSwap({ shift }: ShiftSwapProps) {
+export function ShiftSwap({ shift, onClose }: ShiftSwapProps) {
   const [recipientId, setRecipientId] = useState<string>();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -44,6 +45,7 @@ export function ShiftSwap({ shift }: ShiftSwapProps) {
         title: "Success",
         description: "Shift swap requested successfully",
       });
+      onClose();
     },
     onError: (error) => {
       toast({
@@ -64,30 +66,34 @@ export function ShiftSwap({ shift }: ShiftSwapProps) {
   };
 
   return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          Request Swap
-        </Button>
-      </DialogTrigger>
+    <Dialog open={true} onOpenChange={onClose}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Request Shift Swap</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
-          <Select value={recipientId} onValueChange={setRecipientId}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select provider" />
-            </SelectTrigger>
-            <SelectContent>
-              {PROVIDERS.filter(p => p.id !== shift.providerId).map(provider => (
-                <SelectItem key={provider.id} value={provider.id.toString()}>
-                  {provider.name}, {provider.title}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button onClick={handleSwapRequest} disabled={!recipientId}>
+          <div className="grid gap-2">
+            <p className="text-sm font-medium">Shift Period</p>
+            <p className="text-sm text-muted-foreground">
+              {format(new Date(shift.startDate), 'MMM d, yyyy')} - {format(new Date(shift.endDate), 'MMM d, yyyy')}
+            </p>
+          </div>
+          <div className="grid gap-2">
+            <label className="text-sm font-medium">Swap with Provider</label>
+            <Select value={recipientId} onValueChange={setRecipientId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select provider" />
+              </SelectTrigger>
+              <SelectContent>
+                {PROVIDERS.filter(p => p.id !== shift.providerId).map(provider => (
+                  <SelectItem key={provider.id} value={provider.id.toString()}>
+                    {provider.name}, {provider.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <Button onClick={handleSwapRequest} disabled={!recipientId} className="w-full">
             Send Request
           </Button>
         </div>

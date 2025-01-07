@@ -121,12 +121,16 @@ export function Calendar() {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="h-[600px] [&_.fc-toolbar-title]:text-sm [&_.fc-col-header-cell-cushion]:text-sm [&_.fc-daygrid-day-number]:text-sm [&_.fc-multimonth-daygrid]:gap-2 [&_.fc-multimonth-title]:!py-1 [&_.fc-multimonth-title]:!text-xs">
+        <div className="h-[600px] [&_.fc-toolbar-title]:text-base [&_.fc-col-header-cell-cushion]:text-sm [&_.fc-daygrid-day-number]:text-sm [&_.fc-multimonth-daygrid]:gap-4 [&_.fc-multimonth-title]:!py-1 [&_.fc-multimonth-title]:!text-xs [&_.fc-daygrid-month-labelrow]:!text-xs">
           <FullCalendar
             ref={calendarRef}
             plugins={[dayGridPlugin, interactionPlugin]}
             initialView={view}
-            headerToolbar={false}
+            headerToolbar={{
+              left: '',
+              center: 'title',
+              right: '',
+            }}
             events={calendarEvents}
             initialDate={date}
             weekends={true}
@@ -139,7 +143,7 @@ export function Calendar() {
             selectMirror={true}
             views={{
               dayGridWeek: {
-                titleFormat: { year: 'numeric', month: 'short', day: 'numeric' },
+                titleFormat: { year: 'numeric', month: 'long', day: 'numeric' },
                 duration: { weeks: 1 }
               },
               dayGridMonth: {
@@ -148,13 +152,13 @@ export function Calendar() {
               dayGridYear: {
                 titleFormat: { year: 'numeric' },
                 duration: { years: 1 },
-                fixedWeekCount: true,
-                buttonText: 'Year',
+                multiMonthMinWidth: '200px',
+                multiMonthTitleFormat: { month: 'short' },
                 dayHeaderFormat: { weekday: 'narrow' },
-                monthHeaderFormat: { month: 'narrow' },
-                dayCellClassNames: 'text-xs',
-                dayHeaderClassNames: 'text-xs',
-                monthHeaderClassNames: '!py-1 !text-xs truncate'
+                dayCellClassNames: 'text-[10px] py-0',
+                dayHeaderClassNames: 'text-[10px]',
+                stickyHeaderDates: true,
+                fixedWeekCount: false
               }
             }}
             datesSet={(dateInfo) => {

@@ -121,7 +121,7 @@ export function Calendar() {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="h-[600px] [&_.fc-toolbar-title]:text-base [&_.fc-col-header-cell-cushion]:text-sm [&_.fc-daygrid-day-number]:text-sm [&_.fc-multimonth-daygrid]:gap-4 [&_.fc-multimonth-title]:!py-1 [&_.fc-multimonth-title]:!text-xs [&_.fc-daygrid-month-labelrow]:!text-xs">
+        <div className="h-[600px] [&_.fc-toolbar-title]:text-base [&_.fc-col-header-cell-cushion]:text-sm [&_.fc-daygrid-day-number]:text-sm [&_.fc-multimonth-daygrid]:gap-4 [&_.fc-multimonth-title]:!py-1 [&_.fc-multimonth-title]:!text-xs [&_.fc-daygrid-month-labelrow]:!text-xs [&_.fc-multimonth-month-cell]:!pt-4 [&_.fc-multimonth-month-cell]:!min-w-[200px] [&_.fc-multimonth-title]:!px-2">
           <FullCalendar
             ref={calendarRef}
             plugins={[dayGridPlugin, interactionPlugin]}

@@ -186,13 +186,21 @@ export function Calendar() {
       return;
     }
 
+    // If there's an active conflict, clear it and revert
+    if (activeConflicts) {
+      setActiveConflicts(null);
+      dropInfo.revert();
+      return;
+    }
+
     const updatedShift: Shift = {
       ...shift,
       startDate: format(dropInfo.event.start, 'yyyy-MM-dd'),
       endDate: format(dropInfo.event.end || dropInfo.event.start, 'yyyy-MM-dd'),
     };
 
-    const conflicts = detectShiftConflicts(updatedShift, shifts || []);
+    // Check for conflicts with other shifts, excluding the current shift
+    const conflicts = detectShiftConflicts(updatedShift, (shifts || []).filter(s => s.id !== shift.id));
     if (conflicts.length > 0) {
       setActiveConflicts({ shift: updatedShift, conflicts });
       dropInfo.revert();
@@ -215,6 +223,13 @@ export function Calendar() {
       return;
     }
 
+    // If there's an active conflict, clear it and revert
+    if (activeConflicts) {
+      setActiveConflicts(null);
+      resizeInfo.revert();
+      return;
+    }
+
     if (
       format(resizeInfo.event.start, 'yyyy-MM-dd') === shift.startDate &&
       format(resizeInfo.event.end, 'yyyy-MM-dd') === shift.endDate
@@ -229,6 +244,7 @@ export function Calendar() {
       endDate: format(resizeInfo.event.end || resizeInfo.event.start, 'yyyy-MM-dd'),
     };
 
+    // Check for conflicts with other shifts, excluding the current shift
     const conflicts = detectShiftConflicts(updatedShift, (shifts || []).filter(s => s.id !== shift.id));
     if (conflicts.length > 0) {
       setActiveConflicts({ shift: updatedShift, conflicts });

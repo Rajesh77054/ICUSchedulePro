@@ -27,6 +27,7 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { ShiftSwap } from "./ShiftSwap";
+import { OverlappingShiftsDialog } from "./OverlappingShiftsDialog";
 
 type CalendarView = 'dayGridWeek' | 'dayGridMonth' | 'multiMonth';
 
@@ -84,6 +85,8 @@ export function Calendar() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [swapShift, setSwapShift] = useState<Shift | null>(null);
+  const [overlappingShifts, setOverlappingShifts] = useState<Shift[]>([]);
+  const [overlappingShiftsOpen, setOverlappingShiftsOpen] = useState(false);
 
   const { data: shifts } = useQuery<Shift[]>({
     queryKey: ["/api/shifts", view, date],
@@ -196,10 +199,8 @@ export function Calendar() {
       return;
     }
 
-    // Clear any active conflicts
     setActiveConflicts(null);
 
-    // Update the shift
     updateShift({
       id: shift.id,
       startDate: updatedShift.startDate,
@@ -214,7 +215,6 @@ export function Calendar() {
       return;
     }
 
-    // Prevent updates if no actual change
     if (
       format(resizeInfo.event.start, 'yyyy-MM-dd') === shift.startDate &&
       format(resizeInfo.event.end, 'yyyy-MM-dd') === shift.endDate
@@ -229,7 +229,6 @@ export function Calendar() {
       endDate: format(resizeInfo.event.end || resizeInfo.event.start, 'yyyy-MM-dd'),
     };
 
-    // Check for conflicts before attempting update
     const conflicts = detectShiftConflicts(updatedShift, (shifts || []).filter(s => s.id !== shift.id));
     if (conflicts.length > 0) {
       setActiveConflicts({ shift: updatedShift, conflicts });
@@ -237,10 +236,8 @@ export function Calendar() {
       return;
     }
 
-    // Clear any active conflicts
     setActiveConflicts(null);
 
-    // Update the shift
     updateShift({
       id: shift.id,
       startDate: updatedShift.startDate,
@@ -282,6 +279,16 @@ export function Calendar() {
         </ContextMenuContent>
       </ContextMenu>
     );
+  };
+
+  const handleMoreLinkClick = (info: any) => {
+    const shifts = info.allSegs
+      .map((seg: any) => seg.event.extendedProps.shift)
+      .filter(Boolean);
+
+    setOverlappingShifts(shifts);
+    setOverlappingShiftsOpen(true);
+    return false;
   };
 
   return (
@@ -381,8 +388,9 @@ export function Calendar() {
             eventMouseEnter={handleEventMouseEnter}
             eventMouseLeave={handleEventMouseLeave}
             eventContent={renderEventContent}
+            moreLinkClick={handleMoreLinkClick}
             businessHours={{
-              dows: [0, 1, 2, 3, 4, 5, 6], // Sunday - Saturday
+              dows: [0, 1, 2, 3, 4, 5, 6],
               startTime: '07:00',
               endTime: '19:00',
             }}
@@ -430,6 +438,15 @@ export function Calendar() {
           onClose={() => setSwapShift(null)}
         />
       )}
+      <OverlappingShiftsDialog
+        open={overlappingShiftsOpen}
+        onOpenChange={setOverlappingShiftsOpen}
+        shifts={overlappingShifts}
+        onShiftUpdate={(shift) => {
+          updateShift(shift);
+          setOverlappingShiftsOpen(false);
+        }}
+      />
     </Card>
   );
 }

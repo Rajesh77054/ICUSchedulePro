@@ -178,6 +178,11 @@ export function Calendar() {
 
   const handleEventDrop = (dropInfo: any) => {
     const shift = dropInfo.event.extendedProps.shift;
+    if (!shift) {
+      dropInfo.revert();
+      return;
+    }
+
     const updatedShift: Shift = {
       ...shift,
       startDate: format(dropInfo.event.start, 'yyyy-MM-dd'),
@@ -191,6 +196,10 @@ export function Calendar() {
       return;
     }
 
+    // Clear any active conflicts
+    setActiveConflicts(null);
+
+    // Update the shift
     updateShift({
       id: shift.id,
       startDate: updatedShift.startDate,
@@ -200,6 +209,11 @@ export function Calendar() {
 
   const handleEventResize = (resizeInfo: any) => {
     const shift = resizeInfo.event.extendedProps.shift;
+    if (!shift) {
+      resizeInfo.revert();
+      return;
+    }
+
     const updatedShift: Shift = {
       ...shift,
       startDate: format(resizeInfo.event.start, 'yyyy-MM-dd'),
@@ -213,6 +227,10 @@ export function Calendar() {
       return;
     }
 
+    // Clear any active conflicts
+    setActiveConflicts(null);
+
+    // Update the shift
     updateShift({
       id: shift.id,
       startDate: updatedShift.startDate,

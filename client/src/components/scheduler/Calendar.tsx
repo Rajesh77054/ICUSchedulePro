@@ -121,7 +121,7 @@ export function Calendar() {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="h-[600px] [&_.fc-toolbar-title]:text-sm [&_.fc-col-header-cell-cushion]:text-sm [&_.fc-daygrid-day-number]:text-sm">
+        <div className="h-[600px] [&_.fc-toolbar-title]:text-sm [&_.fc-col-header-cell-cushion]:text-sm [&_.fc-daygrid-day-number]:text-sm [&_.fc-multimonth-daygrid]:gap-2 [&_.fc-multimonth-title]:!py-1 [&_.fc-multimonth-title]:!text-xs">
           <FullCalendar
             ref={calendarRef}
             plugins={[dayGridPlugin, interactionPlugin]}
@@ -130,7 +130,7 @@ export function Calendar() {
             events={calendarEvents}
             initialDate={date}
             weekends={true}
-            firstDay={0} // Start week on Sunday
+            firstDay={0}
             height="100%"
             dayMaxEvents={true}
             navLinks={true}
@@ -150,9 +150,11 @@ export function Calendar() {
                 duration: { years: 1 },
                 fixedWeekCount: true,
                 buttonText: 'Year',
-                titleFormat: { year: 'numeric' },
                 dayHeaderFormat: { weekday: 'narrow' },
-                monthHeaderFormat: { month: 'short' }
+                monthHeaderFormat: { month: 'narrow' },
+                dayCellClassNames: 'text-xs',
+                dayHeaderClassNames: 'text-xs',
+                monthHeaderClassNames: '!py-1 !text-xs truncate'
               }
             }}
             datesSet={(dateInfo) => {

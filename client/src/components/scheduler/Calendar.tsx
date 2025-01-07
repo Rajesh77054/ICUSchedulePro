@@ -4,16 +4,23 @@ import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import multiMonthPlugin from '@fullcalendar/multimonth';
 import interactionPlugin from '@fullcalendar/interaction';
+import resourcePlugin from '@fullcalendar/resource';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { format } from "date-fns";
-import { PROVIDERS } from "@/lib/constants";
+import { format, parseISO } from "date-fns";
+import { PROVIDERS, HOLIDAYS_2024_2025 } from "@/lib/constants";
 import type { Shift } from "@/lib/types";
 import { ShiftDialog } from "./ShiftDialog";
 import { useToast } from "@/hooks/use-toast";
 import { detectShiftConflicts } from "@/lib/utils";
 import { ConflictVisualizer } from "./ConflictVisualizer";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -24,6 +31,46 @@ import { ShiftSwap } from "./ShiftSwap";
 
 type CalendarView = 'dayGridWeek' | 'dayGridMonth' | 'multiMonth';
 
+interface ShiftDetailsProps {
+  shift: Shift;
+  onClose: () => void;
+  onSwapRequest: () => void;
+}
+
+function ShiftDetails({ shift, onClose, onSwapRequest }: ShiftDetailsProps) {
+  const provider = PROVIDERS.find(p => p.id === shift.providerId);
+
+  return (
+    <Dialog open={true} onOpenChange={onClose}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Shift Details</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="grid gap-2">
+            <p className="text-sm font-medium">Provider</p>
+            <p className="text-sm text-muted-foreground">
+              {provider?.name}, {provider?.title}
+            </p>
+          </div>
+          <div className="grid gap-2">
+            <p className="text-sm font-medium">Period</p>
+            <p className="text-sm text-muted-foreground">
+              {format(new Date(shift.startDate), 'MMM d, yyyy')} - {format(new Date(shift.endDate), 'MMM d, yyyy')}
+            </p>
+          </div>
+          <Button onClick={() => {
+            onSwapRequest();
+            onClose();
+          }} className="w-full">
+            Request Shift Swap
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function Calendar() {
   const [date, setDate] = useState<Date>(new Date());
   const [view, setView] = useState<CalendarView>('dayGridWeek');
@@ -33,6 +80,7 @@ export function Calendar() {
     shift: Shift;
     conflicts: ReturnType<typeof detectShiftConflicts>;
   } | null>(null);
+  const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
   const calendarRef = useRef<FullCalendar>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -85,6 +133,13 @@ export function Calendar() {
     extendedProps: { shift },
   })) || [];
 
+  const backgroundEvents = HOLIDAYS_2024_2025.map(holiday => ({
+    start: holiday.date,
+    display: 'background',
+    backgroundColor: 'rgba(255, 0, 0, 0.1)',
+    classNames: ['holiday-event'],
+  }));
+
   const handleNext = () => {
     const calendar = calendarRef.current;
     if (calendar) {
@@ -130,7 +185,6 @@ export function Calendar() {
       endDate: format(dropInfo.event.end || dropInfo.event.start, 'yyyy-MM-dd'),
     };
 
-    // Check for conflicts before updating
     const conflicts = detectShiftConflicts(updatedShift, shifts || []);
     if (conflicts.length > 0) {
       setActiveConflicts({ shift: updatedShift, conflicts });
@@ -143,6 +197,33 @@ export function Calendar() {
       startDate: updatedShift.startDate,
       endDate: updatedShift.endDate,
     });
+  };
+
+  const handleEventResize = (resizeInfo: any) => {
+    const shift = resizeInfo.event.extendedProps.shift;
+    const updatedShift: Shift = {
+      ...shift,
+      startDate: format(resizeInfo.event.start, 'yyyy-MM-dd'),
+      endDate: format(resizeInfo.event.end || resizeInfo.event.start, 'yyyy-MM-dd'),
+    };
+
+    const conflicts = detectShiftConflicts(updatedShift, shifts || []);
+    if (conflicts.length > 0) {
+      setActiveConflicts({ shift: updatedShift, conflicts });
+      resizeInfo.revert();
+      return;
+    }
+
+    updateShift({
+      id: shift.id,
+      startDate: updatedShift.startDate,
+      endDate: updatedShift.endDate,
+    });
+  };
+
+  const handleEventClick = (clickInfo: any) => {
+    const shift = clickInfo.event.extendedProps.shift;
+    setSelectedShift(shift);
   };
 
   const handleEventMouseEnter = (info: any) => {
@@ -242,7 +323,7 @@ export function Calendar() {
           )}
           <FullCalendar
             ref={calendarRef}
-            plugins={[dayGridPlugin, multiMonthPlugin, interactionPlugin]}
+            plugins={[dayGridPlugin, multiMonthPlugin, interactionPlugin, resourcePlugin]}
             initialView={view}
             headerToolbar={{
               left: '',
@@ -250,6 +331,16 @@ export function Calendar() {
               right: '',
             }}
             events={calendarEvents}
+            eventSources={[
+              {
+                events: backgroundEvents,
+              }
+            ]}
+            resources={PROVIDERS.map(provider => ({
+              id: provider.id,
+              title: `${provider.name}, ${provider.title}`,
+            }))}
+            resourceOrder="title"
             initialDate={date}
             weekends={true}
             firstDay={0}
@@ -257,13 +348,23 @@ export function Calendar() {
             dayMaxEvents={true}
             navLinks={true}
             editable={true}
+            eventResizableFromStart={true}
+            eventStartEditable={true}
+            eventDurationEditable={true}
             selectable={true}
             selectMirror={true}
             select={handleSelect}
             eventDrop={handleEventDrop}
+            eventResize={handleEventResize}
+            eventClick={handleEventClick}
             eventMouseEnter={handleEventMouseEnter}
             eventMouseLeave={handleEventMouseLeave}
             eventContent={renderEventContent}
+            businessHours={{
+              dows: [0, 1, 2, 3, 4, 5, 6], // Sunday - Saturday
+              startTime: '07:00',
+              endTime: '19:00',
+            }}
             views={{
               dayGridWeek: {
                 titleFormat: { year: 'numeric', month: 'long', day: 'numeric' },
@@ -293,6 +394,13 @@ export function Calendar() {
           onOpenChange={setDialogOpen}
           startDate={selectedDates.start}
           endDate={selectedDates.end}
+        />
+      )}
+      {selectedShift && (
+        <ShiftDetails
+          shift={selectedShift}
+          onClose={() => setSelectedShift(null)}
+          onSwapRequest={() => setSwapShift(selectedShift)}
         />
       )}
       {swapShift && (

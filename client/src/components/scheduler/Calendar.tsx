@@ -198,6 +198,28 @@ export function Calendar() {
     });
   };
 
+  const handleEventResize = (resizeInfo: any) => {
+    const shift = resizeInfo.event.extendedProps.shift;
+    const updatedShift: Shift = {
+      ...shift,
+      startDate: format(resizeInfo.event.start, 'yyyy-MM-dd'),
+      endDate: format(resizeInfo.event.end || resizeInfo.event.start, 'yyyy-MM-dd'),
+    };
+
+    const conflicts = detectShiftConflicts(updatedShift, shifts || []);
+    if (conflicts.length > 0) {
+      setActiveConflicts({ shift: updatedShift, conflicts });
+      resizeInfo.revert();
+      return;
+    }
+
+    updateShift({
+      id: shift.id,
+      startDate: updatedShift.startDate,
+      endDate: updatedShift.endDate,
+    });
+  };
+
   const handleEventClick = (clickInfo: any) => {
     const shift = clickInfo.event.extendedProps.shift;
     setSelectedShift(shift);
@@ -320,10 +342,13 @@ export function Calendar() {
             dayMaxEvents={true}
             navLinks={true}
             editable={true}
+            eventStartEditable={true}
+            eventDurationEditable={true}
             selectable={true}
             selectMirror={true}
             select={handleSelect}
             eventDrop={handleEventDrop}
+            eventResize={handleEventResize}
             eventClick={handleEventClick}
             eventMouseEnter={handleEventMouseEnter}
             eventMouseLeave={handleEventMouseLeave}

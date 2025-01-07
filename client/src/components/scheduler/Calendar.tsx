@@ -4,7 +4,6 @@ import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import multiMonthPlugin from '@fullcalendar/multimonth';
 import interactionPlugin from '@fullcalendar/interaction';
-import resourcePlugin from '@fullcalendar/resource';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -199,28 +198,6 @@ export function Calendar() {
     });
   };
 
-  const handleEventResize = (resizeInfo: any) => {
-    const shift = resizeInfo.event.extendedProps.shift;
-    const updatedShift: Shift = {
-      ...shift,
-      startDate: format(resizeInfo.event.start, 'yyyy-MM-dd'),
-      endDate: format(resizeInfo.event.end || resizeInfo.event.start, 'yyyy-MM-dd'),
-    };
-
-    const conflicts = detectShiftConflicts(updatedShift, shifts || []);
-    if (conflicts.length > 0) {
-      setActiveConflicts({ shift: updatedShift, conflicts });
-      resizeInfo.revert();
-      return;
-    }
-
-    updateShift({
-      id: shift.id,
-      startDate: updatedShift.startDate,
-      endDate: updatedShift.endDate,
-    });
-  };
-
   const handleEventClick = (clickInfo: any) => {
     const shift = clickInfo.event.extendedProps.shift;
     setSelectedShift(shift);
@@ -323,7 +300,7 @@ export function Calendar() {
           )}
           <FullCalendar
             ref={calendarRef}
-            plugins={[dayGridPlugin, multiMonthPlugin, interactionPlugin, resourcePlugin]}
+            plugins={[dayGridPlugin, multiMonthPlugin, interactionPlugin]}
             initialView={view}
             headerToolbar={{
               left: '',
@@ -336,11 +313,6 @@ export function Calendar() {
                 events: backgroundEvents,
               }
             ]}
-            resources={PROVIDERS.map(provider => ({
-              id: provider.id,
-              title: `${provider.name}, ${provider.title}`,
-            }))}
-            resourceOrder="title"
             initialDate={date}
             weekends={true}
             firstDay={0}
@@ -348,14 +320,10 @@ export function Calendar() {
             dayMaxEvents={true}
             navLinks={true}
             editable={true}
-            eventResizableFromStart={true}
-            eventStartEditable={true}
-            eventDurationEditable={true}
             selectable={true}
             selectMirror={true}
             select={handleSelect}
             eventDrop={handleEventDrop}
-            eventResize={handleEventResize}
             eventClick={handleEventClick}
             eventMouseEnter={handleEventMouseEnter}
             eventMouseLeave={handleEventMouseLeave}

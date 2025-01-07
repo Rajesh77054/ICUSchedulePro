@@ -2,7 +2,7 @@ import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 import type { Shift } from "./types"
 import { PROVIDERS } from "./constants"
-import { isWithinInterval, addDays } from "date-fns"
+import { isWithinInterval, addDays, startOfWeek, endOfWeek, isSameWeek } from "date-fns"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -47,16 +47,45 @@ export function detectShiftConflicts(shift: Shift, allShifts: Shift[]): {
 
   // Check for consecutive weeks
   if (provider.maxConsecutiveWeeks) {
-    const consecutiveShifts = allShifts.filter(s => 
+    const providerShifts = allShifts.filter(s => 
       s.providerId === shift.providerId &&
-      Math.abs(new Date(s.endDate).getTime() - shiftStart.getTime()) <= (24 * 60 * 60 * 1000)
+      s.id !== shift.id
     );
 
-    if (consecutiveShifts.length >= provider.maxConsecutiveWeeks) {
-      conflicts.push({
-        type: 'consecutive',
-        message: `Exceeds maximum ${provider.maxConsecutiveWeeks} consecutive weeks`,
-      });
+    let consecutiveCount = 1; // Count current shift
+    let lastWeekStart = startOfWeek(shiftStart);
+
+    // Sort shifts by start date
+    const sortedShifts = [...providerShifts]
+      .map(s => ({ ...s, startDate: new Date(s.startDate) }))
+      .sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
+
+    // Find consecutive weeks including the new shift
+    for (const existingShift of sortedShifts) {
+      const existingStart = new Date(existingShift.startDate);
+      const existingWeekStart = startOfWeek(existingStart);
+
+      // Check if weeks are adjacent
+      const weekDiff = Math.abs(
+        (existingWeekStart.getTime() - lastWeekStart.getTime()) / 
+        (7 * 24 * 60 * 60 * 1000)
+      );
+
+      if (weekDiff === 1) {
+        consecutiveCount++;
+        if (consecutiveCount > provider.maxConsecutiveWeeks) {
+          conflicts.push({
+            type: 'consecutive',
+            message: `Exceeds maximum ${provider.maxConsecutiveWeeks} consecutive weeks`,
+          });
+          break;
+        }
+        lastWeekStart = existingWeekStart;
+      } else {
+        // Reset count if weeks are not consecutive
+        consecutiveCount = 1;
+        lastWeekStart = existingWeekStart;
+      }
     }
   }
 

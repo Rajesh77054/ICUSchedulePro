@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { db } from "@db";
 import { shifts, swapRequests, providers, timeOffRequests, holidays } from "@db/schema";
 import { eq, and, gte, lte, or } from "drizzle-orm";
+import { setupWebSocket, notify } from "./websocket";
 
 // Initialize providers if they don't exist
 const initializeProviders = async () => {
@@ -51,6 +52,9 @@ export function registerRoutes(app: Express): Server {
   // Initialize providers when the server starts
   initializeProviders().catch(console.error);
 
+  const httpServer = createServer(app);
+  const { broadcast } = setupWebSocket(httpServer);
+
   app.get("/api/shifts", async (req, res) => {
     const { start, end } = req.query;
     let query = db.select().from(shifts);
@@ -92,6 +96,10 @@ export function registerRoutes(app: Express): Server {
         endDate,
         status: 'confirmed'
       }).returning();
+
+      // Broadcast notification
+      broadcast(notify.shiftCreated(result[0], provider[0]));
+
       res.json(result[0]);
     } catch (error: any) {
       res.status(500).json({ 
@@ -119,6 +127,16 @@ export function registerRoutes(app: Express): Server {
         return;
       }
 
+      // Get provider info for notification
+      const provider = await db.select()
+        .from(providers)
+        .where(eq(providers.id, result[0].providerId))
+        .limit(1);
+
+      if (provider.length) {
+        broadcast(notify.shiftUpdated(result[0], provider[0]));
+      }
+
       res.json(result[0]);
     } catch (error: any) {
       res.status(500).json({ 
@@ -129,13 +147,36 @@ export function registerRoutes(app: Express): Server {
   });
 
   app.post("/api/swap-requests", async (req, res) => {
-    const { requestorId, recipientId, shiftId } = req.body;
-    const result = await db.insert(swapRequests).values({
-      requestorId,
-      recipientId,
-      shiftId,
-    }).returning();
-    res.json(result[0]);
+    try {
+      const { requestorId, recipientId, shiftId } = req.body;
+      const result = await db.insert(swapRequests).values({
+        requestorId,
+        recipientId,
+        shiftId,
+      }).returning();
+
+      // Get provider info for notification
+      const [requestor, recipient, shift] = await Promise.all([
+        db.select().from(providers).where(eq(providers.id, requestorId)).limit(1),
+        db.select().from(providers).where(eq(providers.id, recipientId)).limit(1),
+        db.select().from(shifts).where(eq(shifts.id, shiftId)).limit(1),
+      ]);
+
+      if (requestor.length && recipient.length && shift.length) {
+        broadcast(notify.shiftSwapRequested(
+          shift[0],
+          requestor[0],
+          recipient[0]
+        ));
+      }
+
+      res.json(result[0]);
+    } catch (error: any) {
+      res.status(500).json({
+        message: "Failed to create swap request",
+        error: error.message
+      });
+    }
   });
 
   app.get("/api/swap-requests", async (req, res) => {
@@ -155,6 +196,5 @@ export function registerRoutes(app: Express): Server {
     res.json(results);
   });
 
-  const httpServer = createServer(app);
   return httpServer;
 }

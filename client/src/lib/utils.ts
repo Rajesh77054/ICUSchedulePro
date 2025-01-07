@@ -2,7 +2,7 @@ import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 import type { Shift } from "./types"
 import { PROVIDERS } from "./constants"
-import { isWithinInterval, addDays, startOfWeek, endOfWeek, isSameWeek } from "date-fns"
+import { isWithinInterval, addDays, startOfWeek, endOfWeek, isSameWeek, isBefore, isAfter } from "date-fns"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -32,10 +32,12 @@ export function detectShiftConflicts(shift: Shift, allShifts: Shift[]): {
     const existingStart = new Date(existingShift.startDate);
     const existingEnd = new Date(existingShift.endDate);
 
+    // A shift overlaps if:
+    // 1. The start date is before the existing end date AND
+    // 2. The end date is after the existing start date
     if (
-      isWithinInterval(shiftStart, { start: existingStart, end: existingEnd }) ||
-      isWithinInterval(shiftEnd, { start: existingStart, end: existingEnd }) ||
-      isWithinInterval(existingStart, { start: shiftStart, end: shiftEnd })
+      isBefore(shiftStart, existingEnd) && 
+      isAfter(shiftEnd, existingStart)
     ) {
       conflicts.push({
         type: 'overlap',

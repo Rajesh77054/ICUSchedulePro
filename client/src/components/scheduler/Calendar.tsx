@@ -214,13 +214,23 @@ export function Calendar() {
       return;
     }
 
+    // Prevent updates if no actual change
+    if (
+      format(resizeInfo.event.start, 'yyyy-MM-dd') === shift.startDate &&
+      format(resizeInfo.event.end, 'yyyy-MM-dd') === shift.endDate
+    ) {
+      resizeInfo.revert();
+      return;
+    }
+
     const updatedShift: Shift = {
       ...shift,
       startDate: format(resizeInfo.event.start, 'yyyy-MM-dd'),
       endDate: format(resizeInfo.event.end || resizeInfo.event.start, 'yyyy-MM-dd'),
     };
 
-    const conflicts = detectShiftConflicts(updatedShift, shifts || []);
+    // Check for conflicts before attempting update
+    const conflicts = detectShiftConflicts(updatedShift, (shifts || []).filter(s => s.id !== shift.id));
     if (conflicts.length > 0) {
       setActiveConflicts({ shift: updatedShift, conflicts });
       resizeInfo.revert();

@@ -12,6 +12,8 @@ import { PROVIDERS } from "@/lib/constants";
 import type { Shift } from "@/lib/types";
 import { ShiftDialog } from "./ShiftDialog";
 import { useToast } from "@/hooks/use-toast";
+import { detectShiftConflicts } from "@/lib/utils";
+import { ConflictVisualizer } from "./ConflictVisualizer";
 
 type CalendarView = 'dayGridWeek' | 'dayGridMonth' | 'multiMonth';
 
@@ -20,6 +22,10 @@ export function Calendar() {
   const [view, setView] = useState<CalendarView>('dayGridWeek');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedDates, setSelectedDates] = useState<{ start: Date; end: Date }>();
+  const [activeConflicts, setActiveConflicts] = useState<{
+    shift: Shift;
+    conflicts: ReturnType<typeof detectShiftConflicts>;
+  } | null>(null);
   const calendarRef = useRef<FullCalendar>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -44,6 +50,7 @@ export function Calendar() {
         title: "Success",
         description: "Shift updated successfully",
       });
+      setActiveConflicts(null);
     },
     onError: (error) => {
       toast({
@@ -109,11 +116,37 @@ export function Calendar() {
 
   const handleEventDrop = (dropInfo: any) => {
     const shift = dropInfo.event.extendedProps.shift;
-    updateShift({
-      id: shift.id,
+    const updatedShift: Shift = {
+      ...shift,
       startDate: format(dropInfo.event.start, 'yyyy-MM-dd'),
       endDate: format(dropInfo.event.end || dropInfo.event.start, 'yyyy-MM-dd'),
+    };
+
+    // Check for conflicts before updating
+    const conflicts = detectShiftConflicts(updatedShift, shifts || []);
+    if (conflicts.length > 0) {
+      setActiveConflicts({ shift: updatedShift, conflicts });
+      dropInfo.revert();
+      return;
+    }
+
+    updateShift({
+      id: shift.id,
+      startDate: updatedShift.startDate,
+      endDate: updatedShift.endDate,
     });
+  };
+
+  const handleEventMouseEnter = (info: any) => {
+    const shift = info.event.extendedProps.shift;
+    const conflicts = detectShiftConflicts(shift, shifts || []);
+    if (conflicts.length > 0) {
+      setActiveConflicts({ shift, conflicts });
+    }
+  };
+
+  const handleEventMouseLeave = () => {
+    setActiveConflicts(null);
   };
 
   return (
@@ -173,7 +206,13 @@ export function Calendar() {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="h-[600px] [&_.fc-toolbar-title]:text-base [&_.fc-col-header-cell-cushion]:text-sm [&_.fc-daygrid-day-number]:text-sm [&_.fc-multimonth-title]:font-medium [&_.fc-multimonth-title]:!py-2 [&_.fc-multimonth-title]:!px-4 [&_.fc-multimonth-title]:!text-base [&_.fc-multimonth]:gap-6">
+        <div className="h-[600px] relative [&_.fc-toolbar-title]:text-base [&_.fc-col-header-cell-cushion]:text-sm [&_.fc-daygrid-day-number]:text-sm [&_.fc-multimonth-title]:font-medium [&_.fc-multimonth-title]:!py-2 [&_.fc-multimonth-title]:!px-4 [&_.fc-multimonth-title]:!text-base [&_.fc-multimonth]:gap-6">
+          {activeConflicts && (
+            <ConflictVisualizer
+              shift={activeConflicts.shift}
+              conflicts={activeConflicts.conflicts}
+            />
+          )}
           <FullCalendar
             ref={calendarRef}
             plugins={[dayGridPlugin, multiMonthPlugin, interactionPlugin]}
@@ -195,6 +234,8 @@ export function Calendar() {
             selectMirror={true}
             select={handleSelect}
             eventDrop={handleEventDrop}
+            eventMouseEnter={handleEventMouseEnter}
+            eventMouseLeave={handleEventMouseLeave}
             views={{
               dayGridWeek: {
                 titleFormat: { year: 'numeric', month: 'long', day: 'numeric' },

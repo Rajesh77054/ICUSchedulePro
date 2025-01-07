@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight } from "lucide-react";
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
+import multiMonthPlugin from '@fullcalendar/multimonth';
 import interactionPlugin from '@fullcalendar/interaction';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,7 +11,7 @@ import { format } from "date-fns";
 import { PROVIDERS } from "@/lib/constants";
 import type { Shift } from "@/lib/types";
 
-type CalendarView = 'dayGridWeek' | 'dayGridMonth' | 'dayGridYear';
+type CalendarView = 'dayGridWeek' | 'dayGridMonth' | 'multiMonth';
 
 export function Calendar() {
   const [date, setDate] = useState<Date>(new Date());
@@ -113,18 +114,18 @@ export function Calendar() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => handleViewChange('dayGridYear')}
-            className={view === 'dayGridYear' ? 'bg-primary text-primary-foreground' : ''}
+            onClick={() => handleViewChange('multiMonth')}
+            className={view === 'multiMonth' ? 'bg-primary text-primary-foreground' : ''}
           >
             Year
           </Button>
         </div>
       </CardHeader>
       <CardContent>
-        <div className="h-[600px] [&_.fc-toolbar-title]:text-base [&_.fc-col-header-cell-cushion]:text-sm [&_.fc-daygrid-day-number]:text-sm [&_.fc-multimonth-daygrid]:gap-4 [&_.fc-multimonth-title]:!py-1 [&_.fc-multimonth-title]:!text-xs [&_.fc-daygrid-month-labelrow]:!text-xs [&_.fc-multimonth-month-cell]:!pt-4 [&_.fc-multimonth-month-cell]:!min-w-[200px] [&_.fc-multimonth-title]:!px-2">
+        <div className="h-[600px] [&_.fc-toolbar-title]:text-base [&_.fc-col-header-cell-cushion]:text-sm [&_.fc-daygrid-day-number]:text-sm [&_.fc-multimonth-title]:font-medium [&_.fc-multimonth-title]:!py-2 [&_.fc-multimonth-title]:!px-4 [&_.fc-multimonth-title]:!text-base [&_.fc-multimonth]:gap-6">
           <FullCalendar
             ref={calendarRef}
-            plugins={[dayGridPlugin, interactionPlugin]}
+            plugins={[dayGridPlugin, multiMonthPlugin, interactionPlugin]}
             initialView={view}
             headerToolbar={{
               left: '',
@@ -149,16 +150,12 @@ export function Calendar() {
               dayGridMonth: {
                 titleFormat: { year: 'numeric', month: 'long' }
               },
-              dayGridYear: {
-                titleFormat: { year: 'numeric' },
+              multiMonth: {
                 duration: { years: 1 },
-                multiMonthMinWidth: '200px',
-                multiMonthTitleFormat: { month: 'short' },
-                dayHeaderFormat: { weekday: 'narrow' },
-                dayCellClassNames: 'text-[10px] py-0',
-                dayHeaderClassNames: 'text-[10px]',
-                stickyHeaderDates: true,
-                fixedWeekCount: false
+                titleFormat: { year: 'numeric' },
+                multiMonthMaxColumns: 3,
+                multiMonthMinWidth: 350,
+                showNonCurrentDates: false
               }
             }}
             datesSet={(dateInfo) => {

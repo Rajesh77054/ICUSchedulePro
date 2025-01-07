@@ -2,13 +2,13 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { db } from "@db";
 import { shifts, swapRequests, providers, timeOffRequests, holidays } from "@db/schema";
-import { eq, and, gte, lte } from "drizzle-orm";
+import { eq, and, gte, lte, or } from "drizzle-orm";
 
 export function registerRoutes(app: Express): Server {
   app.get("/api/shifts", async (req, res) => {
     const { start, end } = req.query;
     let query = db.select().from(shifts);
-    
+
     if (start && end) {
       query = query.where(
         and(
@@ -17,7 +17,7 @@ export function registerRoutes(app: Express): Server {
         )
       );
     }
-    
+
     const results = await query;
     res.json(results);
   });
@@ -29,6 +29,26 @@ export function registerRoutes(app: Express): Server {
       startDate: new Date(startDate),
       endDate: new Date(endDate),
     }).returning();
+    res.json(result[0]);
+  });
+
+  app.patch("/api/shifts/:id", async (req, res) => {
+    const { id } = req.params;
+    const { startDate, endDate } = req.body;
+
+    const result = await db.update(shifts)
+      .set({
+        startDate: new Date(startDate),
+        endDate: new Date(endDate),
+      })
+      .where(eq(shifts.id, parseInt(id)))
+      .returning();
+
+    if (result.length === 0) {
+      res.status(404).json({ message: "Shift not found" });
+      return;
+    }
+
     res.json(result[0]);
   });
 
@@ -45,7 +65,7 @@ export function registerRoutes(app: Express): Server {
   app.get("/api/swap-requests", async (req, res) => {
     const { providerId } = req.query;
     let query = db.select().from(swapRequests);
-    
+
     if (providerId) {
       query = query.where(
         or(
@@ -54,7 +74,7 @@ export function registerRoutes(app: Express): Server {
         )
       );
     }
-    
+
     const results = await query;
     res.json(results);
   });

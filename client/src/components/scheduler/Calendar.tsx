@@ -6,20 +6,53 @@ import multiMonthPlugin from '@fullcalendar/multimonth';
 import interactionPlugin from '@fullcalendar/interaction';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { PROVIDERS } from "@/lib/constants";
 import type { Shift } from "@/lib/types";
+import { ShiftDialog } from "./ShiftDialog";
+import { useToast } from "@/hooks/use-toast";
 
 type CalendarView = 'dayGridWeek' | 'dayGridMonth' | 'multiMonth';
 
 export function Calendar() {
   const [date, setDate] = useState<Date>(new Date());
   const [view, setView] = useState<CalendarView>('dayGridWeek');
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedDates, setSelectedDates] = useState<{ start: Date; end: Date }>();
   const calendarRef = useRef<FullCalendar>(null);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const { data: shifts } = useQuery<Shift[]>({
     queryKey: ["/api/shifts", view, date],
+  });
+
+  const { mutate: updateShift } = useMutation({
+    mutationFn: async (data: Partial<Shift>) => {
+      const res = await fetch(`/api/shifts/${data.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error("Failed to update shift");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/shifts"] });
+      toast({
+        title: "Success",
+        description: "Shift updated successfully",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/shifts"] });
+    },
   });
 
   const getProviderColor = (providerId: number) => {
@@ -34,6 +67,7 @@ export function Calendar() {
     backgroundColor: getProviderColor(shift.providerId),
     borderColor: getProviderColor(shift.providerId),
     textColor: 'white',
+    extendedProps: { shift },
   })) || [];
 
   const handleNext = () => {
@@ -63,6 +97,23 @@ export function Calendar() {
       calendar.getApi().changeView(newView);
       setView(newView);
     }
+  };
+
+  const handleSelect = (selectInfo: any) => {
+    setSelectedDates({
+      start: selectInfo.start,
+      end: selectInfo.end,
+    });
+    setDialogOpen(true);
+  };
+
+  const handleEventDrop = (dropInfo: any) => {
+    const shift = dropInfo.event.extendedProps.shift;
+    updateShift({
+      id: shift.id,
+      startDate: format(dropInfo.event.start, 'yyyy-MM-dd'),
+      endDate: format(dropInfo.event.end || dropInfo.event.start, 'yyyy-MM-dd'),
+    });
   };
 
   return (
@@ -139,9 +190,11 @@ export function Calendar() {
             height="100%"
             dayMaxEvents={true}
             navLinks={true}
-            editable={false}
+            editable={true}
             selectable={true}
             selectMirror={true}
+            select={handleSelect}
+            eventDrop={handleEventDrop}
             views={{
               dayGridWeek: {
                 titleFormat: { year: 'numeric', month: 'long', day: 'numeric' },
@@ -165,6 +218,14 @@ export function Calendar() {
           />
         </div>
       </CardContent>
+      {selectedDates && (
+        <ShiftDialog
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          startDate={selectedDates.start}
+          endDate={selectedDates.end}
+        />
+      )}
     </Card>
   );
 }

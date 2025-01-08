@@ -315,12 +315,39 @@ export function Calendar() {
     const shift: Shift = eventInfo.event.extendedProps.shift;
     return (
       <ContextMenu>
-        <ContextMenuTrigger className="block w-full h-full" onContextMenu={(e) => e.preventDefault()}>
-          <div className="p-1 cursor-context-menu">
+        <ContextMenuTrigger
+          className="block w-full h-full cursor-context-menu"
+          onContextMenu={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+          onAuxClick={(e) => {
+            if (e.button === 2) {
+              e.preventDefault();
+              e.stopPropagation();
+            }
+          }}
+        >
+          <div
+            className="p-1 select-none"
+            onContextMenu={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            onAuxClick={(e) => {
+              if (e.button === 2) {
+                e.preventDefault();
+                e.stopPropagation();
+              }
+            }}
+          >
             {eventInfo.event.title}
           </div>
         </ContextMenuTrigger>
-        <ContextMenuContent className="w-48">
+        <ContextMenuContent
+          className="w-48 z-50"
+          onContextMenu={(e) => e.preventDefault()}
+        >
           <ContextMenuItem onClick={() => setSwapShift(shift)}>
             <ArrowRightLeft className="mr-2 h-4 w-4" />
             Request Swap

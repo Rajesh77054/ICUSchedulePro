@@ -35,39 +35,84 @@ interface ShiftDetailsProps {
   shift: Shift;
   onClose: () => void;
   onSwapRequest: () => void;
+  onDelete: () => void;
 }
 
-function ShiftDetails({ shift, onClose, onSwapRequest }: ShiftDetailsProps) {
+function ShiftDetails({ shift, onClose, onSwapRequest, onDelete }: ShiftDetailsProps) {
   const provider = PROVIDERS.find(p => p.id === shift.providerId);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   return (
-    <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Shift Details</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4">
-          <div className="grid gap-2">
-            <p className="text-sm font-medium">Provider</p>
-            <p className="text-sm text-muted-foreground">
-              {provider?.name}, {provider?.title}
-            </p>
+    <>
+      <Dialog open={true} onOpenChange={onClose}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Shift Details</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid gap-2">
+              <p className="text-sm font-medium">Provider</p>
+              <p className="text-sm text-muted-foreground">
+                {provider?.name}, {provider?.title}
+              </p>
+            </div>
+            <div className="grid gap-2">
+              <p className="text-sm font-medium">Period</p>
+              <p className="text-sm text-muted-foreground">
+                {format(new Date(shift.startDate), 'MMM d, yyyy')} - {format(new Date(shift.endDate), 'MMM d, yyyy')}
+              </p>
+            </div>
+            <div className="flex flex-col gap-2 pt-2">
+              <Button onClick={() => {
+                onSwapRequest();
+                onClose();
+              }}>
+                <ArrowRightLeft className="mr-2 h-4 w-4" />
+                Request Shift Swap
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => setShowDeleteConfirm(true)}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete Shift
+              </Button>
+            </div>
           </div>
-          <div className="grid gap-2">
-            <p className="text-sm font-medium">Period</p>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Shift</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p>Are you sure you want to delete this shift?</p>
             <p className="text-sm text-muted-foreground">
-              {format(new Date(shift.startDate), 'MMM d, yyyy')} - {format(new Date(shift.endDate), 'MMM d, yyyy')}
+              This action cannot be undone.
             </p>
+            <div className="flex justify-end space-x-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowDeleteConfirm(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  onDelete();
+                  onClose();
+                }}
+              >
+                Delete
+              </Button>
+            </div>
           </div>
-          <Button onClick={() => {
-            onSwapRequest();
-            onClose();
-          }} className="w-full">
-            Request Shift Swap
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -513,6 +558,10 @@ export function Calendar() {
           shift={selectedShift}
           onClose={() => setSelectedShift(null)}
           onSwapRequest={() => setSwapShift(selectedShift)}
+          onDelete={() => {
+            deleteShift(selectedShift.id);
+            setSelectedShift(null);
+          }}
         />
       )}
       {swapShift && (

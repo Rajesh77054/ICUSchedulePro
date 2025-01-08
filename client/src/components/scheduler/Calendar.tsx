@@ -315,12 +315,12 @@ export function Calendar() {
     const shift: Shift = eventInfo.event.extendedProps.shift;
     return (
       <ContextMenu>
-        <ContextMenuTrigger className="block w-full h-full">
-          <div className="p-1">
+        <ContextMenuTrigger className="block w-full h-full" onContextMenu={(e) => e.preventDefault()}>
+          <div className="p-1 cursor-context-menu">
             {eventInfo.event.title}
           </div>
         </ContextMenuTrigger>
-        <ContextMenuContent>
+        <ContextMenuContent className="w-48">
           <ContextMenuItem onClick={() => setSwapShift(shift)}>
             <ArrowRightLeft className="mr-2 h-4 w-4" />
             Request Swap

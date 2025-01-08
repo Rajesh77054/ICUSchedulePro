@@ -38,20 +38,23 @@ export function ShiftSwap({ shift, onClose }: ShiftSwapProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: shifts } = useQuery<Shift[]>({
+  const { data: shifts = [] } = useQuery<Shift[]>({
     queryKey: ["/api/shifts"],
   });
 
-  const recommendations = shifts ? getSwapRecommendations(shift, shifts) : [];
+  const recommendations = getSwapRecommendations(shift, shifts);
 
-  const { mutate: requestSwap } = useMutation({
+  const { mutate: requestSwap, isLoading } = useMutation({
     mutationFn: async (data: Partial<SwapRequest>) => {
       const res = await fetch("/api/swap-requests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
-      if (!res.ok) throw new Error("Failed to request swap");
+      if (!res.ok) {
+        const error = await res.text();
+        throw new Error(error || "Failed to request swap");
+      }
       return res.json();
     },
     onSuccess: () => {
@@ -62,7 +65,7 @@ export function ShiftSwap({ shift, onClose }: ShiftSwapProps) {
       });
       onClose();
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       toast({
         title: "Error",
         description: error.message,
@@ -145,8 +148,12 @@ export function ShiftSwap({ shift, onClose }: ShiftSwapProps) {
               </SelectContent>
             </Select>
           </div>
-          <Button onClick={handleSwapRequest} disabled={!recipientId} className="w-full">
-            Send Request
+          <Button 
+            onClick={handleSwapRequest} 
+            disabled={!recipientId || isLoading} 
+            className="w-full"
+          >
+            {isLoading ? "Sending Request..." : "Send Request"}
           </Button>
         </div>
       </DialogContent>

@@ -72,10 +72,11 @@ export const notify = {
   shiftSwapRequested: (
     shift: typeof shifts.$inferSelect,
     requestor: { name: string; title: string },
-    recipient: { name: string; title: string }
+    recipient: { name: string; title: string },
+    requestId: number
   ) => ({
     type: 'shift_swap_requested' as const,
-    data: { shift, requestor, recipient },
+    data: { shift, requestor, recipient, requestId },
     timestamp: new Date().toISOString(),
   }),
 

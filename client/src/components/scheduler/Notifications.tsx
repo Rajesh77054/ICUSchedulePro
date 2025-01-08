@@ -32,13 +32,16 @@ export function Notifications() {
   const queryClient = useQueryClient();
 
   const { mutate: respondToSwap } = useMutation({
-    mutationFn: async ({ id, status }: { id: number; status: 'accepted' | 'rejected' }) => {
-      const res = await fetch(`/api/swap-requests/${id}`, {
+    mutationFn: async ({ requestId, status }: { requestId: number; status: 'accepted' | 'rejected' }) => {
+      const res = await fetch(`/api/swap-requests/${requestId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status }),
       });
-      if (!res.ok) throw new Error('Failed to respond to swap request');
+      if (!res.ok) {
+        const error = await res.text();
+        throw new Error(error || 'Failed to respond to swap request');
+      }
       return res.json();
     },
     onSuccess: () => {
@@ -65,7 +68,16 @@ export function Notifications() {
       const notification = JSON.parse(event.data);
       if (notification.type === 'connected') return;
 
-      setNotifications(prev => [notification, ...prev]);
+      // Remove duplicate notifications based on type and data
+      setNotifications(prev => {
+        const isDuplicate = prev.some(n => 
+          n.type === notification.type && 
+          JSON.stringify(n.data) === JSON.stringify(notification.data)
+        );
+        if (isDuplicate) return prev;
+        return [notification, ...prev];
+      });
+
       if (!open) setHasNew(true);
     };
 
@@ -91,12 +103,16 @@ export function Notifications() {
 
   const renderActions = (notification: Notification) => {
     if (notification.type === 'shift_swap_requested') {
+      const swapRequest = notification.data;
+      // Only show actions for the recipient
+      if (!swapRequest || !swapRequest.requestId) return null;
+
       return (
         <div className="flex gap-2 mt-2">
           <Button
             size="sm"
             onClick={() => respondToSwap({ 
-              id: notification.data.shift.id,
+              requestId: swapRequest.requestId,
               status: 'accepted'
             })}
           >
@@ -107,7 +123,7 @@ export function Notifications() {
             size="sm"
             variant="outline"
             onClick={() => respondToSwap({ 
-              id: notification.data.shift.id,
+              requestId: swapRequest.requestId,
               status: 'rejected'
             })}
           >
@@ -149,7 +165,7 @@ export function Notifications() {
           <AnimatePresence mode="popLayout">
             {notifications.map((notification, i) => (
               <motion.div
-                key={notification.timestamp}
+                key={`${notification.type}-${notification.timestamp}`}
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 20 }}

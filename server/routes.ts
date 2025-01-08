@@ -185,10 +185,27 @@ export function registerRoutes(app: Express): Server {
   app.post("/api/swap-requests", async (req, res) => {
     try {
       const { requestorId, recipientId, shiftId } = req.body;
+
+      // Check if there's already a pending request for this shift
+      const existingRequest = await db.select()
+        .from(swapRequests)
+        .where(
+          and(
+            eq(swapRequests.shiftId, shiftId),
+            eq(swapRequests.status, 'pending')
+          )
+        );
+
+      if (existingRequest.length > 0) {
+        res.status(400).json({ message: "A pending swap request already exists for this shift" });
+        return;
+      }
+
       const result = await db.insert(swapRequests).values({
         requestorId,
         recipientId,
         shiftId,
+        status: 'pending'
       }).returning();
 
       // Get provider info for notification
@@ -202,7 +219,8 @@ export function registerRoutes(app: Express): Server {
         broadcast(notify.shiftSwapRequested(
           shift[0],
           requestor[0],
-          recipient[0]
+          recipient[0],
+          result[0].id // Include the swap request ID
         ));
       }
 
@@ -255,13 +273,37 @@ export function registerRoutes(app: Express): Server {
 
       const request = swapRequest[0];
 
+      // Verify the request is still pending
+      if (request.status !== 'pending') {
+        res.status(400).json({ message: "This request has already been processed" });
+        return;
+      }
+
       // Update swap request status
       await db.update(swapRequests)
         .set({ status })
         .where(eq(swapRequests.id, parseInt(id)));
 
-      // If accepted, update shift status
+      // If accepted, update shift provider
       if (status === 'accepted') {
+        // Get the shift to validate
+        const shiftToSwap = await db.select()
+          .from(shifts)
+          .where(eq(shifts.id, request.shiftId))
+          .limit(1);
+
+        if (!shiftToSwap.length) {
+          res.status(404).json({ message: "Shift not found" });
+          return;
+        }
+
+        // Check if the shift still belongs to the requestor
+        if (shiftToSwap[0].providerId !== request.requestorId) {
+          res.status(400).json({ message: "Shift no longer belongs to the requestor" });
+          return;
+        }
+
+        // Update the shift
         await db.update(shifts)
           .set({ 
             providerId: request.recipientId,

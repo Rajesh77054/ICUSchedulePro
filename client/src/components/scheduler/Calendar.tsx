@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, ArrowRightLeft } from "lucide-react";
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, ArrowRightLeft, Trash2 } from "lucide-react";
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import multiMonthPlugin from '@fullcalendar/multimonth';
@@ -87,6 +87,8 @@ export function Calendar() {
   const [swapShift, setSwapShift] = useState<Shift | null>(null);
   const [overlappingShifts, setOverlappingShifts] = useState<Shift[]>([]);
   const [overlappingShiftsOpen, setOverlappingShiftsOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [shiftToDelete, setShiftToDelete] = useState<Shift | null>(null);
 
   const { data: shifts } = useQuery<Shift[]>({
     queryKey: ["/api/shifts", view, date],
@@ -117,6 +119,32 @@ export function Calendar() {
         variant: "destructive",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/shifts"] });
+    },
+  });
+
+  const { mutate: deleteShift } = useMutation({
+    mutationFn: async (shiftId: number) => {
+      const res = await fetch(`/api/shifts/${shiftId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error("Failed to delete shift");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/shifts"] });
+      toast({
+        title: "Success",
+        description: "Shift deleted successfully",
+      });
+      setDeleteConfirmOpen(false);
+      setShiftToDelete(null);
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
     },
   });
 
@@ -278,6 +306,11 @@ export function Calendar() {
     setActiveConflicts(null);
   };
 
+  const handleDelete = (shift: Shift) => {
+    setShiftToDelete(shift);
+    setDeleteConfirmOpen(true);
+  };
+
   const renderEventContent = (eventInfo: any) => {
     const shift: Shift = eventInfo.event.extendedProps.shift;
     return (
@@ -291,6 +324,13 @@ export function Calendar() {
           <ContextMenuItem onClick={() => setSwapShift(shift)}>
             <ArrowRightLeft className="mr-2 h-4 w-4" />
             Request Swap
+          </ContextMenuItem>
+          <ContextMenuItem
+            onClick={() => handleDelete(shift)}
+            className="text-destructive focus:text-destructive"
+          >
+            <Trash2 className="mr-2 h-4 w-4" />
+            Delete Shift
           </ContextMenuItem>
         </ContextMenuContent>
       </ContextMenu>
@@ -463,6 +503,36 @@ export function Calendar() {
           setOverlappingShiftsOpen(false);
         }}
       />
+      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Shift</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p>Are you sure you want to delete this shift?</p>
+            <p className="text-sm text-muted-foreground">
+              This action cannot be undone.
+            </p>
+            <div className="flex justify-end space-x-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setDeleteConfirmOpen(false);
+                  setShiftToDelete(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => shiftToDelete && deleteShift(shiftToDelete.id)}
+              >
+                Delete
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

@@ -108,3 +108,108 @@ export function detectShiftConflicts(shift: Shift, allShifts: Shift[]): {
 
   return conflicts;
 }
+
+interface SwapRecommendation {
+  providerId: number;
+  score: number;
+  reasons: string[];
+}
+
+export function getSwapRecommendations(shift: Shift, allShifts: Shift[]): SwapRecommendation[] {
+  const recommendations: SwapRecommendation[] = [];
+  const shiftStart = new Date(shift.startDate);
+  const shiftEnd = new Date(shift.endDate);
+  const currentProvider = PROVIDERS.find(p => p.id === shift.providerId);
+
+  if (!currentProvider) return recommendations;
+
+  // Get shifts duration in days
+  const shiftDays = Math.ceil(
+    (shiftEnd.getTime() - shiftStart.getTime()) / (1000 * 60 * 60 * 24)
+  );
+
+  // Evaluate each provider as a potential swap candidate
+  PROVIDERS.forEach(provider => {
+    if (provider.id === shift.providerId) return;
+
+    let score = 0;
+    const reasons: string[] = [];
+    const providerShifts = allShifts.filter(s => s.providerId === provider.id);
+
+    // Calculate total days worked
+    const totalDays = providerShifts.reduce((acc, s) => {
+      const start = new Date(s.startDate);
+      const end = new Date(s.endDate);
+      return acc + Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+    }, 0);
+
+    // Factor 1: Workload Balance
+    const currentDaysFromTarget = Math.abs(totalDays - provider.targetDays);
+    const potentialDaysFromTarget = Math.abs((totalDays + shiftDays) - provider.targetDays);
+
+    if (potentialDaysFromTarget < currentDaysFromTarget) {
+      score += 30;
+      reasons.push("Improves workload balance");
+    }
+
+    // Factor 2: Schedule Compatibility
+    let hasConflict = false;
+    providerShifts.forEach(existingShift => {
+      const existingStart = new Date(existingShift.startDate);
+      const existingEnd = new Date(existingShift.endDate);
+
+      if (
+        isBefore(shiftStart, existingEnd) && 
+        isAfter(shiftEnd, existingStart)
+      ) {
+        hasConflict = true;
+      }
+    });
+
+    if (!hasConflict) {
+      score += 25;
+      reasons.push("No schedule conflicts");
+    }
+
+    // Factor 3: Maximum Consecutive Weeks
+    if (provider.maxConsecutiveWeeks) {
+      let consecutiveCount = 1;
+      let lastWeekStart = startOfWeek(shiftStart);
+
+      providerShifts.forEach(existingShift => {
+        const existingStart = new Date(existingShift.startDate);
+        const existingWeekStart = startOfWeek(existingStart);
+
+        if (Math.abs(
+          (existingWeekStart.getTime() - lastWeekStart.getTime()) / 
+          (7 * 24 * 60 * 60 * 1000)
+        ) === 1) {
+          consecutiveCount++;
+        }
+      });
+
+      if (consecutiveCount <= provider.maxConsecutiveWeeks) {
+        score += 20;
+        reasons.push("Within consecutive weeks limit");
+      }
+    }
+
+    // Factor 4: Tolerance Buffer
+    if (provider.tolerance) {
+      const withinTolerance = Math.abs((totalDays + shiftDays) - provider.targetDays) <= provider.tolerance;
+      if (withinTolerance) {
+        score += 15;
+        reasons.push("Within target days tolerance");
+      }
+    }
+
+    recommendations.push({
+      providerId: provider.id,
+      score,
+      reasons
+    });
+  });
+
+  // Sort recommendations by score in descending order
+  return recommendations.sort((a, b) => b.score - a.score);
+}

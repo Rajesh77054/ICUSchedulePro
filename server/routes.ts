@@ -234,20 +234,46 @@ export function registerRoutes(app: Express): Server {
   });
 
   app.get("/api/swap-requests", async (req, res) => {
-    const { providerId } = req.query;
-    let query = db.select().from(swapRequests);
+    try {
+      const { providerId } = req.query;
+      let query = db.select().from(swapRequests);
 
-    if (providerId) {
-      query = query.where(
-        or(
-          eq(swapRequests.requestorId, parseInt(providerId as string)),
-          eq(swapRequests.recipientId, parseInt(providerId as string))
-        )
+      if (providerId) {
+        query = query.where(
+          or(
+            eq(swapRequests.requestorId, parseInt(providerId as string)),
+            eq(swapRequests.recipientId, parseInt(providerId as string))
+          )
+        );
+      }
+
+      const requests = await query;
+
+      // Get provider and shift details for each request
+      const enrichedRequests = await Promise.all(
+        requests.map(async (request) => {
+          const [[requestor], [recipient], [shift]] = await Promise.all([
+            db.select().from(providers).where(eq(providers.id, request.requestorId)),
+            db.select().from(providers).where(eq(providers.id, request.recipientId)),
+            db.select().from(shifts).where(eq(shifts.id, request.shiftId))
+          ]);
+
+          return {
+            ...request,
+            requestor,
+            recipient,
+            shift
+          };
+        })
       );
-    }
 
-    const results = await query;
-    res.json(results);
+      res.json(enrichedRequests);
+    } catch (error: any) {
+      res.status(500).json({
+        message: "Failed to fetch swap requests",
+        error: error.message
+      });
+    }
   });
 
   app.patch("/api/swap-requests/:id", async (req, res) => {

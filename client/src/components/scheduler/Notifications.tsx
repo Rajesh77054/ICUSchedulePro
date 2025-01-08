@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 
 interface Notification {
@@ -31,6 +31,16 @@ export function Notifications() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Fetch existing swap requests
+  const { data: swapRequests } = useQuery({
+    queryKey: ['/api/swap-requests'],
+    queryFn: async () => {
+      const res = await fetch('/api/swap-requests');
+      if (!res.ok) throw new Error('Failed to fetch swap requests');
+      return res.json();
+    }
+  });
+
   const { mutate: respondToSwap } = useMutation({
     mutationFn: async ({ requestId, status }: { requestId: number; status: 'accepted' | 'rejected' }) => {
       const res = await fetch(`/api/swap-requests/${requestId}`, {
@@ -46,6 +56,7 @@ export function Notifications() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/shifts'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/swap-requests'] });
       toast({
         title: 'Success',
         description: 'Response sent successfully',
@@ -59,6 +70,33 @@ export function Notifications() {
       });
     },
   });
+
+  useEffect(() => {
+    // Add pending swap requests to notifications
+    if (swapRequests) {
+      const pendingRequests = swapRequests
+        .filter((req: any) => req.status === 'pending')
+        .map((req: any) => ({
+          type: 'shift_swap_requested' as const,
+          data: {
+            shift: req.shift,
+            requestor: req.requestor,
+            recipient: req.recipient,
+            requestId: req.id
+          },
+          timestamp: req.createdAt
+        }));
+
+      setNotifications(prev => {
+        // Remove any existing pending requests to avoid duplicates
+        const filtered = prev.filter(n => 
+          n.type !== 'shift_swap_requested' ||
+          !pendingRequests.some(p => p.data.requestId === n.data.requestId)
+        );
+        return [...pendingRequests, ...filtered];
+      });
+    }
+  }, [swapRequests]);
 
   useEffect(() => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';

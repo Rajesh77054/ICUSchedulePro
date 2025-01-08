@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Bell, X } from "lucide-react";
+import { Bell, X, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -11,9 +11,11 @@ import {
 } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 
 interface Notification {
-  type: 'shift_created' | 'shift_updated' | 'shift_swap_requested';
+  type: 'shift_created' | 'shift_updated' | 'shift_deleted' | 'shift_swap_requested' | 'shift_swap_responded';
   data: any;
   timestamp: string;
   provider?: {
@@ -26,6 +28,34 @@ export function Notifications() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [open, setOpen] = useState(false);
   const [hasNew, setHasNew] = useState(false);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const { mutate: respondToSwap } = useMutation({
+    mutationFn: async ({ id, status }: { id: number; status: 'accepted' | 'rejected' }) => {
+      const res = await fetch(`/api/swap-requests/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      });
+      if (!res.ok) throw new Error('Failed to respond to swap request');
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/shifts'] });
+      toast({
+        title: 'Success',
+        description: 'Response sent successfully',
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
 
   useEffect(() => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -52,9 +82,42 @@ export function Notifications() {
         return `${notification.provider?.name} updated their shift to ${format(new Date(notification.data.startDate), 'MMM d, yyyy')} - ${format(new Date(notification.data.endDate), 'MMM d, yyyy')}`;
       case 'shift_swap_requested':
         return `${notification.data.requestor.name} requested to swap shift with ${notification.data.recipient.name}`;
+      case 'shift_swap_responded':
+        return `${notification.data.recipient.name} ${notification.data.status} your shift swap request`;
       default:
         return 'Unknown notification';
     }
+  };
+
+  const renderActions = (notification: Notification) => {
+    if (notification.type === 'shift_swap_requested') {
+      return (
+        <div className="flex gap-2 mt-2">
+          <Button
+            size="sm"
+            onClick={() => respondToSwap({ 
+              id: notification.data.shift.id,
+              status: 'accepted'
+            })}
+          >
+            <Check className="h-4 w-4 mr-1" />
+            Accept
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => respondToSwap({ 
+              id: notification.data.shift.id,
+              status: 'rejected'
+            })}
+          >
+            <X className="h-4 w-4 mr-1" />
+            Decline
+          </Button>
+        </div>
+      );
+    }
+    return null;
   };
 
   return (
@@ -97,6 +160,7 @@ export function Notifications() {
                 <p className="text-xs text-muted-foreground mt-1">
                   {format(new Date(notification.timestamp), 'MMM d, h:mm a')}
                 </p>
+                {renderActions(notification)}
               </motion.div>
             ))}
           </AnimatePresence>

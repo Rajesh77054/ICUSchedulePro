@@ -3,7 +3,7 @@ import type { Server } from 'http';
 import { type shifts } from '@db/schema';
 
 interface NotificationMessage {
-  type: 'shift_created' | 'shift_updated' | 'shift_deleted' | 'shift_swap_requested';
+  type: 'shift_created' | 'shift_updated' | 'shift_deleted' | 'shift_swap_requested' | 'shift_swap_responded';
   data: any;
   timestamp: string;
   provider?: {
@@ -76,6 +76,17 @@ export const notify = {
   ) => ({
     type: 'shift_swap_requested' as const,
     data: { shift, requestor, recipient },
+    timestamp: new Date().toISOString(),
+  }),
+
+  shiftSwapResponded: (
+    shift: typeof shifts.$inferSelect,
+    requestor: { name: string; title: string },
+    recipient: { name: string; title: string },
+    status: 'accepted' | 'rejected'
+  ) => ({
+    type: 'shift_swap_responded' as const,
+    data: { shift, requestor, recipient, status },
     timestamp: new Date().toISOString(),
   }),
 };

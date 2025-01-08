@@ -232,5 +232,68 @@ export function registerRoutes(app: Express): Server {
     res.json(results);
   });
 
+  app.patch("/api/swap-requests/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { status } = req.body;
+
+      if (!['accepted', 'rejected'].includes(status)) {
+        res.status(400).json({ message: "Invalid status" });
+        return;
+      }
+
+      // Get swap request details
+      const swapRequest = await db.select()
+        .from(swapRequests)
+        .where(eq(swapRequests.id, parseInt(id)))
+        .limit(1);
+
+      if (!swapRequest.length) {
+        res.status(404).json({ message: "Swap request not found" });
+        return;
+      }
+
+      const request = swapRequest[0];
+
+      // Update swap request status
+      await db.update(swapRequests)
+        .set({ status })
+        .where(eq(swapRequests.id, parseInt(id)));
+
+      // If accepted, update shift status
+      if (status === 'accepted') {
+        await db.update(shifts)
+          .set({ 
+            providerId: request.recipientId,
+            status: 'swapped'
+          })
+          .where(eq(shifts.id, request.shiftId));
+      }
+
+      // Get provider info for notification
+      const [requestor, recipient, shift] = await Promise.all([
+        db.select().from(providers).where(eq(providers.id, request.requestorId)).limit(1),
+        db.select().from(providers).where(eq(providers.id, request.recipientId)).limit(1),
+        db.select().from(shifts).where(eq(shifts.id, request.shiftId)).limit(1),
+      ]);
+
+      if (requestor.length && recipient.length && shift.length) {
+        broadcast(notify.shiftSwapResponded(
+          shift[0],
+          requestor[0],
+          recipient[0],
+          status
+        ));
+      }
+
+      res.json({ message: `Swap request ${status}` });
+    } catch (error: any) {
+      res.status(500).json({
+        message: "Failed to update swap request",
+        error: error.message
+      });
+    }
+  });
+
   return httpServer;
 }

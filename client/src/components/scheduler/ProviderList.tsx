@@ -5,9 +5,12 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { Link } from "wouter";
 import { PROVIDERS } from "@/lib/constants";
 import { useQuery } from "@tanstack/react-query";
 import type { Shift } from "@/lib/types";
+import { ArrowRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export function ProviderList() {
   const { data: shifts } = useQuery<Shift[]>({
@@ -22,7 +25,7 @@ export function ProviderList() {
       const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
       return acc + days;
     }, 0);
-    
+
     return totalDays;
   };
 
@@ -35,26 +38,33 @@ export function ProviderList() {
         {PROVIDERS.map(provider => {
           const days = getProviderStats(provider.id);
           const progress = Math.min((days / provider.targetDays) * 100, 100);
-          
+
           return (
-            <div key={provider.id} className="space-y-2">
-              <div className="flex justify-between">
-                <span className="font-medium">
-                  {provider.name}, {provider.title}
-                </span>
-                <span className="text-sm text-muted-foreground">
-                  {days}/{provider.targetDays} days
-                </span>
+            <Link key={provider.id} href={`/provider/${provider.id}`}>
+              <div className="space-y-2 p-3 rounded-lg hover:bg-accent cursor-pointer transition-colors">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <span className="font-medium block">
+                      {provider.name}, {provider.title}
+                    </span>
+                    <span className="text-sm text-muted-foreground">
+                      {days}/{provider.targetDays} days
+                    </span>
+                  </div>
+                  <Button variant="ghost" size="icon">
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </div>
+                <Progress
+                  value={progress}
+                  className="h-2"
+                  style={{
+                    backgroundColor: `${provider.color}40`,
+                    "--progress-background": provider.color,
+                  } as any}
+                />
               </div>
-              <Progress
-                value={progress}
-                className="h-2"
-                style={{
-                  backgroundColor: `${provider.color}40`,
-                  "--progress-background": provider.color,
-                } as any}
-              />
-            </div>
+            </Link>
           );
         })}
       </CardContent>

@@ -1,5 +1,6 @@
 import { Switch, Route } from "wouter";
 import { Dashboard } from "@/pages/Dashboard";
+import { PersonalDashboard } from "@/pages/PersonalDashboard";
 import { AlertCircle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 
@@ -7,6 +8,7 @@ function App() {
   return (
     <Switch>
       <Route path="/" component={Dashboard} />
+      <Route path="/provider/:id" component={PersonalDashboard} />
       <Route component={NotFound} />
     </Switch>
   );

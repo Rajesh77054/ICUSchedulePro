@@ -185,6 +185,45 @@ export function PersonalDashboard() {
           </CardContent>
         </Card>
 
+        <Card className="md:col-span-2">
+          <CardHeader>
+            <CardTitle>Upcoming Shifts</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {upcomingShifts.length > 0 ? (
+              <div className="space-y-4">
+                {upcomingShifts.map(shift => (
+                  <div
+                    key={shift.id}
+                    className="flex items-center justify-between p-3 rounded-lg border"
+                    style={{ borderColor: provider.color }}
+                  >
+                    <div>
+                      <p className="font-medium">
+                        {format(new Date(shift.startDate), 'MMM d, yyyy')} - {format(new Date(shift.endDate), 'MMM d, yyyy')}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {Math.ceil((new Date(shift.endDate).getTime() - new Date(shift.startDate).getTime()) / (1000 * 60 * 60 * 24))} days
+                      </p>
+                    </div>
+                    <div className="text-sm">
+                      {shift.status === 'confirmed' ? (
+                        <span className="text-green-600 font-medium">Confirmed</span>
+                      ) : shift.status === 'pending_swap' ? (
+                        <span className="text-yellow-600 font-medium">Pending Swap</span>
+                      ) : (
+                        <span className="text-blue-600 font-medium">Swapped</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-muted-foreground">No upcoming shifts</p>
+            )}
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader>
             <CardTitle>Time Off Requests</CardTitle>
@@ -239,45 +278,6 @@ export function PersonalDashboard() {
               </div>
             ) : (
               <p className="text-muted-foreground">No upcoming approved time-off</p>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="md:col-span-2">
-          <CardHeader>
-            <CardTitle>Upcoming Shifts</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {upcomingShifts.length > 0 ? (
-              <div className="space-y-4">
-                {upcomingShifts.map(shift => (
-                  <div
-                    key={shift.id}
-                    className="flex items-center justify-between p-3 rounded-lg border"
-                    style={{ borderColor: provider.color }}
-                  >
-                    <div>
-                      <p className="font-medium">
-                        {format(new Date(shift.startDate), 'MMM d, yyyy')} - {format(new Date(shift.endDate), 'MMM d, yyyy')}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {Math.ceil((new Date(shift.endDate).getTime() - new Date(shift.startDate).getTime()) / (1000 * 60 * 60 * 24))} days
-                      </p>
-                    </div>
-                    <div className="text-sm">
-                      {shift.status === 'confirmed' ? (
-                        <span className="text-green-600 font-medium">Confirmed</span>
-                      ) : shift.status === 'pending_swap' ? (
-                        <span className="text-yellow-600 font-medium">Pending Swap</span>
-                      ) : (
-                        <span className="text-blue-600 font-medium">Swapped</span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-muted-foreground">No upcoming shifts</p>
             )}
           </CardContent>
         </Card>

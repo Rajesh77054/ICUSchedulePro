@@ -2,7 +2,7 @@ import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 import type { Shift, TimeOffRequest, Holiday } from "./types"
 import { PROVIDERS } from "./constants"
-import { isWithinInterval, addDays, startOfWeek, endOfWeek, isSameWeek, isBefore, isAfter, isWithinRange, differenceInDays } from "date-fns"
+import { isWithinInterval, addDays, startOfWeek, endOfWeek, isSameWeek, isBefore, isAfter, differenceInDays } from "date-fns"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))

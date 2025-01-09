@@ -40,7 +40,7 @@ function TimeOffRequestDialog({ onClose }: TimeOffRequestDialogProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { mutate: createRequest, isLoading } = useMutation({
+  const { mutate: createRequest } = useMutation({
     mutationFn: async (data: Partial<TimeOffRequest>) => {
       const res = await fetch("/api/time-off-requests", {
         method: "POST",
@@ -186,10 +186,7 @@ function TimeOffRequestDialog({ onClose }: TimeOffRequestDialogProps) {
               </Popover>
             </div>
           </div>
-          <Button onClick={handleSubmit} disabled={isLoading}>
-            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Submit Request
-          </Button>
+          <Button onClick={handleSubmit}>Submit Request</Button>
         </div>
       </DialogContent>
     </Dialog>
@@ -198,7 +195,7 @@ function TimeOffRequestDialog({ onClose }: TimeOffRequestDialogProps) {
 
 export function TimeOffRequests() {
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [selectedProvider, setSelectedProvider] = useState<string>();
+  const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -265,12 +262,12 @@ export function TimeOffRequests() {
         <div className="flex justify-between items-center">
           <h2 className="text-2xl font-semibold">Time Off Requests</h2>
           <div className="flex items-center gap-4">
-            <Select value={selectedProvider} onValueChange={setSelectedProvider}>
+            <Select value={selectedProvider ?? undefined} onValueChange={setSelectedProvider}>
               <SelectTrigger className="w-[200px]">
                 <SelectValue placeholder="Filter by provider" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Providers</SelectItem>
+                <SelectItem value="all">All Providers</SelectItem>
                 {PROVIDERS.map((provider) => (
                   <SelectItem key={provider.id} value={provider.id.toString()}>
                     {provider.name}, {provider.title}

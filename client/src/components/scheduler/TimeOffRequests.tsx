@@ -204,7 +204,7 @@ export function TimeOffRequests() {
     queryFn: async ({ queryKey }) => {
       const [_, providerId] = queryKey;
       const url = new URL("/api/time-off-requests", window.location.origin);
-      if (providerId) {
+      if (providerId && providerId !== 'all') {
         url.searchParams.append("providerId", providerId);
       }
       const res = await fetch(url);

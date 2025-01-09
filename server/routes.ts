@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { db } from "@db";
-import { shifts, swapRequests, providers, timeOffRequests, holidays } from "@db/schema";
+import { shifts, swapRequests, providers, timeOffRequests, holidays, providerPreferences, schedulingMetrics } from "@db/schema";
 import { eq, and, gte, lte, or } from "drizzle-orm";
 import { setupWebSocket, notify } from "./websocket";
 
@@ -43,8 +43,52 @@ const initializeProviders = async () => {
     },
   ];
 
+  // Initialize default preferences for each provider
+  const defaultPreferences = [
+    {
+      providerId: 1,
+      preferredShiftLength: 7,
+      preferredDaysOfWeek: [1, 2, 3], // Mon, Tue, Wed
+      preferredCoworkers: [2, 3],
+      avoidedDaysOfWeek: [0, 6], // Sun, Sat
+      maxShiftsPerWeek: 1,
+      minDaysBetweenShifts: 14,
+    },
+    {
+      providerId: 2,
+      preferredShiftLength: 14,
+      preferredDaysOfWeek: [1, 2, 3, 4], // Mon-Thu
+      preferredCoworkers: [1, 4],
+      avoidedDaysOfWeek: [5, 6], // Fri, Sat
+      maxShiftsPerWeek: 1,
+      minDaysBetweenShifts: 7,
+    },
+    {
+      providerId: 3,
+      preferredShiftLength: 7,
+      preferredDaysOfWeek: [2, 3, 4], // Tue-Thu
+      preferredCoworkers: [1, 2],
+      avoidedDaysOfWeek: [0, 6], // Sun, Sat
+      maxShiftsPerWeek: 1,
+      minDaysBetweenShifts: 21,
+    },
+    {
+      providerId: 4,
+      preferredShiftLength: 5,
+      preferredDaysOfWeek: [1, 2, 3, 4, 5], // Mon-Fri
+      preferredCoworkers: [2],
+      avoidedDaysOfWeek: [0, 6], // Sun, Sat
+      maxShiftsPerWeek: 1,
+      minDaysBetweenShifts: 14,
+    },
+  ];
+
   for (const provider of defaultProviders) {
     await db.insert(providers).values(provider).onConflictDoNothing();
+  }
+
+  for (const pref of defaultPreferences) {
+    await db.insert(providerPreferences).values(pref).onConflictDoNothing();
   }
 };
 
@@ -425,6 +469,26 @@ export function registerRoutes(app: Express): Server {
     } catch (error: any) {
       res.status(500).json({
         message: "Failed to update swap request",
+        error: error.message
+      });
+    }
+  });
+
+  // New endpoint for provider preferences
+  app.get("/api/provider-preferences", async (req, res) => {
+    try {
+      const { providerId } = req.query;
+      let query = db.select().from(providerPreferences);
+
+      if (providerId) {
+        query = query.where(eq(providerPreferences.providerId, parseInt(providerId as string)));
+      }
+
+      const preferences = await query;
+      res.json(preferences);
+    } catch (error: any) {
+      res.status(500).json({
+        message: "Failed to fetch provider preferences",
         error: error.message
       });
     }

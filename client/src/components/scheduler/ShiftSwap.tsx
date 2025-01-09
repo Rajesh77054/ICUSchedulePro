@@ -58,12 +58,17 @@ export function ShiftSwap({ shift, onClose }: ShiftSwapProps) {
     queryKey: ["/api/swap-requests"],
   });
 
+  const { data: preferences = [] } = useQuery({
+    queryKey: ["/api/provider-preferences"],
+  });
+
   const recommendations = getSwapRecommendations(
     shift,
     shifts,
     timeOffRequests,
     holidays,
-    swapHistory
+    swapHistory,
+    preferences
   );
 
   const { mutate: requestSwap, isLoading } = useMutation({
@@ -89,11 +94,11 @@ export function ShiftSwap({ shift, onClose }: ShiftSwapProps) {
       onClose();
     },
     onError: (error: Error) => {
-        toast({
-          title: "Error",
-          description: error.message,
-          variant: "destructive",
-        });
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
     },
   });
 
@@ -106,6 +111,7 @@ export function ShiftSwap({ shift, onClose }: ShiftSwapProps) {
       });
       return;
     }
+
     requestSwap({
       shiftId: shift.id,
       requestorId: shift.providerId,
@@ -123,7 +129,7 @@ export function ShiftSwap({ shift, onClose }: ShiftSwapProps) {
         <DialogHeader>
           <DialogTitle>Request Shift Swap</DialogTitle>
           <DialogDescription>
-            Select a provider to swap shifts with. Providers are ranked based on workload balance and schedule compatibility.
+            Select a provider to swap shifts with. Providers are ranked based on preferences, workload balance, and schedule compatibility.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
@@ -142,7 +148,7 @@ export function ShiftSwap({ shift, onClose }: ShiftSwapProps) {
                   <Info className="h-4 w-4 text-muted-foreground" />
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p className="text-sm">Providers are ranked based on workload balance, schedule compatibility, and policy compliance</p>
+                  <p className="text-sm">Providers are ranked based on preferences, workload balance, schedule compatibility, and policy compliance</p>
                 </TooltipContent>
               </Tooltip>
             </div>
@@ -163,7 +169,7 @@ export function ShiftSwap({ shift, onClose }: ShiftSwapProps) {
                           <div className="flex items-center justify-between">
                             <span>{provider.name}, {provider.title}</span>
                             <span className="text-xs text-muted-foreground">
-                              Score: {recommendation?.score || 0}%
+                              Match Score: {recommendation?.score || 0}%
                             </span>
                           </div>
                           <Progress 

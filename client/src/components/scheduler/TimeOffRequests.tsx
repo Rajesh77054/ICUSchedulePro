@@ -253,83 +253,87 @@ export function TimeOffRequests() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-[200px]">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h2 className="text-lg font-semibold">Time Off Requests</h2>
-        <div className="flex items-center gap-4">
-          <Select value={selectedProvider} onValueChange={setSelectedProvider}>
-            <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="Filter by provider" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="">All Providers</SelectItem>
-              {PROVIDERS.map((provider) => (
-                <SelectItem key={provider.id} value={provider.id.toString()}>
-                  {provider.name}, {provider.title}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button onClick={() => setDialogOpen(true)}>New Request</Button>
+    <div className="min-h-screen bg-background">
+      <div className="container mx-auto py-8 space-y-8">
+        <div className="flex justify-between items-center">
+          <h2 className="text-2xl font-semibold">Time Off Requests</h2>
+          <div className="flex items-center gap-4">
+            <Select value={selectedProvider} onValueChange={setSelectedProvider}>
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="Filter by provider" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">All Providers</SelectItem>
+                {PROVIDERS.map((provider) => (
+                  <SelectItem key={provider.id} value={provider.id.toString()}>
+                    {provider.name}, {provider.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button onClick={() => setDialogOpen(true)}>New Request</Button>
+          </div>
         </div>
-      </div>
 
-      <div className="grid gap-4">
-        {requests.length === 0 ? (
-          <p className="text-center text-muted-foreground py-8">
-            No time-off requests found
-          </p>
-        ) : (
-          requests.map((request) => {
-            const provider = PROVIDERS.find((p) => p.id === request.providerId);
-            return (
-              <div
-                key={request.id}
-                className="flex items-center justify-between p-4 rounded-lg border"
-              >
-                <div className="space-y-1">
-                  <p className="font-medium">{provider?.name}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {format(new Date(request.startDate), "MMM d, yyyy")} -{" "}
-                    {format(new Date(request.endDate), "MMM d, yyyy")}
-                  </p>
-                  <span
-                    className={cn(
-                      "inline-flex items-center px-2 py-1 rounded-full text-xs font-medium",
-                      getStatusColor(request.status)
-                    )}
-                  >
-                    {request.status.charAt(0).toUpperCase() +
-                      request.status.slice(1)}
-                  </span>
+        <div className="grid gap-4">
+          {requests.length === 0 ? (
+            <div className="text-center py-12 bg-muted/20 rounded-lg">
+              <p className="text-muted-foreground">
+                No time-off requests found
+              </p>
+            </div>
+          ) : (
+            requests.map((request) => {
+              const provider = PROVIDERS.find((p) => p.id === request.providerId);
+              return (
+                <div
+                  key={request.id}
+                  className="flex items-center justify-between p-4 rounded-lg border bg-card"
+                >
+                  <div className="space-y-1">
+                    <p className="font-medium">{provider?.name}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {format(new Date(request.startDate), "MMM d, yyyy")} -{" "}
+                      {format(new Date(request.endDate), "MMM d, yyyy")}
+                    </p>
+                    <span
+                      className={cn(
+                        "inline-flex items-center px-2 py-1 rounded-full text-xs font-medium",
+                        getStatusColor(request.status)
+                      )}
+                    >
+                      {request.status.charAt(0).toUpperCase() +
+                        request.status.slice(1)}
+                    </span>
+                  </div>
+                  {request.status === "pending" && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => cancelRequest(request.id)}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
-                {request.status === "pending" && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => cancelRequest(request.id)}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                )}
-              </div>
-            );
-          })
+              );
+            })
+          )}
+        </div>
+
+        {dialogOpen && (
+          <TimeOffRequestDialog
+            onClose={() => setDialogOpen(false)}
+          />
         )}
       </div>
-
-      {dialogOpen && (
-        <TimeOffRequestDialog
-          onClose={() => setDialogOpen(false)}
-        />
-      )}
     </div>
   );
 }

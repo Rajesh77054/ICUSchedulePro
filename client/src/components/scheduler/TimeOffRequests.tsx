@@ -16,17 +16,24 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { PROVIDERS } from "@/lib/constants";
 import type { TimeOffRequest } from "@/lib/types";
 
 interface TimeOffRequestDialogProps {
-  providerId: number;
   onClose: () => void;
 }
 
-function TimeOffRequestDialog({ providerId, onClose }: TimeOffRequestDialogProps) {
+function TimeOffRequestDialog({ onClose }: TimeOffRequestDialogProps) {
+  const [providerId, setProviderId] = useState<string>();
   const [startDate, setStartDate] = useState<Date>();
   const [endDate, setEndDate] = useState<Date>();
   const [calendarOpen, setCalendarOpen] = useState(false);
@@ -61,6 +68,15 @@ function TimeOffRequestDialog({ providerId, onClose }: TimeOffRequestDialogProps
   });
 
   const handleSubmit = () => {
+    if (!providerId) {
+      toast({
+        title: "Error",
+        description: "Please select a provider",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!startDate || !endDate) {
       toast({
         title: "Error",
@@ -80,7 +96,7 @@ function TimeOffRequestDialog({ providerId, onClose }: TimeOffRequestDialogProps
     }
 
     createRequest({
-      providerId,
+      providerId: parseInt(providerId),
       startDate: format(startDate, "yyyy-MM-dd"),
       endDate: format(endDate, "yyyy-MM-dd"),
       status: "pending",
@@ -93,10 +109,25 @@ function TimeOffRequestDialog({ providerId, onClose }: TimeOffRequestDialogProps
         <DialogHeader>
           <DialogTitle>Request Time Off</DialogTitle>
           <DialogDescription>
-            Select the date range for your time off request.
+            Select the provider and date range for your time off request.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
+          <div className="grid gap-2">
+            <label className="text-sm font-medium">Provider</label>
+            <Select value={providerId} onValueChange={setProviderId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select provider" />
+              </SelectTrigger>
+              <SelectContent>
+                {PROVIDERS.map((provider) => (
+                  <SelectItem key={provider.id} value={provider.id.toString()}>
+                    {provider.name}, {provider.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <div className="grid gap-2">
             <div className="flex items-center gap-2">
               <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
@@ -167,11 +198,22 @@ function TimeOffRequestDialog({ providerId, onClose }: TimeOffRequestDialogProps
 
 export function TimeOffRequests() {
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedProvider, setSelectedProvider] = useState<string>();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const { data: requests = [], isLoading } = useQuery<TimeOffRequest[]>({
-    queryKey: ["/api/time-off-requests"],
+    queryKey: ["/api/time-off-requests", selectedProvider],
+    queryFn: async ({ queryKey }) => {
+      const [_, providerId] = queryKey;
+      const url = new URL("/api/time-off-requests", window.location.origin);
+      if (providerId) {
+        url.searchParams.append("providerId", providerId);
+      }
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Failed to fetch time-off requests");
+      return res.json();
+    },
   });
 
   const { mutate: cancelRequest } = useMutation({
@@ -221,7 +263,22 @@ export function TimeOffRequests() {
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h2 className="text-lg font-semibold">Time Off Requests</h2>
-        <Button onClick={() => setDialogOpen(true)}>New Request</Button>
+        <div className="flex items-center gap-4">
+          <Select value={selectedProvider} onValueChange={setSelectedProvider}>
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder="Filter by provider" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">All Providers</SelectItem>
+              {PROVIDERS.map((provider) => (
+                <SelectItem key={provider.id} value={provider.id.toString()}>
+                  {provider.name}, {provider.title}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button onClick={() => setDialogOpen(true)}>New Request</Button>
+        </div>
       </div>
 
       <div className="grid gap-4">
@@ -270,7 +327,6 @@ export function TimeOffRequests() {
 
       {dialogOpen && (
         <TimeOffRequestDialog
-          providerId={1} // TODO: Replace with actual logged-in provider ID
           onClose={() => setDialogOpen(false)}
         />
       )}

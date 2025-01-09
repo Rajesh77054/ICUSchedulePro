@@ -28,7 +28,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { AlertCircle, InfoIcon } from "lucide-react";
+import { AlertCircle, Info, X } from "lucide-react";
 
 interface ShiftSwapProps {
   shift: Shift;
@@ -37,6 +37,7 @@ interface ShiftSwapProps {
 
 export function ShiftSwap({ shift, onClose }: ShiftSwapProps) {
   const [recipientId, setRecipientId] = useState<string>();
+  const [existingRequest, setExistingRequest] = useState<any>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -46,18 +47,22 @@ export function ShiftSwap({ shift, onClose }: ShiftSwapProps) {
 
   const recommendations = getSwapRecommendations(shift, shifts);
 
-  const { mutate: requestSwap, isLoading, error } = useMutation({
+  const { mutate: requestSwap, isLoading } = useMutation({
     mutationFn: async (data: Partial<SwapRequest>) => {
       const res = await fetch("/api/swap-requests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
+
+      const responseData = await res.json();
       if (!res.ok) {
-        const error = await res.text();
-        throw new Error(error || "Failed to request swap");
+        if (responseData.existingRequest) {
+          setExistingRequest(responseData.existingRequest);
+        }
+        throw new Error(responseData.message || "Failed to request swap");
       }
-      return res.json();
+      return responseData;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/shifts"] });
@@ -65,6 +70,38 @@ export function ShiftSwap({ shift, onClose }: ShiftSwapProps) {
         title: "Success",
         description: "Shift swap requested successfully. The recipient will be notified.",
       });
+      onClose();
+    },
+    onError: (error: Error) => {
+      if (!existingRequest) {
+        toast({
+          title: "Error",
+          description: error.message,
+          variant: "destructive",
+        });
+      }
+    },
+  });
+
+  const { mutate: cancelSwap, isLoading: isCancelling } = useMutation({
+    mutationFn: async (requestId: number) => {
+      const res = await fetch(`/api/swap-requests/${requestId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const error = await res.text();
+        throw new Error(error || "Failed to cancel swap request");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/shifts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/swap-requests"] });
+      toast({
+        title: "Success",
+        description: "Swap request cancelled successfully",
+      });
+      setExistingRequest(null);
       onClose();
     },
     onError: (error: Error) => {
@@ -92,9 +129,62 @@ export function ShiftSwap({ shift, onClose }: ShiftSwapProps) {
     });
   };
 
+  const handleCancelRequest = () => {
+    if (existingRequest) {
+      cancelSwap(existingRequest.id);
+    }
+  };
+
   const getProviderRecommendation = (providerId: number) => {
     return recommendations.find(r => r.providerId === providerId);
   };
+
+  if (existingRequest) {
+    return (
+      <Dialog open={true} onOpenChange={onClose}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Existing Swap Request</DialogTitle>
+            <DialogDescription>
+              There is already a pending swap request for this shift.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="p-4 border rounded-lg">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">Requestor:</span>
+                  <span>{existingRequest.requestor.name}, {existingRequest.requestor.title}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">Recipient:</span>
+                  <span>{existingRequest.recipient.name}, {existingRequest.recipient.title}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">Shift Period:</span>
+                  <span>
+                    {format(new Date(existingRequest.shift.startDate), 'MMM d, yyyy')} - {format(new Date(existingRequest.shift.endDate), 'MMM d, yyyy')}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="destructive"
+                onClick={handleCancelRequest}
+                disabled={isCancelling}
+              >
+                <X className="h-4 w-4 mr-2" />
+                {isCancelling ? "Cancelling..." : "Cancel Request"}
+              </Button>
+              <Button variant="outline" onClick={onClose}>Close</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
@@ -106,13 +196,6 @@ export function ShiftSwap({ shift, onClose }: ShiftSwapProps) {
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
-          {error && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error.message}</AlertDescription>
-            </Alert>
-          )}
-
           <div className="grid gap-2">
             <p className="text-sm font-medium">Shift Period</p>
             <p className="text-sm text-muted-foreground">
@@ -125,7 +208,7 @@ export function ShiftSwap({ shift, onClose }: ShiftSwapProps) {
               <label className="text-sm font-medium">Swap with Provider</label>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <InfoIcon className="h-4 w-4 text-muted-foreground" />
+                  <Info className="h-4 w-4 text-muted-foreground" />
                 </TooltipTrigger>
                 <TooltipContent>
                   <p className="text-sm">Providers are ranked based on workload balance, schedule compatibility, and policy compliance</p>

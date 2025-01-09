@@ -197,7 +197,22 @@ export function registerRoutes(app: Express): Server {
         );
 
       if (existingRequest.length > 0) {
-        res.status(400).json({ message: "A pending swap request already exists for this shift" });
+        // Get provider and shift details for the existing request
+        const [[requestor], [recipient], [shift]] = await Promise.all([
+          db.select().from(providers).where(eq(providers.id, existingRequest[0].requestorId)),
+          db.select().from(providers).where(eq(providers.id, existingRequest[0].recipientId)),
+          db.select().from(shifts).where(eq(shifts.id, existingRequest[0].shiftId))
+        ]);
+
+        res.status(400).json({ 
+          message: "A pending swap request already exists for this shift",
+          existingRequest: {
+            ...existingRequest[0],
+            requestor,
+            recipient,
+            shift
+          }
+        });
         return;
       }
 
@@ -220,7 +235,7 @@ export function registerRoutes(app: Express): Server {
           shift[0],
           requestor[0],
           recipient[0],
-          result[0].id // Include the swap request ID
+          result[0].id
         ));
       }
 
@@ -228,6 +243,58 @@ export function registerRoutes(app: Express): Server {
     } catch (error: any) {
       res.status(500).json({
         message: "Failed to create swap request",
+        error: error.message
+      });
+    }
+  });
+
+  app.delete("/api/swap-requests/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      // Get the request details before deletion
+      const request = await db.select()
+        .from(swapRequests)
+        .where(eq(swapRequests.id, parseInt(id)))
+        .limit(1);
+
+      if (!request.length) {
+        res.status(404).json({ message: "Swap request not found" });
+        return;
+      }
+
+      if (request[0].status !== 'pending') {
+        res.status(400).json({ message: "Only pending requests can be cancelled" });
+        return;
+      }
+
+      // Delete the request
+      await db.delete(swapRequests)
+        .where(eq(swapRequests.id, parseInt(id)));
+
+      // Get provider info for notification
+      const [requestor, recipient, shift] = await Promise.all([
+        db.select().from(providers).where(eq(providers.id, request[0].requestorId)).limit(1),
+        db.select().from(providers).where(eq(providers.id, request[0].recipientId)).limit(1),
+        db.select().from(shifts).where(eq(shifts.id, request[0].shiftId)).limit(1),
+      ]);
+
+      if (requestor.length && recipient.length && shift.length) {
+        broadcast({
+          type: 'shift_swap_cancelled',
+          data: {
+            shift: shift[0],
+            requestor: requestor[0],
+            recipient: recipient[0],
+          },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      res.json({ message: "Swap request cancelled successfully" });
+    } catch (error: any) {
+      res.status(500).json({
+        message: "Failed to cancel swap request",
         error: error.message
       });
     }

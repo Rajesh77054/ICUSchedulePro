@@ -7,6 +7,13 @@ import interactionPlugin from '@fullcalendar/interaction';
 import listPlugin from '@fullcalendar/list';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format, parseISO } from "date-fns";
 import { PROVIDERS, HOLIDAYS_2024_2025 } from "@/lib/constants";
@@ -119,7 +126,7 @@ function ShiftDetails({ shift, onClose, onSwapRequest, onDelete }: ShiftDetailsP
 
 export function Calendar() {
   const [date, setDate] = useState<Date>(new Date());
-  const [view, setView] = useState<CalendarView>('dayGridWeek');
+  const [view, setView] = useState<CalendarView>('dayGridMonth');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedDates, setSelectedDates] = useState<{ start: Date; end: Date }>();
   const [activeConflicts, setActiveConflicts] = useState<{
@@ -450,38 +457,17 @@ export function Calendar() {
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handleViewChange('dayGridWeek')}
-            className={view === 'dayGridWeek' ? 'bg-primary text-primary-foreground' : ''}
-          >
-            Week
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handleViewChange('dayGridMonth')}
-            className={view === 'dayGridMonth' ? 'bg-primary text-primary-foreground' : ''}
-          >
-            Month
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handleViewChange('multiMonth')}
-            className={view === 'multiMonth' ? 'bg-primary text-primary-foreground' : ''}
-          >
-            Year
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handleViewChange('listWeek')}
-            className={view === 'listWeek' ? 'bg-primary text-primary-foreground' : ''}
-          >
-            List
-          </Button>
+          <Select value={view} onValueChange={handleViewChange}>
+            <SelectTrigger className="w-[140px]">
+              <SelectValue placeholder="Select view" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="dayGridWeek">Week</SelectItem>
+              <SelectItem value="dayGridMonth">Month</SelectItem>
+              <SelectItem value="multiMonth">Year</SelectItem>
+              <SelectItem value="listWeek">List</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </CardHeader>
       <CardContent>

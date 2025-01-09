@@ -3,11 +3,12 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Calendar, Clock } from "lucide-react";
 import { Link } from "wouter";
 import { PROVIDERS } from "@/lib/constants";
-import type { Shift } from "@/lib/types";
+import type { Shift, TimeOffRequest } from "@/lib/types";
 import { format, isAfter, isBefore, startOfWeek, endOfWeek } from "date-fns";
+import { Badge } from "@/components/ui/badge";
 
 export function PersonalDashboard() {
   const { id } = useParams<{ id: string }>();
@@ -16,6 +17,18 @@ export function PersonalDashboard() {
 
   const { data: shifts } = useQuery<Shift[]>({
     queryKey: ["/api/shifts"],
+  });
+
+  const { data: timeOffRequests } = useQuery<TimeOffRequest[]>({
+    queryKey: ["/api/time-off-requests", providerId],
+    queryFn: async ({ queryKey }) => {
+      const [_, providerId] = queryKey;
+      const url = new URL("/api/time-off-requests", window.location.origin);
+      url.searchParams.append("providerId", providerId.toString());
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Failed to fetch time-off requests");
+      return res.json();
+    },
   });
 
   if (!provider) {
@@ -37,7 +50,7 @@ export function PersonalDashboard() {
   }
 
   const providerShifts = shifts?.filter(s => s.providerId === providerId) || [];
-  
+
   // Calculate total days worked
   const totalDays = providerShifts.reduce((acc, shift) => {
     const start = new Date(shift.startDate);
@@ -62,6 +75,44 @@ export function PersonalDashboard() {
     isAfter(new Date(shift.endDate), thisWeekStart) && 
     isBefore(new Date(shift.startDate), thisWeekEnd)
   );
+
+  // Get pending time-off requests
+  const pendingTimeOff = timeOffRequests?.filter(req => req.status === 'pending') || [];
+
+  // Get upcoming approved time-off
+  const upcomingTimeOff = timeOffRequests
+    ?.filter(req => 
+      req.status === 'approved' && 
+      isAfter(new Date(req.endDate), new Date())
+    )
+    .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
+    .slice(0, 5) || [];
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return (
+          <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
+            <Clock className="w-3 h-3 mr-1" />
+            Pending
+          </Badge>
+        );
+      case 'approved':
+        return (
+          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+            Approved
+          </Badge>
+        );
+      case 'rejected':
+        return (
+          <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
+            Rejected
+          </Badge>
+        );
+      default:
+        return null;
+    }
+  };
 
   return (
     <div className="container mx-auto py-6 space-y-6">
@@ -131,6 +182,64 @@ export function PersonalDashboard() {
                 <p className="text-sm text-muted-foreground">No shifts this week</p>
               )}
             </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Time Off Requests</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {pendingTimeOff.length > 0 ? (
+              <div className="space-y-4">
+                {pendingTimeOff.map(request => (
+                  <div
+                    key={request.id}
+                    className="flex items-center justify-between p-3 rounded-lg border"
+                  >
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        {getStatusBadge(request.status)}
+                      </div>
+                      <p className="text-sm">
+                        {format(new Date(request.startDate), 'MMM d, yyyy')} - {format(new Date(request.endDate), 'MMM d, yyyy')}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-muted-foreground">No pending time-off requests</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Upcoming Time Off</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {upcomingTimeOff.length > 0 ? (
+              <div className="space-y-4">
+                {upcomingTimeOff.map(timeOff => (
+                  <div
+                    key={timeOff.id}
+                    className="flex items-center justify-between p-3 rounded-lg border"
+                  >
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        {getStatusBadge(timeOff.status)}
+                      </div>
+                      <p className="text-sm">
+                        {format(new Date(timeOff.startDate), 'MMM d, yyyy')} - {format(new Date(timeOff.endDate), 'MMM d, yyyy')}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-muted-foreground">No upcoming approved time-off</p>
+            )}
           </CardContent>
         </Card>
 

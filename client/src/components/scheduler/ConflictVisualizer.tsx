@@ -21,11 +21,11 @@ export function ConflictVisualizer({ shift, conflicts }: ConflictVisualizerProps
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -10 }}
-        className="absolute top-0 left-0 right-0 p-2 bg-destructive/90 text-destructive-foreground rounded-t-md"
+        className="absolute top-12 left-0 right-0 mx-4 z-50 bg-destructive shadow-lg rounded-md border border-destructive-foreground/20"
       >
-        <div className="flex items-start gap-2">
-          <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-          <div className="space-y-1 text-sm">
+        <div className="flex items-start gap-2 p-4">
+          <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0 text-destructive-foreground" />
+          <div className="space-y-1 text-sm text-destructive-foreground">
             {conflicts.map((conflict, i) => (
               <motion.p
                 key={i}

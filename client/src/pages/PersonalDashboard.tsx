@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, Calendar, Clock } from "lucide-react";
+import { ArrowLeft, Calendar, Clock, Sliders } from "lucide-react";
 import { Link } from "wouter";
 import { PROVIDERS } from "@/lib/constants";
 import type { Shift, TimeOffRequest } from "@/lib/types";
@@ -71,8 +71,8 @@ export function PersonalDashboard() {
   // Calculate weekly stats
   const thisWeekStart = startOfWeek(new Date());
   const thisWeekEnd = endOfWeek(new Date());
-  const thisWeekShifts = providerShifts.filter(shift => 
-    isAfter(new Date(shift.endDate), thisWeekStart) && 
+  const thisWeekShifts = providerShifts.filter(shift =>
+    isAfter(new Date(shift.endDate), thisWeekStart) &&
     isBefore(new Date(shift.startDate), thisWeekEnd)
   );
 
@@ -81,8 +81,8 @@ export function PersonalDashboard() {
 
   // Get upcoming approved time-off
   const upcomingTimeOff = timeOffRequests
-    ?.filter(req => 
-      req.status === 'approved' && 
+    ?.filter(req =>
+      req.status === 'approved' &&
       isAfter(new Date(req.endDate), new Date())
     )
     .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
@@ -123,12 +123,20 @@ export function PersonalDashboard() {
           </h1>
           <p className="text-muted-foreground">Personal Schedule Dashboard</p>
         </div>
-        <Link href="/">
-          <Button variant="outline">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Dashboard
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href={`/preferences?provider=${provider.id}`}>
+            <Button variant="outline">
+              <Sliders className="mr-2 h-4 w-4" />
+              Shift Preferences
+            </Button>
+          </Link>
+          <Link href="/">
+            <Button variant="outline">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Dashboard
+            </Button>
+          </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

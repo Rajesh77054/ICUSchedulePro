@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import {
@@ -46,9 +47,19 @@ interface ProviderPreference {
 }
 
 export function ShiftPreferences() {
+  const [location] = useLocation();
   const [selectedProvider, setSelectedProvider] = useState<string>();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Parse provider ID from URL query parameter
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const providerId = params.get('provider');
+    if (providerId) {
+      setSelectedProvider(providerId);
+    }
+  }, []);
 
   const { data: preferences, isLoading } = useQuery<ProviderPreference[]>({
     queryKey: ["/api/provider-preferences", selectedProvider],

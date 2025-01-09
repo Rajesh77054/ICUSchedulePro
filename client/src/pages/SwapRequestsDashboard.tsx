@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Card,
   CardContent,
@@ -23,6 +23,7 @@ import {
   X,
   Filter,
   RefreshCcw,
+  Calendar,
 } from "lucide-react";
 import { Link } from "wouter";
 import {
@@ -31,6 +32,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useToast } from "@/hooks/use-toast";
 
 interface SwapRequest {
   id: number;
@@ -59,9 +62,40 @@ interface SwapRequest {
 export function SwapRequestsDashboard() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [providerFilter, setProviderFilter] = useState<string>("all");
+  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
 
-  const { data: requests, isLoading } = useQuery<SwapRequest[]>({
+  const { data: requests, isLoading, refetch } = useQuery<SwapRequest[]>({
     queryKey: ["/api/swap-requests"],
+  });
+
+  const { mutate: cancelRequest, isLoading: isCancelling } = useMutation({
+    mutationFn: async (requestId: number) => {
+      const res = await fetch(`/api/swap-requests/${requestId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const error = await res.text();
+        throw new Error(error || "Failed to cancel request");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/swap-requests"] });
+      toast({
+        title: "Success",
+        description: "Swap request cancelled successfully",
+      });
+    },
+    onError: (error: Error) => {
+      setError(error.message);
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
   });
 
   const filteredRequests = requests?.filter(request => {
@@ -100,6 +134,12 @@ export function SwapRequestsDashboard() {
     }
   };
 
+  const handleCancelRequest = (requestId: number) => {
+    if (confirm("Are you sure you want to cancel this swap request?")) {
+      cancelRequest(requestId);
+    }
+  };
+
   return (
     <div className="container mx-auto py-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -117,17 +157,28 @@ export function SwapRequestsDashboard() {
         </Link>
       </div>
 
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>Filters</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <Filter className="h-5 w-5" />
+              Filters
+            </CardTitle>
             <Button
               variant="ghost"
               size="icon"
               onClick={() => {
                 setStatusFilter("all");
                 setProviderFilter("all");
+                refetch();
               }}
+              title="Reset filters and refresh"
             >
               <RefreshCcw className="h-4 w-4" />
             </Button>
@@ -222,10 +273,22 @@ export function SwapRequestsDashboard() {
                           </span>
                         </div>
                       </div>
-                      <p className="text-sm text-muted-foreground mt-2">
+                      <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
+                        <Calendar className="h-4 w-4" />
                         Shift period: {format(new Date(request.shift.startDate), "MMM d, yyyy")} - {format(new Date(request.shift.endDate), "MMM d, yyyy")}
-                      </p>
+                      </div>
                     </div>
+                    {request.status === "pending" && (
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => handleCancelRequest(request.id)}
+                        disabled={isCancelling}
+                      >
+                        <X className="h-4 w-4 mr-1" />
+                        {isCancelling ? "Cancelling..." : "Cancel Request"}
+                      </Button>
+                    )}
                   </div>
                 </div>
               ))}

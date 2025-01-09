@@ -5,6 +5,7 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import multiMonthPlugin from '@fullcalendar/multimonth';
 import interactionPlugin from '@fullcalendar/interaction';
 import listPlugin from '@fullcalendar/list';
+import googleCalendarPlugin from '@fullcalendar/google-calendar';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,7 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { format, parseISO } from "date-fns";
+import { format } from "date-fns";
 import { PROVIDERS, HOLIDAYS_2024_2025 } from "@/lib/constants";
 import type { Shift } from "@/lib/types";
 import { ShiftDialog } from "./ShiftDialog";
@@ -427,6 +428,19 @@ export function Calendar() {
     return false;
   };
 
+  const googleCalendarConfig = {
+    googleCalendarApiKey: import.meta.env.VITE_GOOGLE_CALENDAR_API_KEY,
+    eventSources: [
+      {
+        // Example: ICU Department's shared calendar
+        googleCalendarId: 'primary',
+        className: 'google-calendar-events',
+        color: 'rgba(63, 81, 181, 0.5)', // Light blue with transparency
+        editable: false, // Google Calendar events shouldn't be editable in our app
+      }
+    ]
+  };
+
   return (
     <Card className="h-full">
       <CardHeader className="flex flex-col space-y-4 md:flex-row md:items-center md:justify-between md:space-y-0 pb-2">
@@ -474,7 +488,7 @@ export function Calendar() {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="h-[calc(100vh-16rem)] md:h-[600px] relative [&_.fc]:h-full [&_.fc-toolbar-title]:text-base [&_.fc-col-header-cell-cushion]:text-sm [&_.fc-daygrid-day-number]:text-sm [&_.fc-multimonth-title]:font-medium [&_.fc-multimonth-title]:!py-2 [&_.fc-multimonth-title]:!px-4 [&_.fc-multimonth-title]:!text-base [&_.fc-multimonth]:gap-6 [&_.fc-event]:min-h-[2rem] [&_.fc-event-title]:p-1 [&_.fc-list-event-title]:py-2 [&_.fc-list-event-time]:min-w-[120px]">
+        <div className="h-[calc(100vh-16rem)] md:h-[600px] relative [&_.fc]:h-full [&_.fc-toolbar-title]:text-base [&_.fc-col-header-cell-cushion]:text-sm [&_.fc-daygrid-day-number]:text-sm [&_.fc-multimonth-title]:font-medium [&_.fc-multimonth-title]:!py-2 [&_.fc-multimonth-title]:!px-4 [&_.fc-multimonth-title]:!text-base [&_.fc-multimonth]:gap-6 [&_.fc-event]:min-h-[2rem] [&_.fc-event-title]:p-1 [&_.fc-list-event-title]:py-2 [&_.fc-list-event-time]:min-w-[120px] [&_.google-calendar-events]:opacity-75">
           {activeConflicts && (
             <ConflictVisualizer
               shift={activeConflicts.shift}
@@ -483,7 +497,13 @@ export function Calendar() {
           )}
           <FullCalendar
             ref={calendarRef}
-            plugins={[dayGridPlugin, multiMonthPlugin, interactionPlugin, listPlugin]}
+            plugins={[
+              dayGridPlugin,
+              multiMonthPlugin,
+              interactionPlugin,
+              listPlugin,
+              googleCalendarPlugin
+            ]}
             initialView={view}
             headerToolbar={{
               left: '',
@@ -494,8 +514,10 @@ export function Calendar() {
             eventSources={[
               {
                 events: backgroundEvents,
-              }
+              },
+              ...(import.meta.env.VITE_GOOGLE_CALENDAR_API_KEY ? googleCalendarConfig.eventSources : [])
             ]}
+            googleCalendarApiKey={googleCalendarConfig.googleCalendarApiKey}
             initialDate={date}
             weekends={true}
             firstDay={0}

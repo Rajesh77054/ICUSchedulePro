@@ -460,10 +460,6 @@ export function Calendar() {
               events={calendarEvents}
               eventSources={[
                 {
-                  events: calendarEvents,
-                  color: undefined, // Use individual event colors
-                },
-                {
                   events: backgroundEvents,
                 }
               ]}

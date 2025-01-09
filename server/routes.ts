@@ -654,5 +654,51 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  app.patch("/api/provider-preferences/:providerId", async (req, res) => {
+    try {
+      const { providerId } = req.params;
+      const {
+        preferredShiftLength,
+        maxShiftsPerWeek,
+        minDaysBetweenShifts,
+        preferredDaysOfWeek,
+        avoidedDaysOfWeek,
+        preferredCoworkers,
+      } = req.body;
+
+      // Validate provider exists
+      const provider = await db.select()
+        .from(providers)
+        .where(eq(providers.id, parseInt(providerId)))
+        .limit(1);
+
+      if (!provider.length) {
+        res.status(404).json({ message: "Provider not found" });
+        return;
+      }
+
+      // Update preferences
+      const result = await db.update(providerPreferences)
+        .set({
+          preferredShiftLength,
+          maxShiftsPerWeek,
+          minDaysBetweenShifts,
+          preferredDaysOfWeek,
+          avoidedDaysOfWeek,
+          preferredCoworkers,
+          updatedAt: new Date(),
+        })
+        .where(eq(providerPreferences.providerId, parseInt(providerId)))
+        .returning();
+
+      res.json(result[0]);
+    } catch (error: any) {
+      res.status(500).json({
+        message: "Failed to update provider preferences",
+        error: error.message
+      });
+    }
+  });
+
   return httpServer;
 }

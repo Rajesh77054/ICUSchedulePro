@@ -5,7 +5,6 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import multiMonthPlugin from '@fullcalendar/multimonth';
 import interactionPlugin from '@fullcalendar/interaction';
 import listPlugin from '@fullcalendar/list';
-import googleCalendarPlugin from '@fullcalendar/google-calendar';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -381,18 +380,6 @@ export function Calendar() {
     return false;
   };
 
-  const googleCalendarConfig = {
-    googleCalendarApiKey: import.meta.env.VITE_GOOGLE_CALENDAR_API_KEY,
-    eventSources: [
-      {
-        googleCalendarId: 'primary',
-        className: 'google-calendar-events',
-        color: 'rgba(63, 81, 181, 0.5)',
-        editable: false,
-      }
-    ]
-  };
-
   if (isLoading) {
     return (
       <Card className="h-full">
@@ -467,18 +454,19 @@ export function Calendar() {
                 multiMonthPlugin,
                 interactionPlugin,
                 listPlugin,
-                googleCalendarPlugin
               ]}
               initialView={view}
               headerToolbar={false}
               events={calendarEvents}
               eventSources={[
                 {
-                  events: backgroundEvents,
+                  events: calendarEvents,
+                  color: undefined, // Use individual event colors
                 },
-                ...(import.meta.env.VITE_GOOGLE_CALENDAR_API_KEY ? googleCalendarConfig.eventSources : [])
+                {
+                  events: backgroundEvents,
+                }
               ]}
-              googleCalendarApiKey={googleCalendarConfig.googleCalendarApiKey}
               initialDate={date}
               weekends={true}
               firstDay={0}

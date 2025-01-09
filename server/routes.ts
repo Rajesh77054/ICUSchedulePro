@@ -226,6 +226,49 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  app.get("/api/swap-requests", async (req, res) => {
+    try {
+      const { providerId } = req.query;
+      let query = db.select().from(swapRequests);
+
+      if (providerId) {
+        query = query.where(
+          or(
+            eq(swapRequests.requestorId, parseInt(providerId as string)),
+            eq(swapRequests.recipientId, parseInt(providerId as string))
+          )
+        );
+      }
+
+      const requests = await query;
+
+      // Get provider and shift details for each request
+      const enrichedRequests = await Promise.all(
+        requests.map(async (request) => {
+          const [[requestor], [recipient], [shift]] = await Promise.all([
+            db.select().from(providers).where(eq(providers.id, request.requestorId)),
+            db.select().from(providers).where(eq(providers.id, request.recipientId)),
+            db.select().from(shifts).where(eq(shifts.id, request.shiftId))
+          ]);
+
+          return {
+            ...request,
+            requestor,
+            recipient,
+            shift
+          };
+        })
+      );
+
+      res.json(enrichedRequests);
+    } catch (error: any) {
+      res.status(500).json({
+        message: "Failed to fetch swap requests",
+        error: error.message
+      });
+    }
+  });
+
   app.post("/api/swap-requests", async (req, res) => {
     try {
       const { requestorId, recipientId, shiftId } = req.body;
@@ -324,64 +367,13 @@ export function registerRoutes(app: Express): Server {
       ]);
 
       if (requestor.length && recipient.length && shift.length) {
-        broadcast({
-          type: 'shift_swap_cancelled',
-          data: {
-            shift: shift[0],
-            requestor: requestor[0],
-            recipient: recipient[0],
-          },
-          timestamp: new Date().toISOString(),
-        });
+        broadcast(notify.shiftSwapCancelled(shift[0], requestor[0], recipient[0]));
       }
 
       res.json({ message: "Swap request cancelled successfully" });
     } catch (error: any) {
       res.status(500).json({
         message: "Failed to cancel swap request",
-        error: error.message
-      });
-    }
-  });
-
-  app.get("/api/swap-requests", async (req, res) => {
-    try {
-      const { providerId } = req.query;
-      let query = db.select().from(swapRequests);
-
-      if (providerId) {
-        query = query.where(
-          or(
-            eq(swapRequests.requestorId, parseInt(providerId as string)),
-            eq(swapRequests.recipientId, parseInt(providerId as string))
-          )
-        );
-      }
-
-      const requests = await query;
-
-      // Get provider and shift details for each request
-      const enrichedRequests = await Promise.all(
-        requests.map(async (request) => {
-          const [[requestor], [recipient], [shift]] = await Promise.all([
-            db.select().from(providers).where(eq(providers.id, request.requestorId)),
-            db.select().from(providers).where(eq(providers.id, request.recipientId)),
-            db.select().from(shifts).where(eq(shifts.id, request.shiftId))
-          ]);
-
-          return {
-            ...request,
-            requestor,
-            recipient,
-            shift
-          };
-        })
-      );
-
-      res.json(enrichedRequests);
-    } catch (error: any) {
-      res.status(500).json({
-        message: "Failed to fetch swap requests",
         error: error.message
       });
     }
@@ -543,14 +535,7 @@ export function registerRoutes(app: Express): Server {
         .returning();
 
       // Broadcast notification
-      broadcast({
-        type: 'time_off_requested',
-        data: {
-          request: result[0],
-          provider: provider[0]
-        },
-        timestamp: new Date().toISOString()
-      });
+      broadcast(notify.timeOffRequested(result[0], provider[0]));
 
       res.json(result[0]);
     } catch (error: any) {
@@ -594,14 +579,7 @@ export function registerRoutes(app: Express): Server {
         .limit(1);
 
       if (provider.length) {
-        broadcast({
-          type: 'time_off_' + status,
-          data: {
-            request: result[0],
-            provider: provider[0]
-          },
-          timestamp: new Date().toISOString()
-        });
+        broadcast(notify.timeOffResponded(result[0], provider[0], status));
       }
 
       res.json(result[0]);
@@ -644,14 +622,7 @@ export function registerRoutes(app: Express): Server {
         .limit(1);
 
       if (provider.length) {
-        broadcast({
-          type: 'time_off_cancelled',
-          data: {
-            request: request[0],
-            provider: provider[0]
-          },
-          timestamp: new Date().toISOString()
-        });
+        broadcast(notify.timeOffCancelled(request[0], provider[0]));
       }
 
       res.json({ message: "Time-off request cancelled successfully" });
@@ -663,7 +634,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // New endpoint for provider preferences
+  // Provider preferences endpoint
   app.get("/api/provider-preferences", async (req, res) => {
     try {
       const { providerId } = req.query;

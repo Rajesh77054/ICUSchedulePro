@@ -20,7 +20,7 @@ const initializeProviders = async () => {
     {
       id: 2,
       name: "Joseph Brading",
-      title: "MD", 
+      title: "MD",
       targetDays: 170,
       maxConsecutiveWeeks: 2,
       color: "hsl(160, 75%, 40%)",
@@ -34,7 +34,7 @@ const initializeProviders = async () => {
       color: "hsl(350, 75%, 50%)",
     },
     {
-      id: 4, 
+      id: 4,
       name: "Anthony Zachria",
       title: "DO",
       targetDays: 28,
@@ -127,9 +127,9 @@ export function registerRoutes(app: Express): Server {
         .limit(1);
 
       if (!provider.length) {
-        res.status(400).json({ 
+        res.status(400).json({
           message: "Invalid provider ID",
-          error: "Provider not found" 
+          error: "Provider not found"
         });
         return;
       }
@@ -146,9 +146,9 @@ export function registerRoutes(app: Express): Server {
 
       res.json(result[0]);
     } catch (error: any) {
-      res.status(500).json({ 
+      res.status(500).json({
         message: "Failed to create shift",
-        error: error.message 
+        error: error.message
       });
     }
   });
@@ -183,9 +183,9 @@ export function registerRoutes(app: Express): Server {
 
       res.json(result[0]);
     } catch (error: any) {
-      res.status(500).json({ 
+      res.status(500).json({
         message: "Failed to update shift",
-        error: error.message 
+        error: error.message
       });
     }
   });
@@ -248,7 +248,7 @@ export function registerRoutes(app: Express): Server {
           db.select().from(shifts).where(eq(shifts.id, existingRequest[0].shiftId))
         ]);
 
-        res.status(400).json({ 
+        res.status(400).json({
           message: "A pending swap request already exists for this shift",
           existingRequest: {
             ...existingRequest[0],
@@ -442,7 +442,7 @@ export function registerRoutes(app: Express): Server {
 
         // Update the shift
         await db.update(shifts)
-          .set({ 
+          .set({
             providerId: request.recipientId,
             status: 'swapped'
           })
@@ -564,15 +564,21 @@ export function registerRoutes(app: Express): Server {
   app.patch("/api/time-off-requests/:id", async (req, res) => {
     try {
       const { id } = req.params;
-      const { status } = req.body;
+      const { status, reason } = req.body;
 
       if (!['approved', 'rejected'].includes(status)) {
         res.status(400).json({ message: "Invalid status" });
         return;
       }
 
+      // Create update data
+      const updateData: any = { status };
+      if (status === 'rejected' && reason) {
+        updateData.reason = reason;
+      }
+
       const result = await db.update(timeOffRequests)
-        .set({ status })
+        .set(updateData)
         .where(eq(timeOffRequests.id, parseInt(id)))
         .returning();
 

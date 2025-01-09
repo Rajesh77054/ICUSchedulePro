@@ -74,6 +74,7 @@ export const timeOffRequests = pgTable("time_off_requests", {
   startDate: date("start_date").notNull(),
   endDate: date("end_date").notNull(),
   status: text("status").notNull().default('pending'), // pending, approved, rejected
+  reason: text("reason"), // Rejection reason if status is 'rejected'
   createdAt: timestamp("created_at").defaultNow(),
 });
 

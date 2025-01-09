@@ -10,6 +10,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { PROVIDERS } from "@/lib/constants";
@@ -17,6 +26,8 @@ import type { TimeOffRequest } from "@/lib/types";
 
 export function TimeOffAdmin() {
   const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
+  const [rejectionReason, setRejectionReason] = useState("");
+  const [selectedRequest, setSelectedRequest] = useState<TimeOffRequest | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -34,12 +45,12 @@ export function TimeOffAdmin() {
     },
   });
 
-  const { mutate: updateRequestStatus, isLoading: isUpdating } = useMutation({
-    mutationFn: async ({ id, status }: { id: number; status: 'approved' | 'rejected' }) => {
+  const { mutate: updateRequestStatus } = useMutation({
+    mutationFn: async ({ id, status, reason }: { id: number; status: 'approved' | 'rejected'; reason?: string }) => {
       const res = await fetch(`/api/time-off-requests/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({ status, reason }),
       });
       if (!res.ok) throw new Error("Failed to update request status");
       return res.json();
@@ -50,6 +61,8 @@ export function TimeOffAdmin() {
         title: "Success",
         description: "Request status updated successfully",
       });
+      setSelectedRequest(null);
+      setRejectionReason("");
     },
     onError: (error: Error) => {
       toast({
@@ -59,6 +72,25 @@ export function TimeOffAdmin() {
       });
     },
   });
+
+  const handleReject = () => {
+    if (!selectedRequest) return;
+
+    if (!rejectionReason.trim()) {
+      toast({
+        title: "Error",
+        description: "Please provide a reason for rejection",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    updateRequestStatus({
+      id: selectedRequest.id,
+      status: 'rejected',
+      reason: rejectionReason.trim(),
+    });
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -140,7 +172,6 @@ export function TimeOffAdmin() {
                           size="sm"
                           className="text-green-600 hover:text-green-700"
                           onClick={() => updateRequestStatus({ id: request.id, status: 'approved' })}
-                          disabled={isUpdating}
                         >
                           <Check className="h-4 w-4 mr-1" />
                           Approve
@@ -149,8 +180,7 @@ export function TimeOffAdmin() {
                           variant="outline"
                           size="sm"
                           className="text-red-600 hover:text-red-700"
-                          onClick={() => updateRequestStatus({ id: request.id, status: 'rejected' })}
-                          disabled={isUpdating}
+                          onClick={() => setSelectedRequest(request)}
                         >
                           <X className="h-4 w-4 mr-1" />
                           Reject
@@ -193,6 +223,11 @@ export function TimeOffAdmin() {
                         >
                           {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
                         </span>
+                        {request.status === 'rejected' && request.reason && (
+                          <p className="text-sm text-red-600 mt-1">
+                            Reason: {request.reason}
+                          </p>
+                        )}
                       </div>
                     </div>
                   );
@@ -202,6 +237,35 @@ export function TimeOffAdmin() {
           </div>
         </div>
       </div>
+
+      {/* Rejection Reason Dialog */}
+      <Dialog open={!!selectedRequest} onOpenChange={() => setSelectedRequest(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reject Time Off Request</DialogTitle>
+            <DialogDescription>
+              Please provide a reason for rejecting this time off request.
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            placeholder="Enter rejection reason..."
+            value={rejectionReason}
+            onChange={(e) => setRejectionReason(e.target.value)}
+            className="min-h-[100px]"
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSelectedRequest(null)}>
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive"
+              onClick={handleReject}
+            >
+              Reject Request
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -14,6 +14,8 @@ export interface Shift {
   startDate: string;
   endDate: string;
   status: 'confirmed' | 'pending_swap' | 'swapped';
+  satisfactionScore?: number;
+  schedulingNotes?: any;
 }
 
 export interface SwapRequest {
@@ -22,6 +24,7 @@ export interface SwapRequest {
   recipientId: number;
   shiftId: number;
   status: 'pending' | 'accepted' | 'rejected';
+  reason?: string;
   createdAt: string;
 }
 

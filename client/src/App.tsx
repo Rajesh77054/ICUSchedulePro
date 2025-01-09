@@ -2,6 +2,7 @@ import { Switch, Route } from "wouter";
 import { Dashboard } from "@/pages/Dashboard";
 import { PersonalDashboard } from "@/pages/PersonalDashboard";
 import { SwapRequestsDashboard } from "@/pages/SwapRequestsDashboard";
+import { TimeOffRequests } from "@/components/scheduler/TimeOffRequests";
 import { AlertCircle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -13,6 +14,7 @@ function App() {
         <Route path="/" component={Dashboard} />
         <Route path="/provider/:id" component={PersonalDashboard} />
         <Route path="/swap-requests" component={SwapRequestsDashboard} />
+        <Route path="/time-off" component={TimeOffRequests} />
         <Route component={NotFound} />
       </Switch>
     </TooltipProvider>

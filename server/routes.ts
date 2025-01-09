@@ -474,6 +474,189 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Time off request endpoints
+  app.get("/api/time-off-requests", async (req, res) => {
+    try {
+      const { providerId } = req.query;
+      let query = db.select().from(timeOffRequests);
+
+      if (providerId) {
+        query = query.where(eq(timeOffRequests.providerId, parseInt(providerId as string)));
+      }
+
+      const requests = await query;
+      res.json(requests);
+    } catch (error: any) {
+      res.status(500).json({
+        message: "Failed to fetch time-off requests",
+        error: error.message
+      });
+    }
+  });
+
+  app.post("/api/time-off-requests", async (req, res) => {
+    try {
+      const { providerId, startDate, endDate } = req.body;
+
+      // Validate provider exists
+      const provider = await db.select()
+        .from(providers)
+        .where(eq(providers.id, providerId))
+        .limit(1);
+
+      if (!provider.length) {
+        res.status(400).json({ message: "Invalid provider ID" });
+        return;
+      }
+
+      // Check for overlapping requests
+      const overlapping = await db.select()
+        .from(timeOffRequests)
+        .where(
+          and(
+            eq(timeOffRequests.providerId, providerId),
+            or(
+              and(
+                lte(timeOffRequests.startDate, startDate),
+                gte(timeOffRequests.endDate, startDate)
+              ),
+              and(
+                lte(timeOffRequests.startDate, endDate),
+                gte(timeOffRequests.endDate, endDate)
+              )
+            )
+          )
+        );
+
+      if (overlapping.length > 0) {
+        res.status(400).json({ message: "Overlapping time-off request exists" });
+        return;
+      }
+
+      const result = await db.insert(timeOffRequests)
+        .values({
+          providerId,
+          startDate,
+          endDate,
+          status: 'pending'
+        })
+        .returning();
+
+      // Broadcast notification
+      broadcast({
+        type: 'time_off_requested',
+        data: {
+          request: result[0],
+          provider: provider[0]
+        },
+        timestamp: new Date().toISOString()
+      });
+
+      res.json(result[0]);
+    } catch (error: any) {
+      res.status(500).json({
+        message: "Failed to create time-off request",
+        error: error.message
+      });
+    }
+  });
+
+  app.patch("/api/time-off-requests/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { status } = req.body;
+
+      if (!['approved', 'rejected'].includes(status)) {
+        res.status(400).json({ message: "Invalid status" });
+        return;
+      }
+
+      const result = await db.update(timeOffRequests)
+        .set({ status })
+        .where(eq(timeOffRequests.id, parseInt(id)))
+        .returning();
+
+      if (result.length === 0) {
+        res.status(404).json({ message: "Time-off request not found" });
+        return;
+      }
+
+      // Get provider info for notification
+      const provider = await db.select()
+        .from(providers)
+        .where(eq(providers.id, result[0].providerId))
+        .limit(1);
+
+      if (provider.length) {
+        broadcast({
+          type: 'time_off_' + status,
+          data: {
+            request: result[0],
+            provider: provider[0]
+          },
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      res.json(result[0]);
+    } catch (error: any) {
+      res.status(500).json({
+        message: "Failed to update time-off request",
+        error: error.message
+      });
+    }
+  });
+
+  app.delete("/api/time-off-requests/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      // Get request details before deletion
+      const request = await db.select()
+        .from(timeOffRequests)
+        .where(eq(timeOffRequests.id, parseInt(id)))
+        .limit(1);
+
+      if (!request.length) {
+        res.status(404).json({ message: "Time-off request not found" });
+        return;
+      }
+
+      if (request[0].status !== 'pending') {
+        res.status(400).json({ message: "Only pending requests can be cancelled" });
+        return;
+      }
+
+      // Delete the request
+      await db.delete(timeOffRequests)
+        .where(eq(timeOffRequests.id, parseInt(id)));
+
+      // Get provider info for notification
+      const provider = await db.select()
+        .from(providers)
+        .where(eq(providers.id, request[0].providerId))
+        .limit(1);
+
+      if (provider.length) {
+        broadcast({
+          type: 'time_off_cancelled',
+          data: {
+            request: request[0],
+            provider: provider[0]
+          },
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      res.json({ message: "Time-off request cancelled successfully" });
+    } catch (error: any) {
+      res.status(500).json({
+        message: "Failed to cancel time-off request",
+        error: error.message
+      });
+    }
+  });
+
   // New endpoint for provider preferences
   app.get("/api/provider-preferences", async (req, res) => {
     try {

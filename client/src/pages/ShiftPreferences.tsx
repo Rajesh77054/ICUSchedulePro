@@ -73,6 +73,8 @@ export function ShiftPreferences() {
         title: "Success",
         description: "Shift preferences updated successfully",
       });
+      // Reset provider selection after successful update
+      setSelectedProvider(undefined);
     },
     onError: (error: Error) => {
       toast({

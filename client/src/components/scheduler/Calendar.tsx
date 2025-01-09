@@ -4,6 +4,7 @@ import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import multiMonthPlugin from '@fullcalendar/multimonth';
 import interactionPlugin from '@fullcalendar/interaction';
+import listPlugin from '@fullcalendar/list';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -29,7 +30,7 @@ import {
 import { ShiftSwap } from "./ShiftSwap";
 import { OverlappingShiftsDialog } from "./OverlappingShiftsDialog";
 
-type CalendarView = 'dayGridWeek' | 'dayGridMonth' | 'multiMonth';
+type CalendarView = 'dayGridWeek' | 'dayGridMonth' | 'multiMonth' | 'listWeek';
 
 interface ShiftDetailsProps {
   shift: Shift;
@@ -473,6 +474,14 @@ export function Calendar() {
           >
             Year
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleViewChange('listWeek')}
+            className={view === 'listWeek' ? 'bg-primary text-primary-foreground' : ''}
+          >
+            List
+          </Button>
         </div>
       </CardHeader>
       <CardContent>
@@ -485,7 +494,7 @@ export function Calendar() {
           )}
           <FullCalendar
             ref={calendarRef}
-            plugins={[dayGridPlugin, multiMonthPlugin, interactionPlugin]}
+            plugins={[dayGridPlugin, multiMonthPlugin, interactionPlugin, listPlugin]}
             initialView={view}
             headerToolbar={{
               left: '',
@@ -536,6 +545,11 @@ export function Calendar() {
                 multiMonthMaxColumns: 3,
                 multiMonthMinWidth: 350,
                 showNonCurrentDates: false
+              },
+              listWeek: {
+                titleFormat: { year: 'numeric', month: 'long' },
+                duration: { weeks: 1 },
+                noEventsContent: 'No shifts scheduled'
               }
             }}
             datesSet={(dateInfo) => {

@@ -128,6 +128,7 @@ function ShiftDetails({ shift, onClose, onSwapRequest, onDelete }: ShiftDetailsP
 export function Calendar() {
   const [date, setDate] = useState<Date>(new Date());
   const [view, setView] = useState<CalendarView>('dayGridMonth');
+  const [viewTitle, setViewTitle] = useState<string>("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedDates, setSelectedDates] = useState<{ start: Date; end: Date }>();
   const [activeConflicts, setActiveConflicts] = useState<{
@@ -245,6 +246,7 @@ export function Calendar() {
     if (calendar) {
       calendar.getApi().changeView(newView);
       setView(newView);
+      // Title will be updated via datesSet callback
     }
   };
 
@@ -407,7 +409,7 @@ export function Calendar() {
     <Card className="h-full">
       <CardHeader className="flex flex-col space-y-4 md:flex-row md:items-center md:justify-between md:space-y-0 pb-2">
         <div className="flex items-center space-x-4">
-          <CardTitle className="text-lg md:text-xl font-bold">ICU Schedule</CardTitle>
+          <CardTitle className="text-lg md:text-xl font-bold">{viewTitle}</CardTitle>
         </div>
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 md:gap-2">
           <div className="flex items-center justify-center gap-2">
@@ -520,6 +522,7 @@ export function Calendar() {
               datesSet={(dateInfo) => {
                 setDate(dateInfo.view.currentStart);
                 setView(dateInfo.view.type as CalendarView);
+                setViewTitle(dateInfo.view.title);
               }}
             />
           </div>

@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -14,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { PROVIDERS } from "@/lib/constants";
 import type { Shift, SwapRequest } from "@/lib/types";
@@ -26,7 +28,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { InfoIcon } from "lucide-react";
+import { AlertCircle, InfoIcon } from "lucide-react";
 
 interface ShiftSwapProps {
   shift: Shift;
@@ -38,13 +40,13 @@ export function ShiftSwap({ shift, onClose }: ShiftSwapProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: shifts = [] } = useQuery<Shift[]>({
+  const { data: shifts = [], isLoading: isLoadingShifts } = useQuery<Shift[]>({
     queryKey: ["/api/shifts"],
   });
 
   const recommendations = getSwapRecommendations(shift, shifts);
 
-  const { mutate: requestSwap, isLoading } = useMutation({
+  const { mutate: requestSwap, isLoading, error } = useMutation({
     mutationFn: async (data: Partial<SwapRequest>) => {
       const res = await fetch("/api/swap-requests", {
         method: "POST",
@@ -61,7 +63,7 @@ export function ShiftSwap({ shift, onClose }: ShiftSwapProps) {
       queryClient.invalidateQueries({ queryKey: ["/api/shifts"] });
       toast({
         title: "Success",
-        description: "Shift swap requested successfully",
+        description: "Shift swap requested successfully. The recipient will be notified.",
       });
       onClose();
     },
@@ -75,7 +77,14 @@ export function ShiftSwap({ shift, onClose }: ShiftSwapProps) {
   });
 
   const handleSwapRequest = () => {
-    if (!recipientId) return;
+    if (!recipientId) {
+      toast({
+        title: "Error",
+        description: "Please select a provider to swap with",
+        variant: "destructive",
+      });
+      return;
+    }
     requestSwap({
       shiftId: shift.id,
       requestorId: shift.providerId,
@@ -92,14 +101,25 @@ export function ShiftSwap({ shift, onClose }: ShiftSwapProps) {
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Request Shift Swap</DialogTitle>
+          <DialogDescription>
+            Select a provider to swap shifts with. Providers are ranked based on workload balance and schedule compatibility.
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
+          {error && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error.message}</AlertDescription>
+            </Alert>
+          )}
+
           <div className="grid gap-2">
             <p className="text-sm font-medium">Shift Period</p>
             <p className="text-sm text-muted-foreground">
               {format(new Date(shift.startDate), 'MMM d, yyyy')} - {format(new Date(shift.endDate), 'MMM d, yyyy')}
             </p>
           </div>
+
           <div className="grid gap-2">
             <div className="flex items-center gap-2">
               <label className="text-sm font-medium">Swap with Provider</label>
@@ -112,42 +132,48 @@ export function ShiftSwap({ shift, onClose }: ShiftSwapProps) {
                 </TooltipContent>
               </Tooltip>
             </div>
-            <Select value={recipientId} onValueChange={setRecipientId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select provider" />
-              </SelectTrigger>
-              <SelectContent>
-                {PROVIDERS.filter(p => p.id !== shift.providerId).map(provider => {
-                  const recommendation = getProviderRecommendation(provider.id);
-                  return (
-                    <SelectItem key={provider.id} value={provider.id.toString()}>
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center justify-between">
-                          <span>{provider.name}, {provider.title}</span>
-                          <span className="text-xs text-muted-foreground">
-                            Score: {recommendation?.score || 0}%
-                          </span>
-                        </div>
-                        <Progress 
-                          value={recommendation?.score || 0} 
-                          className="h-1"
-                          style={{
-                            backgroundColor: `${provider.color}40`,
-                            "--progress-background": provider.color,
-                          } as any}
-                        />
-                        {recommendation?.reasons && (
-                          <div className="text-xs text-muted-foreground mt-1">
-                            {recommendation.reasons.join(" • ")}
+
+            {isLoadingShifts ? (
+              <div className="text-sm text-muted-foreground">Loading providers...</div>
+            ) : (
+              <Select value={recipientId} onValueChange={setRecipientId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select provider" />
+                </SelectTrigger>
+                <SelectContent>
+                  {PROVIDERS.filter(p => p.id !== shift.providerId).map(provider => {
+                    const recommendation = getProviderRecommendation(provider.id);
+                    return (
+                      <SelectItem key={provider.id} value={provider.id.toString()}>
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center justify-between">
+                            <span>{provider.name}, {provider.title}</span>
+                            <span className="text-xs text-muted-foreground">
+                              Score: {recommendation?.score || 0}%
+                            </span>
                           </div>
-                        )}
-                      </div>
-                    </SelectItem>
-                  );
-                })}
-              </SelectContent>
-            </Select>
+                          <Progress 
+                            value={recommendation?.score || 0} 
+                            className="h-1"
+                            style={{
+                              backgroundColor: `${provider.color}40`,
+                              "--progress-background": provider.color,
+                            } as any}
+                          />
+                          {recommendation?.reasons && (
+                            <div className="text-xs text-muted-foreground mt-1">
+                              {recommendation.reasons.join(" • ")}
+                            </div>
+                          )}
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            )}
           </div>
+
           <Button 
             onClick={handleSwapRequest} 
             disabled={!recipientId || isLoading} 

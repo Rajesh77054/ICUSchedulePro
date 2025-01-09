@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Bell, X, Check } from "lucide-react";
+import { Bell, X, Check, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -10,6 +10,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { format } from "date-fns";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -28,11 +29,12 @@ export function Notifications() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [open, setOpen] = useState(false);
   const [hasNew, setHasNew] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   // Fetch existing swap requests
-  const { data: swapRequests } = useQuery({
+  const { data: swapRequests, isLoading } = useQuery({
     queryKey: ['/api/swap-requests'],
     queryFn: async () => {
       const res = await fetch('/api/swap-requests');
@@ -41,8 +43,9 @@ export function Notifications() {
     }
   });
 
-  const { mutate: respondToSwap } = useMutation({
+  const { mutate: respondToSwap, isLoading: isResponding } = useMutation({
     mutationFn: async ({ requestId, status }: { requestId: number; status: 'accepted' | 'rejected' }) => {
+      setError(null);
       const res = await fetch(`/api/swap-requests/${requestId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -54,15 +57,23 @@ export function Notifications() {
       }
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['/api/shifts'] });
       queryClient.invalidateQueries({ queryKey: ['/api/swap-requests'] });
       toast({
         title: 'Success',
-        description: 'Response sent successfully',
+        description: `Successfully ${variables.status} the shift swap request.`,
       });
+      // Remove the notification for this request
+      setNotifications(prev => 
+        prev.filter(n => 
+          n.type !== 'shift_swap_requested' || 
+          n.data.requestId !== variables.requestId
+        )
+      );
     },
     onError: (error: Error) => {
+      setError(error.message);
       toast({
         title: 'Error',
         description: error.message,
@@ -131,7 +142,7 @@ export function Notifications() {
       case 'shift_updated':
         return `${notification.provider?.name} updated their shift to ${format(new Date(notification.data.startDate), 'MMM d, yyyy')} - ${format(new Date(notification.data.endDate), 'MMM d, yyyy')}`;
       case 'shift_swap_requested':
-        return `${notification.data.requestor.name} requested to swap shift with ${notification.data.recipient.name}`;
+        return `${notification.data.requestor.name} requested to swap shift with ${notification.data.recipient.name} (${format(new Date(notification.data.shift.startDate), 'MMM d')} - ${format(new Date(notification.data.shift.endDate), 'MMM d')})`;
       case 'shift_swap_responded':
         return `${notification.data.recipient.name} ${notification.data.status} your shift swap request`;
       default:
@@ -142,7 +153,6 @@ export function Notifications() {
   const renderActions = (notification: Notification) => {
     if (notification.type === 'shift_swap_requested') {
       const swapRequest = notification.data;
-      // Only show actions for the recipient
       if (!swapRequest || !swapRequest.requestId) return null;
 
       return (
@@ -153,9 +163,10 @@ export function Notifications() {
               requestId: swapRequest.requestId,
               status: 'accepted'
             })}
+            disabled={isResponding}
           >
             <Check className="h-4 w-4 mr-1" />
-            Accept
+            {isResponding ? 'Processing...' : 'Accept'}
           </Button>
           <Button
             size="sm"
@@ -164,9 +175,10 @@ export function Notifications() {
               requestId: swapRequest.requestId,
               status: 'rejected'
             })}
+            disabled={isResponding}
           >
             <X className="h-4 w-4 mr-1" />
-            Decline
+            {isResponding ? 'Processing...' : 'Decline'}
           </Button>
         </div>
       );
@@ -177,7 +189,10 @@ export function Notifications() {
   return (
     <Sheet open={open} onOpenChange={(isOpen) => {
       setOpen(isOpen);
-      if (isOpen) setHasNew(false);
+      if (isOpen) {
+        setHasNew(false);
+        setError(null);
+      }
     }}>
       <SheetTrigger asChild>
         <Button 
@@ -199,25 +214,43 @@ export function Notifications() {
         <SheetHeader>
           <SheetTitle>Notifications</SheetTitle>
         </SheetHeader>
+
         <ScrollArea className="h-[calc(100vh-5rem)] mt-4">
-          <AnimatePresence mode="popLayout">
-            {notifications.map((notification, i) => (
-              <motion.div
-                key={`${notification.type}-${notification.timestamp}`}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 20 }}
-                transition={{ delay: i * 0.1 }}
-                className="p-4 border-b"
-              >
-                <p className="text-sm">{getMessage(notification)}</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {format(new Date(notification.timestamp), 'MMM d, h:mm a')}
-                </p>
-                {renderActions(notification)}
-              </motion.div>
-            ))}
-          </AnimatePresence>
+          {error && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+
+          {isLoading ? (
+            <div className="p-4 text-center text-muted-foreground">
+              Loading notifications...
+            </div>
+          ) : notifications.length === 0 ? (
+            <div className="p-4 text-center text-muted-foreground">
+              No notifications to display
+            </div>
+          ) : (
+            <AnimatePresence mode="popLayout">
+              {notifications.map((notification, i) => (
+                <motion.div
+                  key={`${notification.type}-${notification.timestamp}`}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  transition={{ delay: i * 0.1 }}
+                  className="p-4 border-b"
+                >
+                  <p className="text-sm">{getMessage(notification)}</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {format(new Date(notification.timestamp), 'MMM d, h:mm a')}
+                  </p>
+                  {renderActions(notification)}
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          )}
         </ScrollArea>
       </SheetContent>
     </Sheet>

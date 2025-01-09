@@ -29,6 +29,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { AlertCircle, Info, X } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
+import type { TimeOffRequest, Holiday } from "@/lib/types";
 
 interface ShiftSwapProps {
   shift: Shift;
@@ -45,7 +47,25 @@ export function ShiftSwap({ shift, onClose }: ShiftSwapProps) {
     queryKey: ["/api/shifts"],
   });
 
-  const recommendations = getSwapRecommendations(shift, shifts);
+  const { data: timeOffRequests = [] } = useQuery<TimeOffRequest[]>({
+    queryKey: ["/api/time-off-requests"],
+  });
+
+  const { data: holidays = [] } = useQuery<Holiday[]>({
+    queryKey: ["/api/holidays"],
+  });
+
+  const { data: swapHistory = [] } = useQuery({
+    queryKey: ["/api/swap-requests"],
+  });
+
+  const recommendations = getSwapRecommendations(
+    shift,
+    shifts,
+    timeOffRequests,
+    holidays,
+    swapHistory
+  );
 
   const { mutate: requestSwap, isLoading } = useMutation({
     mutationFn: async (data: Partial<SwapRequest>) => {
@@ -246,6 +266,12 @@ export function ShiftSwap({ shift, onClose }: ShiftSwapProps) {
                           {recommendation?.reasons && (
                             <div className="text-xs text-muted-foreground mt-1">
                               {recommendation.reasons.join(" • ")}
+                            </div>
+                          )}
+                          {recommendation?.warnings && recommendation.warnings.length > 0 && (
+                            <div className="flex items-center gap-1 text-xs text-yellow-600 mt-1">
+                              <AlertTriangle className="h-3 w-3" />
+                              <span>{recommendation.warnings.join(" • ")}</span>
                             </div>
                           )}
                         </div>

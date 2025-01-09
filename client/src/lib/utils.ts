@@ -1,8 +1,8 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
-import type { Shift } from "./types"
+import type { Shift, TimeOffRequest, Holiday } from "./types"
 import { PROVIDERS } from "./constants"
-import { isWithinInterval, addDays, startOfWeek, endOfWeek, isSameWeek, isBefore, isAfter } from "date-fns"
+import { isWithinInterval, addDays, startOfWeek, endOfWeek, isSameWeek, isBefore, isAfter, isWithinRange, differenceInDays } from "date-fns"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -113,9 +113,32 @@ interface SwapRecommendation {
   providerId: number;
   score: number;
   reasons: string[];
+  warnings: string[];
 }
 
-export function getSwapRecommendations(shift: Shift, allShifts: Shift[]): SwapRecommendation[] {
+interface RecommendationFactors {
+  workloadBalance: number;
+  scheduleCompatibility: number;
+  policyCompliance: number;
+  timeOffConflicts: number;
+  historicalPatterns: number;
+}
+
+const FACTOR_WEIGHTS = {
+  workloadBalance: 0.35,
+  scheduleCompatibility: 0.25,
+  policyCompliance: 0.2,
+  timeOffConflicts: 0.15,
+  historicalPatterns: 0.05,
+};
+
+export function getSwapRecommendations(
+  shift: Shift,
+  allShifts: Shift[],
+  timeOffRequests: TimeOffRequest[] = [],
+  holidays: Holiday[] = [],
+  swapHistory: any[] = []
+): SwapRecommendation[] {
   const recommendations: SwapRecommendation[] = [];
   const shiftStart = new Date(shift.startDate);
   const shiftEnd = new Date(shift.endDate);
@@ -132,28 +155,38 @@ export function getSwapRecommendations(shift: Shift, allShifts: Shift[]): SwapRe
   PROVIDERS.forEach(provider => {
     if (provider.id === shift.providerId) return;
 
-    let score = 0;
+    const factors: RecommendationFactors = {
+      workloadBalance: 0,
+      scheduleCompatibility: 0,
+      policyCompliance: 0,
+      timeOffConflicts: 0,
+      historicalPatterns: 0,
+    };
+
     const reasons: string[] = [];
+    const warnings: string[] = [];
     const providerShifts = allShifts.filter(s => s.providerId === provider.id);
 
-    // Calculate total days worked
+    // Factor 1: Workload Balance (35%)
     const totalDays = providerShifts.reduce((acc, s) => {
       const start = new Date(s.startDate);
       const end = new Date(s.endDate);
       return acc + Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
     }, 0);
 
-    // Factor 1: Workload Balance
     const currentDaysFromTarget = Math.abs(totalDays - provider.targetDays);
     const potentialDaysFromTarget = Math.abs((totalDays + shiftDays) - provider.targetDays);
 
     if (potentialDaysFromTarget < currentDaysFromTarget) {
-      score += 30;
+      factors.workloadBalance = 1;
       reasons.push("Improves workload balance");
+    } else if (potentialDaysFromTarget <= provider.tolerance!) {
+      factors.workloadBalance = 0.5;
+      reasons.push("Within acceptable workload range");
     }
 
-    // Factor 2: Schedule Compatibility
-    let hasConflict = false;
+    // Factor 2: Schedule Compatibility (25%)
+    let hasScheduleConflict = false;
     providerShifts.forEach(existingShift => {
       const existingStart = new Date(existingShift.startDate);
       const existingEnd = new Date(existingShift.endDate);
@@ -162,16 +195,19 @@ export function getSwapRecommendations(shift: Shift, allShifts: Shift[]): SwapRe
         isBefore(shiftStart, existingEnd) && 
         isAfter(shiftEnd, existingStart)
       ) {
-        hasConflict = true;
+        hasScheduleConflict = true;
       }
     });
 
-    if (!hasConflict) {
-      score += 25;
+    if (!hasScheduleConflict) {
+      factors.scheduleCompatibility = 1;
       reasons.push("No schedule conflicts");
     }
 
-    // Factor 3: Maximum Consecutive Weeks
+    // Factor 3: Policy Compliance (20%)
+    let policyScore = 1;
+
+    // Check consecutive weeks
     if (provider.maxConsecutiveWeeks) {
       let consecutiveCount = 1;
       let lastWeekStart = startOfWeek(shiftStart);
@@ -188,25 +224,76 @@ export function getSwapRecommendations(shift: Shift, allShifts: Shift[]): SwapRe
         }
       });
 
-      if (consecutiveCount <= provider.maxConsecutiveWeeks) {
-        score += 20;
-        reasons.push("Within consecutive weeks limit");
+      if (consecutiveCount > provider.maxConsecutiveWeeks) {
+        policyScore = 0;
+        warnings.push(`Exceeds maximum ${provider.maxConsecutiveWeeks} consecutive weeks`);
+      } else if (consecutiveCount === provider.maxConsecutiveWeeks) {
+        policyScore = 0.5;
+        warnings.push("Close to consecutive weeks limit");
       }
     }
 
-    // Factor 4: Tolerance Buffer
-    if (provider.tolerance) {
-      const withinTolerance = Math.abs((totalDays + shiftDays) - provider.targetDays) <= provider.tolerance;
-      if (withinTolerance) {
-        score += 15;
-        reasons.push("Within target days tolerance");
-      }
+    factors.policyCompliance = policyScore;
+    if (policyScore === 1) {
+      reasons.push("Complies with all policies");
     }
+
+    // Factor 4: Time Off Conflicts (15%)
+    const relevantTimeOff = timeOffRequests.filter(request => 
+      request.providerId === provider.id &&
+      request.status === 'approved' &&
+      isWithinInterval(shiftStart, {
+        start: new Date(request.startDate),
+        end: new Date(request.endDate)
+      }) ||
+      isWithinInterval(shiftEnd, {
+        start: new Date(request.startDate),
+        end: new Date(request.endDate)
+      })
+    );
+
+    const relevantHolidays = holidays.filter(holiday =>
+      holiday.providerId === provider.id &&
+      isWithinInterval(new Date(holiday.date), {
+        start: shiftStart,
+        end: shiftEnd
+      })
+    );
+
+    if (relevantTimeOff.length === 0 && relevantHolidays.length === 0) {
+      factors.timeOffConflicts = 1;
+      reasons.push("No time-off conflicts");
+    } else {
+      warnings.push("Conflicts with time-off or holidays");
+    }
+
+    // Factor 5: Historical Patterns (5%)
+    const recentSwaps = swapHistory.filter(swap => 
+      swap.requestorId === provider.id || 
+      swap.recipientId === provider.id
+    ).length;
+
+    factors.historicalPatterns = Math.max(0, 1 - (recentSwaps * 0.2));
+    if (factors.historicalPatterns > 0.8) {
+      reasons.push("Good swap history");
+    } else if (recentSwaps > 3) {
+      warnings.push("High recent swap activity");
+    }
+
+    // Calculate final weighted score
+    const score = Math.round(
+      (factors.workloadBalance * FACTOR_WEIGHTS.workloadBalance +
+      factors.scheduleCompatibility * FACTOR_WEIGHTS.scheduleCompatibility +
+      factors.policyCompliance * FACTOR_WEIGHTS.policyCompliance +
+      factors.timeOffConflicts * FACTOR_WEIGHTS.timeOffConflicts +
+      factors.historicalPatterns * FACTOR_WEIGHTS.historicalPatterns) * 100
+    );
 
     recommendations.push({
       providerId: provider.id,
       score,
-      reasons
+      reasons,
+      warnings
     });
   });
 

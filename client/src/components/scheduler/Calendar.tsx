@@ -141,10 +141,8 @@ export function Calendar() {
   const [swapShift, setSwapShift] = useState<Shift | null>(null);
   const [overlappingShifts, setOverlappingShifts] = useState<Shift[]>([]);
   const [overlappingShiftsOpen, setOverlappingShiftsOpen] = useState(false);
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [shiftToDelete, setShiftToDelete] = useState<Shift | null>(null);
 
-  const { data: shifts } = useQuery<Shift[]>({
+  const { data: shifts, isLoading } = useQuery<Shift[]>({
     queryKey: ["/api/shifts", view, date],
   });
 
@@ -172,7 +170,6 @@ export function Calendar() {
         description: error.message,
         variant: "destructive",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/shifts"] });
     },
   });
 
@@ -190,8 +187,6 @@ export function Calendar() {
         title: "Success",
         description: "Shift deleted successfully",
       });
-      setDeleteConfirmOpen(false);
-      setShiftToDelete(null);
     },
     onError: (error) => {
       toast({
@@ -268,7 +263,6 @@ export function Calendar() {
       return;
     }
 
-    // If there's an active conflict, clear it and revert
     if (activeConflicts) {
       setActiveConflicts(null);
       dropInfo.revert();
@@ -281,7 +275,6 @@ export function Calendar() {
       endDate: format(dropInfo.event.end || dropInfo.event.start, 'yyyy-MM-dd'),
     };
 
-    // Check for conflicts with other shifts, excluding the current shift
     const conflicts = detectShiftConflicts(updatedShift, (shifts || []).filter(s => s.id !== shift.id));
     if (conflicts.length > 0) {
       setActiveConflicts({ shift: updatedShift, conflicts });
@@ -305,17 +298,8 @@ export function Calendar() {
       return;
     }
 
-    // If there's an active conflict, clear it and revert
     if (activeConflicts) {
       setActiveConflicts(null);
-      resizeInfo.revert();
-      return;
-    }
-
-    if (
-      format(resizeInfo.event.start, 'yyyy-MM-dd') === shift.startDate &&
-      format(resizeInfo.event.end, 'yyyy-MM-dd') === shift.endDate
-    ) {
       resizeInfo.revert();
       return;
     }
@@ -326,7 +310,6 @@ export function Calendar() {
       endDate: format(resizeInfo.event.end || resizeInfo.event.start, 'yyyy-MM-dd'),
     };
 
-    // Check for conflicts with other shifts, excluding the current shift
     const conflicts = detectShiftConflicts(updatedShift, (shifts || []).filter(s => s.id !== shift.id));
     if (conflicts.length > 0) {
       setActiveConflicts({ shift: updatedShift, conflicts });
@@ -360,54 +343,22 @@ export function Calendar() {
     setActiveConflicts(null);
   };
 
-  const handleDelete = (shift: Shift) => {
-    setShiftToDelete(shift);
-    setDeleteConfirmOpen(true);
-  };
-
   const renderEventContent = (eventInfo: any) => {
     const shift: Shift = eventInfo.event.extendedProps.shift;
     return (
       <ContextMenu>
-        <ContextMenuTrigger
-          className="block w-full h-full cursor-context-menu"
-          onContextMenu={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-          }}
-          onAuxClick={(e) => {
-            if (e.button === 2) {
-              e.preventDefault();
-              e.stopPropagation();
-            }
-          }}
-        >
-          <div
-            className="p-1 select-none"
-            onContextMenu={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-            }}
-            onAuxClick={(e) => {
-              if (e.button === 2) {
-                e.preventDefault();
-                e.stopPropagation();
-              }
-            }}
-          >
+        <ContextMenuTrigger className="block w-full h-full cursor-context-menu">
+          <div className="p-1 select-none">
             {eventInfo.event.title}
           </div>
         </ContextMenuTrigger>
-        <ContextMenuContent
-          className="w-48 z-50"
-          onContextMenu={(e) => e.preventDefault()}
-        >
+        <ContextMenuContent className="w-48">
           <ContextMenuItem onClick={() => setSwapShift(shift)}>
             <ArrowRightLeft className="mr-2 h-4 w-4" />
             Request Swap
           </ContextMenuItem>
           <ContextMenuItem
-            onClick={() => handleDelete(shift)}
+            onClick={() => deleteShift(shift.id)}
             className="text-destructive focus:text-destructive"
           >
             <Trash2 className="mr-2 h-4 w-4" />
@@ -432,14 +383,25 @@ export function Calendar() {
     googleCalendarApiKey: import.meta.env.VITE_GOOGLE_CALENDAR_API_KEY,
     eventSources: [
       {
-        // Example: ICU Department's shared calendar
         googleCalendarId: 'primary',
         className: 'google-calendar-events',
-        color: 'rgba(63, 81, 181, 0.5)', // Light blue with transparency
-        editable: false, // Google Calendar events shouldn't be editable in our app
+        color: 'rgba(63, 81, 181, 0.5)',
+        editable: false,
       }
     ]
   };
+
+  if (isLoading) {
+    return (
+      <Card className="h-full">
+        <CardContent className="p-6">
+          <div className="flex items-center justify-center h-[600px]">
+            <p className="text-muted-foreground">Loading calendar...</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="h-full">
@@ -487,89 +449,83 @@ export function Calendar() {
           </Select>
         </div>
       </CardHeader>
-      <CardContent>
-        <div className="h-[calc(100vh-16rem)] md:h-[600px] relative [&_.fc]:h-full [&_.fc-toolbar-title]:text-base [&_.fc-col-header-cell-cushion]:text-sm [&_.fc-daygrid-day-number]:text-sm [&_.fc-multimonth-title]:font-medium [&_.fc-multimonth-title]:!py-2 [&_.fc-multimonth-title]:!px-4 [&_.fc-multimonth-title]:!text-base [&_.fc-multimonth]:gap-6 [&_.fc-event]:min-h-[2rem] [&_.fc-event-title]:p-1 [&_.fc-list-event-title]:py-2 [&_.fc-list-event-time]:min-w-[120px] [&_.google-calendar-events]:opacity-75">
-          {activeConflicts && (
-            <ConflictVisualizer
-              shift={activeConflicts.shift}
-              conflicts={activeConflicts.conflicts}
+      <CardContent className="p-0">
+        <div className="h-[calc(100vh-16rem)] md:h-[600px] relative">
+          <div className="absolute inset-0 w-full h-full">
+            {activeConflicts && (
+              <ConflictVisualizer
+                shift={activeConflicts.shift}
+                conflicts={activeConflicts.conflicts}
+              />
+            )}
+            <FullCalendar
+              ref={calendarRef}
+              plugins={[
+                dayGridPlugin,
+                multiMonthPlugin,
+                interactionPlugin,
+                listPlugin,
+                googleCalendarPlugin
+              ]}
+              initialView={view}
+              headerToolbar={false}
+              events={calendarEvents}
+              eventSources={[
+                {
+                  events: backgroundEvents,
+                },
+                ...(import.meta.env.VITE_GOOGLE_CALENDAR_API_KEY ? googleCalendarConfig.eventSources : [])
+              ]}
+              googleCalendarApiKey={googleCalendarConfig.googleCalendarApiKey}
+              initialDate={date}
+              weekends={true}
+              firstDay={0}
+              dayMaxEvents={3}
+              navLinks={true}
+              editable={true}
+              eventStartEditable={true}
+              eventDurationEditable={true}
+              selectable={true}
+              selectMirror={true}
+              select={handleSelect}
+              eventDrop={handleEventDrop}
+              eventResize={handleEventResize}
+              eventClick={handleEventClick}
+              eventMouseEnter={handleEventMouseEnter}
+              eventMouseLeave={handleEventMouseLeave}
+              eventContent={renderEventContent}
+              moreLinkClick={handleMoreLinkClick}
+              height="100%"
+              views={{
+                dayGridWeek: {
+                  titleFormat: { year: 'numeric', month: 'long', day: 'numeric' },
+                  duration: { weeks: 1 }
+                },
+                dayGridMonth: {
+                  titleFormat: { year: 'numeric', month: 'long' }
+                },
+                multiMonth: {
+                  duration: { years: 1 },
+                  titleFormat: { year: 'numeric' },
+                  multiMonthMaxColumns: 2,
+                  multiMonthMinWidth: 300,
+                  showNonCurrentDates: false
+                },
+                listWeek: {
+                  titleFormat: { year: 'numeric', month: 'long' },
+                  duration: { weeks: 1 },
+                  noEventsContent: 'No shifts scheduled'
+                }
+              }}
+              datesSet={(dateInfo) => {
+                setDate(dateInfo.view.currentStart);
+                setView(dateInfo.view.type as CalendarView);
+              }}
             />
-          )}
-          <FullCalendar
-            ref={calendarRef}
-            plugins={[
-              dayGridPlugin,
-              multiMonthPlugin,
-              interactionPlugin,
-              listPlugin,
-              googleCalendarPlugin
-            ]}
-            initialView={view}
-            headerToolbar={{
-              left: '',
-              center: 'title',
-              right: '',
-            }}
-            events={calendarEvents}
-            eventSources={[
-              {
-                events: backgroundEvents,
-              },
-              ...(import.meta.env.VITE_GOOGLE_CALENDAR_API_KEY ? googleCalendarConfig.eventSources : [])
-            ]}
-            googleCalendarApiKey={googleCalendarConfig.googleCalendarApiKey}
-            initialDate={date}
-            weekends={true}
-            firstDay={0}
-            height="100%"
-            dayMaxEvents={3}
-            navLinks={true}
-            editable={true}
-            eventStartEditable={true}
-            eventDurationEditable={true}
-            selectable={true}
-            selectMirror={true}
-            select={handleSelect}
-            eventDrop={handleEventDrop}
-            eventResize={handleEventResize}
-            eventClick={handleEventClick}
-            eventMouseEnter={handleEventMouseEnter}
-            eventMouseLeave={handleEventMouseLeave}
-            eventContent={renderEventContent}
-            moreLinkClick={handleMoreLinkClick}
-            businessHours={{
-              dows: [0, 1, 2, 3, 4, 5, 6],
-              startTime: '07:00',
-              endTime: '19:00',
-            }}
-            views={{
-              dayGridWeek: {
-                titleFormat: { year: 'numeric', month: 'long', day: 'numeric' },
-                duration: { weeks: 1 }
-              },
-              dayGridMonth: {
-                titleFormat: { year: 'numeric', month: 'long' }
-              },
-              multiMonth: {
-                duration: { years: 1 },
-                titleFormat: { year: 'numeric' },
-                multiMonthMaxColumns: 2,
-                multiMonthMinWidth: 300,
-                showNonCurrentDates: false
-              },
-              listWeek: {
-                titleFormat: { year: 'numeric', month: 'long' },
-                duration: { weeks: 1 },
-                noEventsContent: 'No shifts scheduled'
-              }
-            }}
-            datesSet={(dateInfo) => {
-              setDate(dateInfo.view.currentStart);
-              setView(dateInfo.view.type as CalendarView);
-            }}
-          />
+          </div>
         </div>
       </CardContent>
+
       {selectedDates && (
         <ShiftDialog
           open={dialogOpen}
@@ -578,6 +534,7 @@ export function Calendar() {
           endDate={selectedDates.end}
         />
       )}
+
       {selectedShift && (
         <ShiftDetails
           shift={selectedShift}
@@ -589,12 +546,14 @@ export function Calendar() {
           }}
         />
       )}
+
       {swapShift && (
         <ShiftSwap
           shift={swapShift}
           onClose={() => setSwapShift(null)}
         />
       )}
+
       <OverlappingShiftsDialog
         open={overlappingShiftsOpen}
         onOpenChange={setOverlappingShiftsOpen}
@@ -604,36 +563,6 @@ export function Calendar() {
           setOverlappingShiftsOpen(false);
         }}
       />
-      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete Shift</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <p>Are you sure you want to delete this shift?</p>
-            <p className="text-sm text-muted-foreground">
-              This action cannot be undone.
-            </p>
-            <div className="flex justify-end space-x-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setDeleteConfirmOpen(false);
-                  setShiftToDelete(null);
-                }}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={() => shiftToDelete && deleteShift(shiftToDelete.id)}
-              >
-                Delete
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </Card>
   );
 }

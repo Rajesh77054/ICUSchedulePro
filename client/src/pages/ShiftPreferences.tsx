@@ -31,18 +31,31 @@ const DAYS_OF_WEEK = [
   { label: "Saturday", value: "6" },
 ];
 
+interface ProviderPreference {
+  id: number;
+  providerId: number;
+  preferredShiftLength: number;
+  preferredDaysOfWeek: number[];
+  preferredCoworkers: number[];
+  avoidedDaysOfWeek: number[];
+  maxShiftsPerWeek: number;
+  minDaysBetweenShifts: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export function ShiftPreferences() {
   const [selectedProvider, setSelectedProvider] = useState<string>();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: preferences, isLoading } = useQuery({
+  const { data: preferences, isLoading } = useQuery<ProviderPreference>({
     queryKey: ["/api/provider-preferences", selectedProvider],
     enabled: !!selectedProvider,
   });
 
   const { mutate: updatePreferences } = useMutation({
-    mutationFn: async (data: any) => {
+    mutationFn: async (data: Partial<ProviderPreference>) => {
       const res = await fetch(`/api/provider-preferences/${selectedProvider}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -67,11 +80,11 @@ export function ShiftPreferences() {
     },
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const form = e.target as HTMLFormElement;
+    const form = e.currentTarget;
     const formData = new FormData(form);
-    
+
     const preferredDaysOfWeek = DAYS_OF_WEEK
       .filter(day => formData.get(`preferred_${day.value}`))
       .map(day => parseInt(day.value));

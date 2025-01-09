@@ -429,16 +429,17 @@ export function Calendar() {
 
   return (
     <Card className="h-full">
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+      <CardHeader className="flex flex-col space-y-4 md:flex-row md:items-center md:justify-between md:space-y-0 pb-2">
         <div className="flex items-center space-x-4">
-          <CardTitle className="text-xl font-bold">ICU Schedule</CardTitle>
+          <CardTitle className="text-lg md:text-xl font-bold">ICU Schedule</CardTitle>
         </div>
-        <div className="flex items-center space-x-2">
-          <div className="flex items-center space-x-2 mr-4">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 md:gap-2">
+          <div className="flex items-center justify-center gap-2">
             <Button
               variant="outline"
               size="icon"
               onClick={handlePrev}
+              className="h-9 w-9 md:h-8 md:w-8"
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
@@ -446,6 +447,7 @@ export function Calendar() {
               variant="outline"
               size="sm"
               onClick={handleToday}
+              className="h-9 md:h-8"
             >
               Today
             </Button>
@@ -453,12 +455,13 @@ export function Calendar() {
               variant="outline"
               size="icon"
               onClick={handleNext}
+              className="h-9 w-9 md:h-8 md:w-8"
             >
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
           <Select value={view} onValueChange={handleViewChange}>
-            <SelectTrigger className="w-[140px]">
+            <SelectTrigger className="h-9 md:h-8 min-w-[120px] md:w-[140px]">
               <SelectValue placeholder="Select view" />
             </SelectTrigger>
             <SelectContent>
@@ -471,7 +474,7 @@ export function Calendar() {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="h-[600px] relative [&_.fc-toolbar-title]:text-base [&_.fc-col-header-cell-cushion]:text-sm [&_.fc-daygrid-day-number]:text-sm [&_.fc-multimonth-title]:font-medium [&_.fc-multimonth-title]:!py-2 [&_.fc-multimonth-title]:!px-4 [&_.fc-multimonth-title]:!text-base [&_.fc-multimonth]:gap-6">
+        <div className="h-[calc(100vh-16rem)] md:h-[600px] relative [&_.fc]:h-full [&_.fc-toolbar-title]:text-base [&_.fc-col-header-cell-cushion]:text-sm [&_.fc-daygrid-day-number]:text-sm [&_.fc-multimonth-title]:font-medium [&_.fc-multimonth-title]:!py-2 [&_.fc-multimonth-title]:!px-4 [&_.fc-multimonth-title]:!text-base [&_.fc-multimonth]:gap-6 [&_.fc-event]:min-h-[2rem] [&_.fc-event-title]:p-1 [&_.fc-list-event-title]:py-2 [&_.fc-list-event-time]:min-w-[120px]">
           {activeConflicts && (
             <ConflictVisualizer
               shift={activeConflicts.shift}
@@ -497,7 +500,7 @@ export function Calendar() {
             weekends={true}
             firstDay={0}
             height="100%"
-            dayMaxEvents={true}
+            dayMaxEvents={3}
             navLinks={true}
             editable={true}
             eventStartEditable={true}
@@ -528,8 +531,8 @@ export function Calendar() {
               multiMonth: {
                 duration: { years: 1 },
                 titleFormat: { year: 'numeric' },
-                multiMonthMaxColumns: 3,
-                multiMonthMinWidth: 350,
+                multiMonthMaxColumns: 2,
+                multiMonthMinWidth: 300,
                 showNonCurrentDates: false
               },
               listWeek: {

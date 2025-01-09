@@ -20,6 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { PROVIDERS } from "@/lib/constants";
+import { Loader2 } from "lucide-react";
 
 const DAYS_OF_WEEK = [
   { label: "Sunday", value: "0" },
@@ -49,12 +50,14 @@ export function ShiftPreferences() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: preferences, isLoading } = useQuery<ProviderPreference>({
+  const { data: preferences, isLoading } = useQuery<ProviderPreference[]>({
     queryKey: ["/api/provider-preferences", selectedProvider],
     enabled: !!selectedProvider,
   });
 
-  const { mutate: updatePreferences } = useMutation({
+  const currentPreferences = preferences?.find(p => p.providerId === parseInt(selectedProvider ?? "0"));
+
+  const { mutate: updatePreferences, isLoading: isUpdating } = useMutation({
     mutationFn: async (data: Partial<ProviderPreference>) => {
       const res = await fetch(`/api/provider-preferences/${selectedProvider}`, {
         method: "PATCH",
@@ -109,6 +112,14 @@ export function ShiftPreferences() {
     updatePreferences(data);
   };
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto py-8">
       <div className="max-w-2xl mx-auto space-y-6">
@@ -137,7 +148,7 @@ export function ShiftPreferences() {
                 </Select>
               </div>
 
-              {selectedProvider && preferences && (
+              {selectedProvider && currentPreferences && (
                 <form onSubmit={handleSubmit} className="space-y-6">
                   <div className="space-y-4">
                     <div>
@@ -145,7 +156,7 @@ export function ShiftPreferences() {
                       <Input
                         type="number"
                         name="preferredShiftLength"
-                        defaultValue={preferences.preferredShiftLength}
+                        defaultValue={currentPreferences.preferredShiftLength}
                         min={1}
                         max={14}
                       />
@@ -156,7 +167,7 @@ export function ShiftPreferences() {
                       <Input
                         type="number"
                         name="maxShiftsPerWeek"
-                        defaultValue={preferences.maxShiftsPerWeek}
+                        defaultValue={currentPreferences.maxShiftsPerWeek}
                         min={1}
                         max={7}
                       />
@@ -167,7 +178,7 @@ export function ShiftPreferences() {
                       <Input
                         type="number"
                         name="minDaysBetweenShifts"
-                        defaultValue={preferences.minDaysBetweenShifts}
+                        defaultValue={currentPreferences.minDaysBetweenShifts}
                         min={0}
                         max={30}
                       />
@@ -181,7 +192,7 @@ export function ShiftPreferences() {
                             <Checkbox
                               id={`preferred_${day.value}`}
                               name={`preferred_${day.value}`}
-                              defaultChecked={preferences.preferredDaysOfWeek.includes(
+                              defaultChecked={currentPreferences.preferredDaysOfWeek.includes(
                                 parseInt(day.value)
                               )}
                             />
@@ -199,7 +210,7 @@ export function ShiftPreferences() {
                             <Checkbox
                               id={`avoided_${day.value}`}
                               name={`avoided_${day.value}`}
-                              defaultChecked={preferences.avoidedDaysOfWeek.includes(
+                              defaultChecked={currentPreferences.avoidedDaysOfWeek.includes(
                                 parseInt(day.value)
                               )}
                             />
@@ -217,7 +228,7 @@ export function ShiftPreferences() {
                             <Checkbox
                               id={`coworker_${provider.id}`}
                               name={`coworker_${provider.id}`}
-                              defaultChecked={preferences.preferredCoworkers.includes(provider.id)}
+                              defaultChecked={currentPreferences.preferredCoworkers.includes(provider.id)}
                             />
                             <Label htmlFor={`coworker_${provider.id}`}>
                               {provider.name}, {provider.title}
@@ -228,8 +239,15 @@ export function ShiftPreferences() {
                     </div>
                   </div>
 
-                  <Button type="submit" className="w-full">
-                    Save Preferences
+                  <Button type="submit" className="w-full" disabled={isUpdating}>
+                    {isUpdating ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      "Save Preferences"
+                    )}
                   </Button>
                 </form>
               )}

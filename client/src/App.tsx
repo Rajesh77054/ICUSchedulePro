@@ -2,10 +2,11 @@ import { Switch, Route } from "wouter";
 import { Dashboard } from "@/pages/Dashboard";
 import { PersonalDashboard } from "@/pages/PersonalDashboard";
 import { SwapRequestsDashboard } from "@/pages/SwapRequestsDashboard";
+import { TimeOffRequests } from "@/components/scheduler/TimeOffRequests";
 import { TimeOffAdmin } from "@/pages/TimeOffAdmin";
 import { ShiftPreferences } from "@/pages/ShiftPreferences";
-import { Card, CardContent } from "@/components/ui/card";
 import { AlertCircle } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { BreadcrumbNavigation } from "@/components/layout/BreadcrumbNavigation";
 import { Sidebar } from "@/components/layout/Sidebar";
@@ -13,15 +14,16 @@ import { Sidebar } from "@/components/layout/Sidebar";
 function App() {
   return (
     <TooltipProvider>
-      <div className="flex min-h-screen bg-background">
+      <div className="min-h-screen bg-background">
         <Sidebar />
-        <div className="flex-1 md:ml-64">
+        <div className="md:pl-64">  {/* Add padding for sidebar */}
           <BreadcrumbNavigation />
-          <main className="p-6">
+          <main className="container mx-auto py-6">
             <Switch>
               <Route path="/" component={Dashboard} />
               <Route path="/provider/:id" component={PersonalDashboard} />
               <Route path="/swap-requests" component={SwapRequestsDashboard} />
+              <Route path="/time-off" component={TimeOffRequests} />
               <Route path="/time-off/admin" component={TimeOffAdmin} />
               <Route path="/preferences" component={ShiftPreferences} />
               <Route component={NotFound} />
@@ -35,7 +37,7 @@ function App() {
 
 function NotFound() {
   return (
-    <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
+    <div className="min-h-[calc(100vh-4rem)] w-full flex items-center justify-center">
       <Card className="w-full max-w-md mx-4">
         <CardContent className="pt-6">
           <div className="flex mb-4 gap-2">

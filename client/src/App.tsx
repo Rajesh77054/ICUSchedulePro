@@ -9,23 +9,27 @@ import { AlertCircle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { BreadcrumbNavigation } from "@/components/layout/BreadcrumbNavigation";
+import { Sidebar } from "@/components/layout/Sidebar";
 
 function App() {
   return (
     <TooltipProvider>
       <div className="min-h-screen bg-background">
-        <BreadcrumbNavigation />
-        <main className="container mx-auto py-6">
-          <Switch>
-            <Route path="/" component={Dashboard} />
-            <Route path="/provider/:id" component={PersonalDashboard} />
-            <Route path="/swap-requests" component={SwapRequestsDashboard} />
-            <Route path="/time-off" component={TimeOffRequests} />
-            <Route path="/time-off/admin" component={TimeOffAdmin} />
-            <Route path="/preferences" component={ShiftPreferences} />
-            <Route component={NotFound} />
-          </Switch>
-        </main>
+        <Sidebar />
+        <div className="md:pl-64">  {/* Add padding for sidebar */}
+          <BreadcrumbNavigation />
+          <main className="container mx-auto py-6">
+            <Switch>
+              <Route path="/" component={Dashboard} />
+              <Route path="/provider/:id" component={PersonalDashboard} />
+              <Route path="/swap-requests" component={SwapRequestsDashboard} />
+              <Route path="/time-off" component={TimeOffRequests} />
+              <Route path="/time-off/admin" component={TimeOffAdmin} />
+              <Route path="/preferences" component={ShiftPreferences} />
+              <Route component={NotFound} />
+            </Switch>
+          </main>
+        </div>
       </div>
     </TooltipProvider>
   );
@@ -33,7 +37,7 @@ function App() {
 
 function NotFound() {
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-gray-50">
+    <div className="min-h-[calc(100vh-4rem)] w-full flex items-center justify-center">
       <Card className="w-full max-w-md mx-4">
         <CardContent className="pt-6">
           <div className="flex mb-4 gap-2">

@@ -206,32 +206,6 @@ export function PersonalDashboard() {
 
         <Card className="md:col-span-2">
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Time Off</CardTitle>
-              <Button
-                variant="outline"
-                onClick={() => setShowTimeOffForm(!showTimeOffForm)}
-              >
-                {showTimeOffForm ? "Cancel" : "Request Time Off"}
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {showTimeOffForm ? (
-              <div className="mb-6">
-                <TimeOffRequestForm
-                  providerId={providerId}
-                  onSuccess={() => setShowTimeOffForm(false)}
-                  onCancel={() => setShowTimeOffForm(false)}
-                />
-              </div>
-            ) : null}
-            <TimeOffRequestList providerId={providerId} />
-          </CardContent>
-        </Card>
-
-        <Card className="md:col-span-2">
-          <CardHeader>
             <CardTitle>Upcoming Shifts</CardTitle>
           </CardHeader>
           <CardContent>
@@ -266,6 +240,32 @@ export function PersonalDashboard() {
             ) : (
               <p className="text-muted-foreground">No upcoming shifts</p>
             )}
+          </CardContent>
+        </Card>
+
+        <Card className="md:col-span-2">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>Time Off</CardTitle>
+              <Button
+                variant="outline"
+                onClick={() => setShowTimeOffForm(!showTimeOffForm)}
+              >
+                {showTimeOffForm ? "Cancel" : "Request Time Off"}
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {showTimeOffForm ? (
+              <div className="mb-6">
+                <TimeOffRequestForm
+                  providerId={providerId}
+                  onSuccess={() => setShowTimeOffForm(false)}
+                  onCancel={() => setShowTimeOffForm(false)}
+                />
+              </div>
+            ) : null}
+            <TimeOffRequestList providerId={providerId} />
           </CardContent>
         </Card>
       </div>

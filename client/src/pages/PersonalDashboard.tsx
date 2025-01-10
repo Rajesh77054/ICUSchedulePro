@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, Calendar, Clock, Sliders } from "lucide-react";
+import { ArrowLeft, Calendar, Clock, Settings } from "lucide-react";
 import { Link } from "wouter";
 import { PROVIDERS } from "@/lib/constants";
 import type { Shift, TimeOffRequest } from "@/lib/types";
@@ -11,12 +11,20 @@ import { format, isAfter, isBefore, startOfWeek, endOfWeek } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
 import { TimeOffRequestForm, TimeOffRequestList } from "@/components/scheduler/TimeOffRequests";
+import { PreferencesForm } from "@/components/scheduler/PreferencesForm";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export function PersonalDashboard() {
   const { id } = useParams<{ id: string }>();
   const providerId = parseInt(id);
   const provider = PROVIDERS.find(p => p.id === providerId);
   const [showTimeOffForm, setShowTimeOffForm] = useState(false);
+  const [showPreferences, setShowPreferences] = useState(false);
 
   const { data: shifts } = useQuery<Shift[]>({
     queryKey: ["/api/shifts"],
@@ -62,11 +70,6 @@ export function PersonalDashboard() {
   }, 0);
 
   const progress = Math.min((totalDays / provider.targetDays) * 100, 100);
-
-  const upcomingShifts = providerShifts
-    .filter(shift => isAfter(new Date(shift.endDate), new Date()))
-    .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
-    .slice(0, 5);
 
   const thisWeekStart = startOfWeek(new Date());
   const thisWeekEnd = endOfWeek(new Date());
@@ -121,14 +124,10 @@ export function PersonalDashboard() {
           <p className="text-muted-foreground">Personal Schedule Dashboard</p>
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2">
-            <Link href={`/preferences?provider=${provider.id}`}>
-              <Button variant="outline">
-                <Sliders className="mr-2 h-4 w-4" />
-                Shift Preferences
-              </Button>
-            </Link>
-          </div>
+          <Button variant="outline" onClick={() => setShowPreferences(true)}>
+            <Settings className="mr-2 h-4 w-4" />
+            Preferences
+          </Button>
           <Link href="/">
             <Button variant="outline">
               <ArrowLeft className="mr-2 h-4 w-4" />
@@ -137,6 +136,15 @@ export function PersonalDashboard() {
           </Link>
         </div>
       </div>
+
+      <Dialog open={showPreferences} onOpenChange={setShowPreferences}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Preferences</DialogTitle>
+          </DialogHeader>
+          <PreferencesForm providerId={providerId} />
+        </DialogContent>
+      </Dialog>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card>

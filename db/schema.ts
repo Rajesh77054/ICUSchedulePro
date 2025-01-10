@@ -15,6 +15,19 @@ export const providers = pgTable("providers", {
 export const providerPreferences = pgTable("provider_preferences", {
   id: serial("id").primaryKey(),
   providerId: integer("provider_id").references(() => providers.id),
+  // Calendar preferences
+  defaultView: text("default_view").notNull().default('dayGridMonth'), // dayGridMonth, dayGridWeek, listWeek
+  defaultCalendarDuration: text("default_calendar_duration").notNull().default('month'), // month, week, year
+  // Notification preferences
+  notificationPreferences: jsonb("notification_preferences").notNull().default({
+    emailNotifications: true,
+    inAppNotifications: true,
+    notifyOnNewShifts: true,
+    notifyOnSwapRequests: true,
+    notifyOnTimeOffUpdates: true,
+    notifyBeforeShift: 24, // hours before shift
+  }),
+  // Existing scheduling preferences
   preferredShiftLength: integer("preferred_shift_length").notNull(),
   preferredDaysOfWeek: jsonb("preferred_days_of_week").notNull(), // Array of preferred days (0-6)
   preferredCoworkers: jsonb("preferred_coworkers").notNull(), // Array of provider IDs

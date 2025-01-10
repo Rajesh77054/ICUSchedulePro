@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { db } from "@db";
 import { shifts, swapRequests, providers, timeOffRequests, holidays, providerPreferences, schedulingMetrics } from "@db/schema";
-import { eq, and, gte, lte, or } from "drizzle-orm";
+import { eq, and, gte, lte, or, sql } from "drizzle-orm";
 import { setupWebSocket, notify } from "./websocket";
 
 // Initialize providers if they don't exist
@@ -43,52 +43,8 @@ const initializeProviders = async () => {
     },
   ];
 
-  // Initialize default preferences for each provider
-  const defaultPreferences = [
-    {
-      providerId: 1,
-      preferredShiftLength: 7,
-      preferredDaysOfWeek: [1, 2, 3], // Mon, Tue, Wed
-      preferredCoworkers: [2, 3],
-      avoidedDaysOfWeek: [0, 6], // Sun, Sat
-      maxShiftsPerWeek: 1,
-      minDaysBetweenShifts: 14,
-    },
-    {
-      providerId: 2,
-      preferredShiftLength: 14,
-      preferredDaysOfWeek: [1, 2, 3, 4], // Mon-Thu
-      preferredCoworkers: [1, 4],
-      avoidedDaysOfWeek: [5, 6], // Fri, Sat
-      maxShiftsPerWeek: 1,
-      minDaysBetweenShifts: 7,
-    },
-    {
-      providerId: 3,
-      preferredShiftLength: 7,
-      preferredDaysOfWeek: [2, 3, 4], // Tue-Thu
-      preferredCoworkers: [1, 2],
-      avoidedDaysOfWeek: [0, 6], // Sun, Sat
-      maxShiftsPerWeek: 1,
-      minDaysBetweenShifts: 21,
-    },
-    {
-      providerId: 4,
-      preferredShiftLength: 5,
-      preferredDaysOfWeek: [1, 2, 3, 4, 5], // Mon-Fri
-      preferredCoworkers: [2],
-      avoidedDaysOfWeek: [0, 6], // Sun, Sat
-      maxShiftsPerWeek: 1,
-      minDaysBetweenShifts: 14,
-    },
-  ];
-
   for (const provider of defaultProviders) {
     await db.insert(providers).values(provider).onConflictDoNothing();
-  }
-
-  for (const pref of defaultPreferences) {
-    await db.insert(providerPreferences).values(pref).onConflictDoNothing();
   }
 };
 
@@ -100,20 +56,27 @@ export function registerRoutes(app: Express): Server {
   const { broadcast } = setupWebSocket(httpServer);
 
   app.get("/api/shifts", async (req, res) => {
-    const { start, end } = req.query;
-    let query = db.select().from(shifts);
+    try {
+      const { start, end } = req.query;
+      let query = db.select().from(shifts);
 
-    if (start && end) {
-      query = query.where(
-        and(
-          gte(shifts.startDate, start as string),
-          lte(shifts.endDate, end as string)
-        )
-      );
+      if (start && end) {
+        query = query.where(
+          and(
+            gte(shifts.startDate, start as string),
+            lte(shifts.endDate, end as string)
+          )
+        );
+      }
+
+      const results = await query;
+      res.json(results);
+    } catch (error: any) {
+      res.status(500).json({
+        message: "Failed to fetch shifts",
+        error: error.message
+      });
     }
-
-    const results = await query;
-    res.json(results);
   });
 
   app.post("/api/shifts", async (req, res) => {
@@ -360,14 +323,19 @@ export function registerRoutes(app: Express): Server {
         .where(eq(swapRequests.id, parseInt(id)));
 
       // Get provider info for notification
-      const [requestor, recipient, shift] = await Promise.all([
-        db.select().from(providers).where(eq(providers.id, request[0].requestorId)).limit(1),
-        db.select().from(providers).where(eq(providers.id, request[0].recipientId)).limit(1),
-        db.select().from(shifts).where(eq(shifts.id, request[0].shiftId)).limit(1),
+      const [[requestor], [recipient], [shift]] = await Promise.all([
+        db.select().from(providers).where(eq(providers.id, request[0].requestorId)),
+        db.select().from(providers).where(eq(providers.id, request[0].recipientId)),
+        db.select().from(shifts).where(eq(shifts.id, request[0].shiftId)),
       ]);
 
-      if (requestor.length && recipient.length && shift.length) {
-        broadcast(notify.shiftSwapCancelled(shift[0], requestor[0], recipient[0]));
+      if (requestor && recipient && shift) {
+        broadcast(notify.shiftSwapResponded(
+          shift,
+          requestor,
+          recipient,
+          'cancelled'
+        ));
       }
 
       res.json({ message: "Swap request cancelled successfully" });
@@ -596,33 +564,33 @@ export function registerRoutes(app: Express): Server {
       const { id } = req.params;
 
       // Get request details before deletion
-      const request = await db.select()
+      const [request] = await db.select()
         .from(timeOffRequests)
-        .where(eq(timeOffRequests.id, parseInt(id)))
+        .where(sql`${timeOffRequests.id} = ${parseInt(id)}`)
         .limit(1);
 
-      if (!request.length) {
+      if (!request) {
         res.status(404).json({ message: "Time-off request not found" });
         return;
       }
 
-      if (request[0].status === 'rejected') {
+      if (request.status === 'rejected') {
         res.status(400).json({ message: "Cannot cancel a rejected request" });
         return;
       }
 
       // Delete the request
       await db.delete(timeOffRequests)
-        .where(eq(timeOffRequests.id, parseInt(id)));
+        .where(sql`${timeOffRequests.id} = ${parseInt(id)}`);
 
       // Get provider info for notification
-      const provider = await db.select()
+      const [provider] = await db.select()
         .from(providers)
-        .where(eq(providers.id, request[0].providerId))
+        .where(sql`${providers.id} = ${request.providerId}`)
         .limit(1);
 
-      if (provider.length) {
-        broadcast(notify.timeOffCancelled(request[0], provider[0]));
+      if (provider) {
+        broadcast(notify.timeOffCancelled(request, provider));
       }
 
       res.json({ message: "Time-off request cancelled successfully" });
@@ -634,7 +602,6 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Provider preferences endpoint
   app.get("/api/provider-preferences", async (req, res) => {
     try {
       const { providerId } = req.query;

@@ -84,7 +84,7 @@ export const notify = {
     shift: typeof shifts.$inferSelect,
     requestor: { name: string; title: string },
     recipient: { name: string; title: string },
-    status: 'accepted' | 'rejected'
+    status: 'accepted' | 'rejected' | 'cancelled'
   ) => ({
     type: 'shift_swap_responded' as const,
     data: { shift, requestor, recipient, status },

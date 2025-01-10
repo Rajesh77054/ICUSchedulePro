@@ -32,8 +32,7 @@ export function PersonalDashboard() {
 
   const { data: timeOffRequests } = useQuery<TimeOffRequest[]>({
     queryKey: ["/api/time-off-requests", providerId],
-    queryFn: async ({ queryKey }) => {
-      const [_, providerId] = queryKey;
+    queryFn: async () => {
       const url = new URL("/api/time-off-requests", window.location.origin);
       url.searchParams.append("providerId", providerId.toString());
       const res = await fetch(url);
@@ -77,6 +76,11 @@ export function PersonalDashboard() {
     isAfter(new Date(shift.endDate), thisWeekStart) &&
     isBefore(new Date(shift.startDate), thisWeekEnd)
   );
+
+  const upcomingShifts = providerShifts
+    .filter(shift => isAfter(new Date(shift.endDate), new Date()))
+    .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
+    .slice(0, 5);
 
   const pendingTimeOff = timeOffRequests?.filter(req => req.status === 'pending') || [];
 

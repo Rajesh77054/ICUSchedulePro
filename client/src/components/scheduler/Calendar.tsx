@@ -26,114 +26,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { format, addDays } from "date-fns";
+import { format } from "date-fns";
 import { PROVIDERS, HOLIDAYS_2024_2025 } from "@/lib/constants";
 import type { Shift } from "@/lib/types";
 import { ShiftDialog } from "./ShiftDialog";
 import { useToast } from "@/hooks/use-toast";
 import { detectShiftConflicts } from "@/lib/utils";
 import { ConflictVisualizer } from "./ConflictVisualizer";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuTrigger,
-} from "@/components/ui/context-menu";
 import { ShiftSwap } from "./ShiftSwap";
 import { OverlappingShiftsDialog } from "./OverlappingShiftsDialog";
 
 type CalendarView = 'dayGridWeek' | 'dayGridMonth' | 'multiMonth' | 'listWeek';
-
-interface ShiftDetailsProps {
-  shift: Shift;
-  onClose: () => void;
-  onSwapRequest: () => void;
-  onDelete: () => void;
-}
-
-function ShiftDetails({ shift, onClose, onSwapRequest, onDelete }: ShiftDetailsProps) {
-  const provider = PROVIDERS.find(p => p.id === shift.providerId);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-
-  return (
-    <>
-      <Dialog open={true} onOpenChange={onClose}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Shift Details</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="grid gap-2">
-              <p className="text-sm font-medium">Provider</p>
-              <p className="text-sm text-muted-foreground">
-                {provider?.name}, {provider?.title}
-              </p>
-            </div>
-            <div className="grid gap-2">
-              <p className="text-sm font-medium">Period</p>
-              <p className="text-sm text-muted-foreground">
-                {format(new Date(shift.startDate), 'MMM d, yyyy')} - {format(new Date(shift.endDate), 'MMM d, yyyy')}
-              </p>
-            </div>
-            <div className="flex flex-col gap-2 pt-2">
-              <Button onClick={() => {
-                onSwapRequest();
-                onClose();
-              }}>
-                <ArrowRightLeft className="mr-2 h-4 w-4" />
-                Request Shift Swap
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={() => setShowDeleteConfirm(true)}
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete Shift
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete Shift</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <p>Are you sure you want to delete this shift?</p>
-            <p className="text-sm text-muted-foreground">
-              This action cannot be undone.
-            </p>
-            <div className="flex justify-end space-x-2">
-              <Button
-                variant="outline"
-                onClick={() => setShowDeleteConfirm(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={() => {
-                  onDelete();
-                  onClose();
-                }}
-              >
-                Delete
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </>
-  );
-}
 
 export function Calendar() {
   const [date, setDate] = useState<Date>(new Date());
@@ -147,12 +50,13 @@ export function Calendar() {
     conflicts: ReturnType<typeof detectShiftConflicts>;
   } | null>(null);
   const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
-  const calendarRef = useRef<FullCalendar>(null);
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
   const [swapShift, setSwapShift] = useState<Shift | null>(null);
   const [overlappingShifts, setOverlappingShifts] = useState<Shift[]>([]);
   const [overlappingShiftsOpen, setOverlappingShiftsOpen] = useState(false);
+
+  const calendarRef = useRef<FullCalendar>(null);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const { data: shifts, isLoading } = useQuery<Shift[]>({
     queryKey: ["/api/shifts", view, date],
@@ -176,7 +80,7 @@ export function Calendar() {
       });
       setActiveConflicts(null);
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       toast({
         title: "Error",
         description: error.message,
@@ -200,7 +104,7 @@ export function Calendar() {
         description: "Shift deleted successfully",
       });
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       toast({
         title: "Error",
         description: error.message,
@@ -257,7 +161,6 @@ export function Calendar() {
     if (calendar) {
       calendar.getApi().changeView(newView);
       setView(newView);
-      // Title will be updated via datesSet callback
     }
   };
 
@@ -276,12 +179,6 @@ export function Calendar() {
       return;
     }
 
-    if (activeConflicts) {
-      setActiveConflicts(null);
-      dropInfo.revert();
-      return;
-    }
-
     const updatedShift: Shift = {
       ...shift,
       startDate: format(dropInfo.event.start, 'yyyy-MM-dd'),
@@ -295,8 +192,6 @@ export function Calendar() {
       return;
     }
 
-    setActiveConflicts(null);
-
     updateShift({
       id: shift.id,
       startDate: updatedShift.startDate,
@@ -307,12 +202,6 @@ export function Calendar() {
   const handleEventResize = (resizeInfo: any) => {
     const shift = resizeInfo.event.extendedProps.shift;
     if (!shift) {
-      resizeInfo.revert();
-      return;
-    }
-
-    if (activeConflicts) {
-      setActiveConflicts(null);
       resizeInfo.revert();
       return;
     }
@@ -329,8 +218,6 @@ export function Calendar() {
       resizeInfo.revert();
       return;
     }
-
-    setActiveConflicts(null);
 
     updateShift({
       id: shift.id,
@@ -358,27 +245,12 @@ export function Calendar() {
 
   const renderEventContent = (eventInfo: any) => {
     const shift: Shift = eventInfo.event.extendedProps.shift;
+    if (!shift) return null;
+
     return (
-      <ContextMenu>
-        <ContextMenuTrigger className="block w-full h-full cursor-context-menu">
-          <div className="p-1 select-none">
-            {eventInfo.event.title}
-          </div>
-        </ContextMenuTrigger>
-        <ContextMenuContent className="w-48">
-          <ContextMenuItem onClick={() => setSwapShift(shift)}>
-            <ArrowRightLeft className="mr-2 h-4 w-4" />
-            Request Swap
-          </ContextMenuItem>
-          <ContextMenuItem
-            onClick={() => deleteShift(shift.id)}
-            className="text-destructive focus:text-destructive"
-          >
-            <Trash2 className="mr-2 h-4 w-4" />
-            Delete Shift
-          </ContextMenuItem>
-        </ContextMenuContent>
-      </ContextMenu>
+      <div className="p-1 select-none truncate">
+        {eventInfo.event.title}
+      </div>
     );
   };
 
@@ -419,22 +291,24 @@ export function Calendar() {
     <Card className="h-full">
       <CardHeader className="flex flex-col space-y-4 md:flex-row md:items-center md:justify-between md:space-y-0 pb-2">
         <div className="flex items-center space-x-4">
-          <CardTitle className="text-lg md:text-xl font-bold">{viewTitle}</CardTitle>
+          <CardTitle className="text-lg md:text-xl font-bold truncate">{viewTitle}</CardTitle>
           <Popover open={miniCalendarOpen} onOpenChange={setMiniCalendarOpen}>
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
-                className="h-9 w-9 p-0"
+                className="h-9 w-9 p-0 flex-shrink-0"
+                aria-label="Open mini calendar"
               >
                 <CalendarIcon className="h-4 w-4" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-auto p-0">
+            <PopoverContent className="w-auto p-0" align="start">
               <MiniCalendar
                 mode="single"
                 selected={date}
                 onSelect={handleDateSelect}
                 initialFocus
+                className="touch-manipulation"
               />
             </PopoverContent>
           </Popover>
@@ -445,7 +319,8 @@ export function Calendar() {
               variant="outline"
               size="icon"
               onClick={handlePrev}
-              className="h-9 w-9 md:h-8 md:w-8"
+              className="h-9 w-9 md:h-8 md:w-8 touch-manipulation"
+              aria-label="Previous"
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
@@ -453,7 +328,7 @@ export function Calendar() {
               variant="outline"
               size="sm"
               onClick={handleToday}
-              className="h-9 md:h-8"
+              className="h-9 md:h-8 touch-manipulation"
             >
               Today
             </Button>
@@ -461,13 +336,17 @@ export function Calendar() {
               variant="outline"
               size="icon"
               onClick={handleNext}
-              className="h-9 w-9 md:h-8 md:w-8"
+              className="h-9 w-9 md:h-8 md:w-8 touch-manipulation"
+              aria-label="Next"
             >
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
-          <Select value={view} onValueChange={handleViewChange}>
-            <SelectTrigger className="h-9 md:h-8 min-w-[120px] md:w-[140px]">
+          <Select
+            value={view}
+            onValueChange={handleViewChange}
+          >
+            <SelectTrigger className="h-9 md:h-8 min-w-[120px] md:w-[140px] touch-manipulation">
               <SelectValue placeholder="Select view" />
             </SelectTrigger>
             <SelectContent>
@@ -480,7 +359,7 @@ export function Calendar() {
         </div>
       </CardHeader>
       <CardContent className="p-0">
-        <div className="h-[calc(100vh-16rem)] md:h-[600px] relative">
+        <div className="h-[calc(100vh-16rem)] md:h-[600px] relative touch-manipulation">
           <div className="absolute inset-0 w-full h-full">
             {activeConflicts && (
               <ConflictVisualizer
@@ -507,7 +386,7 @@ export function Calendar() {
               initialDate={date}
               weekends={true}
               firstDay={0}
-              dayMaxEvents={3}
+              dayMaxEvents={window.innerWidth < 768 ? 2 : 3}
               navLinks={true}
               editable={true}
               eventStartEditable={true}
@@ -534,7 +413,7 @@ export function Calendar() {
                 multiMonth: {
                   duration: { years: 1 },
                   titleFormat: { year: 'numeric' },
-                  multiMonthMaxColumns: 2,
+                  multiMonthMaxColumns: window.innerWidth < 768 ? 1 : 2,
                   multiMonthMinWidth: 300,
                   showNonCurrentDates: false
                 },
@@ -560,18 +439,6 @@ export function Calendar() {
           onOpenChange={setDialogOpen}
           startDate={selectedDates.start}
           endDate={selectedDates.end}
-        />
-      )}
-
-      {selectedShift && (
-        <ShiftDetails
-          shift={selectedShift}
-          onClose={() => setSelectedShift(null)}
-          onSwapRequest={() => setSwapShift(selectedShift)}
-          onDelete={() => {
-            deleteShift(selectedShift.id);
-            setSelectedShift(null);
-          }}
         />
       )}
 

@@ -194,6 +194,7 @@ interface TimeOffRequestListProps {
 export function TimeOffRequestList({ providerId, showActions = true }: TimeOffRequestListProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [cancelRequestId, setCancelRequestId] = useState<number | null>(null);
 
   const { data: requests = [], isLoading } = useQuery<TimeOffRequest[]>({
     queryKey: ["/api/time-off-requests", providerId],
@@ -209,12 +210,15 @@ export function TimeOffRequestList({ providerId, showActions = true }: TimeOffRe
     },
   });
 
-  const { mutate: cancelRequest } = useMutation({
+  const { mutate: cancelRequest, isLoading: isCancelling } = useMutation({
     mutationFn: async (requestId: number) => {
       const res = await fetch(`/api/time-off-requests/${requestId}`, {
         method: "DELETE",
       });
-      if (!res.ok) throw new Error("Failed to cancel time-off request");
+      if (!res.ok) {
+        const error = await res.text();
+        throw new Error(error || "Failed to cancel time-off request");
+      }
       return res.json();
     },
     onSuccess: () => {
@@ -223,6 +227,7 @@ export function TimeOffRequestList({ providerId, showActions = true }: TimeOffRe
         title: "Success",
         description: "Time-off request cancelled successfully",
       });
+      setCancelRequestId(null);
     },
     onError: (error: Error) => {
       toast({
@@ -236,11 +241,11 @@ export function TimeOffRequestList({ providerId, showActions = true }: TimeOffRe
   const getStatusColor = (status: string) => {
     switch (status) {
       case "approved":
-        return "text-green-600 bg-green-50";
+        return "text-green-600 bg-green-50 border-green-200";
       case "rejected":
-        return "text-red-600 bg-red-50";
+        return "text-red-600 bg-red-50 border-red-200";
       default:
-        return "text-yellow-600 bg-yellow-50";
+        return "text-yellow-600 bg-yellow-50 border-yellow-200";
     }
   };
 
@@ -261,48 +266,87 @@ export function TimeOffRequestList({ providerId, showActions = true }: TimeOffRe
   }
 
   return (
-    <div className="space-y-4">
-      {requests.map((request) => {
-        const provider = PROVIDERS.find((p) => p.id === request.providerId);
-        return (
-          <div
-            key={request.id}
-            className="flex items-center justify-between p-4 rounded-lg border bg-card"
-          >
-            <div className="space-y-1">
-              {!providerId && (
-                <p className="font-medium">{provider?.name}</p>
-              )}
-              <p className="text-sm text-muted-foreground">
-                {format(new Date(request.startDate), "MMM d, yyyy")} -{" "}
-                {format(new Date(request.endDate), "MMM d, yyyy")}
-              </p>
-              <span
-                className={cn(
-                  "inline-flex items-center px-2 py-1 rounded-full text-xs font-medium",
-                  getStatusColor(request.status)
+    <>
+      <div className="space-y-4">
+        {requests.map((request) => {
+          const provider = PROVIDERS.find((p) => p.id === request.providerId);
+          const canCancel = showActions && (request.status === "pending" || request.status === "approved");
+
+          return (
+            <div
+              key={request.id}
+              className="flex items-center justify-between p-4 rounded-lg border bg-card"
+            >
+              <div className="space-y-1">
+                {!providerId && (
+                  <p className="font-medium">{provider?.name}</p>
                 )}
-              >
-                {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
-              </span>
+                <p className="text-sm text-muted-foreground">
+                  {format(new Date(request.startDate), "MMM d, yyyy")} -{" "}
+                  {format(new Date(request.endDate), "MMM d, yyyy")}
+                </p>
+                <span
+                  className={cn(
+                    "inline-flex items-center px-2 py-1 rounded-full text-xs font-medium",
+                    getStatusColor(request.status)
+                  )}
+                >
+                  {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+                </span>
+              </div>
+              {canCancel && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setCancelRequestId(request.id)}
+                  disabled={isCancelling}
+                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                >
+                  <X className="h-4 w-4 mr-1" />
+                  Cancel Request
+                </Button>
+              )}
             </div>
-            {showActions && request.status === "pending" && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => {
-                  if (confirm("Are you sure you want to cancel this request?")) {
-                    cancelRequest(request.id);
-                  }
-                }}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            )}
-          </div>
-        );
-      })}
-    </div>
+          );
+        })}
+      </div>
+
+      <Dialog open={cancelRequestId !== null} onOpenChange={() => setCancelRequestId(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cancel Time-off Request</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to cancel this time-off request? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setCancelRequestId(null)}
+              disabled={isCancelling}
+            >
+              Keep Request
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (cancelRequestId) cancelRequest(cancelRequestId);
+              }}
+              disabled={isCancelling}
+            >
+              {isCancelling ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Cancelling...
+                </>
+              ) : (
+                "Yes, Cancel Request"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 

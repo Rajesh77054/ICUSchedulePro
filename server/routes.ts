@@ -606,8 +606,8 @@ export function registerRoutes(app: Express): Server {
         return;
       }
 
-      if (request[0].status !== 'pending') {
-        res.status(400).json({ message: "Only pending requests can be cancelled" });
+      if (request[0].status === 'rejected') {
+        res.status(400).json({ message: "Cannot cancel a rejected request" });
         return;
       }
 

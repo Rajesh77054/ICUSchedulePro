@@ -138,9 +138,9 @@ export function ShiftPreferences() {
       <div className="max-w-2xl mx-auto space-y-6">
         <Card>
           <CardHeader>
-            <CardTitle>Shift Preferences</CardTitle>
+            <CardTitle>Schedule Preferences</CardTitle>
             <CardDescription>
-              Customize your shift preferences to help optimize the scheduling process
+              Customize your schedule and shift preferences to help optimize the scheduling process
             </CardDescription>
           </CardHeader>
           <CardContent>

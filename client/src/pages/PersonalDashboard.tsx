@@ -124,12 +124,20 @@ export function PersonalDashboard() {
           <p className="text-muted-foreground">Personal Schedule Dashboard</p>
         </div>
         <div className="flex items-center gap-2">
-          <Link href={`/preferences?provider=${provider.id}`}>
-            <Button variant="outline">
-              <Sliders className="mr-2 h-4 w-4" />
-              Shift Preferences
-            </Button>
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link href={`/preferences?provider=${provider.id}`}>
+              <Button variant="outline">
+                <Sliders className="mr-2 h-4 w-4" />
+                Schedule Preferences
+              </Button>
+            </Link>
+            <Link href={`/time-off?provider=${provider.id}`}>
+              <Button variant="outline">
+                <Calendar className="mr-2 h-4 w-4" />
+                Time Off
+              </Button>
+            </Link>
+          </div>
           <Link href="/">
             <Button variant="outline">
               <ArrowLeft className="mr-2 h-4 w-4" />

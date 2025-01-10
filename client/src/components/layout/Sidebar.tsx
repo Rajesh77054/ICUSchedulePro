@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import {
   Calendar,
   Settings,
@@ -22,9 +22,6 @@ import {
   SidebarGroup,
   SidebarGroupLabel,
   SidebarGroupContent,
-  SidebarMenuSub,
-  SidebarMenuSubItem,
-  SidebarMenuSubButton,
 } from "@/components/ui/sidebar";
 
 export function Sidebar() {
@@ -66,12 +63,12 @@ export function Sidebar() {
 
   return (
     <SidebarProvider defaultOpen={true}>
-      <UISidebar>
-        <SidebarHeader>
+      <UISidebar variant="sidebar" collapsible="icon">
+        <SidebarHeader className="border-b border-border">
           <h2 className="px-2 text-lg font-semibold tracking-tight">
             ICU Scheduling
           </h2>
-          <SidebarTrigger className="absolute right-2 top-2 md:hidden" />
+          <SidebarTrigger className="absolute right-2 top-2" />
         </SidebarHeader>
 
         <SidebarContent>
@@ -84,10 +81,10 @@ export function Sidebar() {
                     isActive={location === item.href}
                     tooltip={item.label}
                   >
-                    <a href={item.href} className="flex items-center gap-2">
+                    <Link href={item.href} className="flex items-center gap-2">
                       {item.icon}
                       <span>{item.label}</span>
-                    </a>
+                    </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
@@ -108,10 +105,10 @@ export function Sidebar() {
                       isActive={location === item.href}
                       tooltip={item.label}
                     >
-                      <a href={item.href} className="flex items-center gap-2">
+                      <Link href={item.href} className="flex items-center gap-2">
                         {item.icon}
                         <span>{item.label}</span>
-                      </a>
+                      </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}
@@ -133,10 +130,10 @@ export function Sidebar() {
                       isActive={location === item.href}
                       tooltip={item.label}
                     >
-                      <a href={item.href} className="flex items-center gap-2">
+                      <Link href={item.href} className="flex items-center gap-2">
                         {item.icon}
                         <span>{item.label}</span>
-                      </a>
+                      </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}
@@ -145,7 +142,7 @@ export function Sidebar() {
           </SidebarGroup>
         </SidebarContent>
 
-        <SidebarFooter>
+        <SidebarFooter className="border-t border-border">
           <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton
@@ -153,10 +150,10 @@ export function Sidebar() {
                 isActive={location === "/preferences"}
                 tooltip="Settings"
               >
-                <a href="/preferences" className="flex items-center gap-2">
+                <Link href="/preferences" className="flex items-center gap-2">
                   <Settings className="h-4 w-4" />
                   <span>Settings</span>
-                </a>
+                </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>

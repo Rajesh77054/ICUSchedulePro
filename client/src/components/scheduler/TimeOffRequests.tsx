@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Calendar as CalendarIcon, Loader2, X } from "lucide-react";
+import { Calendar as CalendarIcon, Loader2, X, Settings } from "lucide-react";
+import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { DatePickerWithRange } from "@/components/ui/date-range-picker";
 import {
@@ -20,6 +21,13 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { PROVIDERS } from "@/lib/constants";
@@ -365,7 +373,7 @@ export function TimeOffRequests() {
                 <SelectValue placeholder="Filter by provider" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={null}>All Providers</SelectItem>
+                <SelectItem value="all">All Providers</SelectItem>
                 {PROVIDERS.map((provider) => (
                   <SelectItem key={provider.id} value={provider.id}>
                     {provider.name}, {provider.title}
@@ -374,6 +382,11 @@ export function TimeOffRequests() {
               </SelectContent>
             </Select>
             <Button onClick={() => setDialogOpen(true)}>New Request</Button>
+            <Link href="/time-off/admin">
+              <Button variant="outline" size="icon" title="Manage Time Off Requests">
+                <Settings className="h-4 w-4" />
+              </Button>
+            </Link>
           </div>
         </div>
 

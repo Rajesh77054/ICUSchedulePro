@@ -4,8 +4,20 @@ import { Notifications } from "@/components/scheduler/Notifications";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
 import { ListFilter } from "lucide-react";
+import { Loader } from "@/components/ui/loader";
+import { useQuery } from "@tanstack/react-query";
 
 export function Dashboard() {
+  const { isLoading: isLoadingShifts } = useQuery({
+    queryKey: ["/api/shifts"],
+  });
+
+  const { isLoading: isLoadingProviders } = useQuery({
+    queryKey: ["/api/providers"],
+  });
+
+  const isLoading = isLoadingShifts || isLoadingProviders;
+
   return (
     <div className="container mx-auto p-4 md:py-6 space-y-4 md:space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -23,14 +35,20 @@ export function Dashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-        <div className="md:col-span-2 order-2 md:order-1">
-          <Calendar />
+      {isLoading ? (
+        <div className="flex items-center justify-center min-h-[400px]">
+          <Loader size="lg" />
         </div>
-        <div className="order-1 md:order-2">
-          <ProviderList />
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+          <div className="md:col-span-2 order-2 md:order-1">
+            <Calendar />
+          </div>
+          <div className="order-1 md:order-2">
+            <ProviderList />
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

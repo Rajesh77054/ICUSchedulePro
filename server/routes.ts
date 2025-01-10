@@ -1,8 +1,8 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { db } from "@db";
-import { shifts, swapRequests, providers, timeOffRequests, holidays, providerPreferences, schedulingMetrics } from "@db/schema";
-import { eq, and, gte, lte, or } from "drizzle-orm";
+import { shifts, swapRequests, providers, timeOffRequests, providerPreferences } from "@db/schema";
+import { eq, and, gte, lte, or, sql } from "drizzle-orm";
 import { setupWebSocket, notify } from "./websocket";
 
 // Initialize providers if they don't exist
@@ -99,23 +99,45 @@ export function registerRoutes(app: Express): Server {
   const httpServer = createServer(app);
   const { broadcast } = setupWebSocket(httpServer);
 
-  app.get("/api/shifts", async (req, res) => {
-    const { start, end } = req.query;
-    let query = db.select().from(shifts);
-
-    if (start && end) {
-      query = query.where(
-        and(
-          gte(shifts.startDate, start as string),
-          lte(shifts.endDate, end as string)
-        )
-      );
+  // Get all providers
+  app.get("/api/providers", async (_req, res) => {
+    try {
+      const results = await db.select().from(providers);
+      res.json(results);
+    } catch (error: any) {
+      res.status(500).json({
+        message: "Failed to fetch providers",
+        error: error.message
+      });
     }
-
-    const results = await query;
-    res.json(results);
   });
 
+  // Get shifts with optional date range filter
+  app.get("/api/shifts", async (req, res) => {
+    try {
+      const { start, end } = req.query;
+      let query = db.select().from(shifts);
+
+      if (start && end) {
+        query = query.where(
+          and(
+            gte(shifts.startDate, start as string),
+            lte(shifts.endDate, end as string)
+          )
+        );
+      }
+
+      const results = await query;
+      res.json(results);
+    } catch (error: any) {
+      res.status(500).json({
+        message: "Failed to fetch shifts",
+        error: error.message
+      });
+    }
+  });
+
+  // Create a new shift
   app.post("/api/shifts", async (req, res) => {
     try {
       const { providerId, startDate, endDate } = req.body;
@@ -123,7 +145,7 @@ export function registerRoutes(app: Express): Server {
       // Validate provider exists
       const provider = await db.select()
         .from(providers)
-        .where(eq(providers.id, providerId))
+        .where(sql`${providers.id} = ${providerId}`)
         .limit(1);
 
       if (!provider.length) {

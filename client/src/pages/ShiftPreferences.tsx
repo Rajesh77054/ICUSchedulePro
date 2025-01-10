@@ -193,7 +193,7 @@ export function ShiftPreferences() {
                         name="minDaysBetweenShifts"
                         defaultValue={currentPreferences.minDaysBetweenShifts}
                         min={0}
-                        max={30}
+                        max={90}
                       />
                     </div>
 

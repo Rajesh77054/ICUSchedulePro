@@ -10,44 +10,81 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { PROVIDERS } from "@/lib/constants";
 import type { TimeOffRequest } from "@/lib/types";
+import { z } from "zod";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { DateRange } from "react-day-picker";
 
-interface TimeOffRequestDialogProps {
-  onClose: () => void;
+const timeOffRequestSchema = z.object({
+  providerId: z.number(),
+  dateRange: z.object({
+    from: z.date(),
+    to: z.date(),
+  }).refine(data => data.to >= data.from, {
+    message: "End date must be after start date",
+    path: ["to"],
+  }),
+});
+
+type TimeOffRequestFormData = z.infer<typeof timeOffRequestSchema>;
+
+interface TimeOffRequestFormProps {
+  providerId?: number;
+  onSuccess?: () => void;
+  onCancel?: () => void;
 }
 
-function TimeOffRequestDialog({ onClose }: TimeOffRequestDialogProps) {
-  const [providerId, setProviderId] = useState<string>();
-  const [startDate, setStartDate] = useState<Date>();
-  const [endDate, setEndDate] = useState<Date>();
-  const [calendarOpen, setCalendarOpen] = useState(false);
+export function TimeOffRequestForm({ providerId, onSuccess, onCancel }: TimeOffRequestFormProps) {
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { mutate: createRequest } = useMutation({
-    mutationFn: async (data: Partial<TimeOffRequest>) => {
+  const form = useForm<TimeOffRequestFormData>({
+    resolver: zodResolver(timeOffRequestSchema),
+    defaultValues: {
+      providerId: providerId,
+      dateRange: {
+        from: undefined,
+        to: undefined,
+      },
+    },
+  });
+
+  const { mutate: createRequest, isLoading } = useMutation({
+    mutationFn: async (data: TimeOffRequestFormData) => {
       const res = await fetch("/api/time-off-requests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          providerId: data.providerId,
+          startDate: format(data.dateRange.from, "yyyy-MM-dd"),
+          endDate: format(data.dateRange.to, "yyyy-MM-dd"),
+          status: "pending",
+        }),
       });
-      if (!res.ok) throw new Error("Failed to create time-off request");
+      if (!res.ok) {
+        const error = await res.text();
+        throw new Error(error || "Failed to create time-off request");
+      }
       return res.json();
     },
     onSuccess: () => {
@@ -56,7 +93,9 @@ function TimeOffRequestDialog({ onClose }: TimeOffRequestDialogProps) {
         title: "Success",
         description: "Time-off request submitted successfully",
       });
-      onClose();
+      setConfirmOpen(false);
+      form.reset();
+      onSuccess?.();
     },
     onError: (error: Error) => {
       toast({
@@ -67,145 +106,163 @@ function TimeOffRequestDialog({ onClose }: TimeOffRequestDialogProps) {
     },
   });
 
-  const handleSubmit = () => {
-    if (!providerId) {
-      toast({
-        title: "Error",
-        description: "Please select a provider",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!startDate || !endDate) {
-      toast({
-        title: "Error",
-        description: "Please select both start and end dates",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (endDate < startDate) {
-      toast({
-        title: "Error",
-        description: "End date must be after start date",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    createRequest({
-      providerId: parseInt(providerId),
-      startDate: format(startDate, "yyyy-MM-dd"),
-      endDate: format(endDate, "yyyy-MM-dd"),
-      status: "pending",
-    });
+  const onSubmit = (data: TimeOffRequestFormData) => {
+    setConfirmOpen(true);
   };
 
   return (
-    <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Request Time Off</DialogTitle>
-          <DialogDescription>
-            Select the provider and date range for your time off request.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="grid gap-2">
-            <label className="text-sm font-medium">Provider</label>
-            <Select value={providerId} onValueChange={setProviderId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select provider" />
-              </SelectTrigger>
-              <SelectContent>
-                {PROVIDERS.map((provider) => (
-                  <SelectItem key={provider.id} value={provider.id.toString()}>
-                    {provider.name}, {provider.title}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+    <>
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <FormField
+            control={form.control}
+            name="providerId"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Provider</FormLabel>
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select provider" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PROVIDERS.map((provider) => (
+                      <SelectItem key={provider.id} value={provider.id}>
+                        {provider.name}, {provider.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="dateRange"
+            render={({ field }) => (
+              <FormItem className="flex flex-col">
+                <FormLabel>Select dates</FormLabel>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <FormControl>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !field.value && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {field.value?.from ? (
+                          field.value.to ? (
+                            <>
+                              {format(field.value.from, "LLL dd, y")} -{" "}
+                              {format(field.value.to, "LLL dd, y")}
+                            </>
+                          ) : (
+                            format(field.value.from, "LLL dd, y")
+                          )
+                        ) : (
+                          <span>Pick a date range</span>
+                        )}
+                      </Button>
+                    </FormControl>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      initialFocus
+                      mode="range"
+                      defaultMonth={field.value?.from}
+                      selected={field.value}
+                      onSelect={field.onChange}
+                      numberOfMonths={2}
+                      disabled={(date) => date < new Date()}
+                    />
+                  </PopoverContent>
+                </Popover>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <div className="flex justify-end gap-2">
+            {onCancel && (
+              <Button type="button" variant="outline" onClick={onCancel}>
+                Cancel
+              </Button>
+            )}
+            <Button type="submit" disabled={isLoading}>
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Submitting...
+                </>
+              ) : (
+                "Request Time Off"
+              )}
+            </Button>
           </div>
-          <div className="grid gap-2">
-            <div className="flex items-center gap-2">
-              <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "justify-start text-left font-normal",
-                      !startDate && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {startDate ? format(startDate, "PPP") : "Select start date"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={startDate}
-                    onSelect={(date) => {
-                      setStartDate(date);
-                      setCalendarOpen(false);
-                    }}
-                    disabled={(date) =>
-                      date < new Date() || (endDate ? date > endDate : false)
-                    }
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-              <span className="text-muted-foreground">to</span>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "justify-start text-left font-normal",
-                      !endDate && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {endDate ? format(endDate, "PPP") : "Select end date"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={endDate}
-                    onSelect={setEndDate}
-                    disabled={(date) =>
-                      date < new Date() || (startDate ? date < startDate : false)
-                    }
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
+        </form>
+      </Form>
+
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Time-off Request</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to submit this time-off request?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-muted-foreground">
+              From: {form.getValues().dateRange?.from && format(form.getValues().dateRange.from, "MMMM d, yyyy")}
+              <br />
+              To: {form.getValues().dateRange?.to && format(form.getValues().dateRange.to, "MMMM d, yyyy")}
+            </p>
           </div>
-          <Button onClick={handleSubmit}>Submit Request</Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setConfirmOpen(false)}
+              disabled={isLoading}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => createRequest(form.getValues())}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Submitting...
+                </>
+              ) : (
+                "Confirm Request"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
-export function TimeOffRequests() {
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
+interface TimeOffRequestListProps {
+  providerId?: number;
+  showActions?: boolean;
+}
+
+export function TimeOffRequestList({ providerId, showActions = true }: TimeOffRequestListProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const { data: requests = [], isLoading } = useQuery<TimeOffRequest[]>({
-    queryKey: ["/api/time-off-requests", selectedProvider],
+    queryKey: ["/api/time-off-requests", providerId],
     queryFn: async ({ queryKey }) => {
       const [_, providerId] = queryKey;
       const url = new URL("/api/time-off-requests", window.location.origin);
-      if (providerId && providerId !== 'all') {
-        url.searchParams.append("providerId", providerId);
+      if (providerId) {
+        url.searchParams.append("providerId", providerId.toString());
       }
       const res = await fetch(url);
       if (!res.ok) throw new Error("Failed to fetch time-off requests");
@@ -250,11 +307,71 @@ export function TimeOffRequests() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="flex items-center justify-center py-4">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     );
   }
+
+  if (requests.length === 0) {
+    return (
+      <div className="text-center py-4">
+        <p className="text-muted-foreground">No time-off requests found</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {requests.map((request) => {
+        const provider = PROVIDERS.find((p) => p.id === request.providerId);
+        return (
+          <div
+            key={request.id}
+            className="flex items-center justify-between p-4 rounded-lg border bg-card"
+          >
+            <div className="space-y-1">
+              {!providerId && (
+                <p className="font-medium">{provider?.name}</p>
+              )}
+              <p className="text-sm text-muted-foreground">
+                {format(new Date(request.startDate), "MMM d, yyyy")} -{" "}
+                {format(new Date(request.endDate), "MMM d, yyyy")}
+              </p>
+              <span
+                className={cn(
+                  "inline-flex items-center px-2 py-1 rounded-full text-xs font-medium",
+                  getStatusColor(request.status)
+                )}
+              >
+                {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+              </span>
+            </div>
+            {showActions && request.status === "pending" && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  if (confirm("Are you sure you want to cancel this request?")) {
+                    cancelRequest(request.id);
+                  }
+                }}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+export function TimeOffRequests() {
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedProvider, setSelectedProvider] = useState<number | null>(null);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   return (
     <div className="min-h-screen bg-background">
@@ -267,9 +384,9 @@ export function TimeOffRequests() {
                 <SelectValue placeholder="Filter by provider" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Providers</SelectItem>
+                <SelectItem value={null}>All Providers</SelectItem>
                 {PROVIDERS.map((provider) => (
-                  <SelectItem key={provider.id} value={provider.id.toString()}>
+                  <SelectItem key={provider.id} value={provider.id}>
                     {provider.name}, {provider.title}
                   </SelectItem>
                 ))}
@@ -279,57 +396,19 @@ export function TimeOffRequests() {
           </div>
         </div>
 
-        <div className="grid gap-4">
-          {requests.length === 0 ? (
-            <div className="text-center py-12 bg-muted/20 rounded-lg">
-              <p className="text-muted-foreground">
-                No time-off requests found
-              </p>
-            </div>
-          ) : (
-            requests.map((request) => {
-              const provider = PROVIDERS.find((p) => p.id === request.providerId);
-              return (
-                <div
-                  key={request.id}
-                  className="flex items-center justify-between p-4 rounded-lg border bg-card"
-                >
-                  <div className="space-y-1">
-                    <p className="font-medium">{provider?.name}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {format(new Date(request.startDate), "MMM d, yyyy")} -{" "}
-                      {format(new Date(request.endDate), "MMM d, yyyy")}
-                    </p>
-                    <span
-                      className={cn(
-                        "inline-flex items-center px-2 py-1 rounded-full text-xs font-medium",
-                        getStatusColor(request.status)
-                      )}
-                    >
-                      {request.status.charAt(0).toUpperCase() +
-                        request.status.slice(1)}
-                    </span>
-                  </div>
-                  {request.status === "pending" && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => cancelRequest(request.id)}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-              );
-            })
-          )}
-        </div>
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Request Time Off</DialogTitle>
+            </DialogHeader>
+            <TimeOffRequestForm
+              onSuccess={() => setDialogOpen(false)}
+              onCancel={() => setDialogOpen(false)}
+            />
+          </DialogContent>
+        </Dialog>
 
-        {dialogOpen && (
-          <TimeOffRequestDialog
-            onClose={() => setDialogOpen(false)}
-          />
-        )}
+        <TimeOffRequestList providerId={selectedProvider} />
       </div>
     </div>
   );

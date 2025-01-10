@@ -9,11 +9,14 @@ import { PROVIDERS } from "@/lib/constants";
 import type { Shift, TimeOffRequest } from "@/lib/types";
 import { format, isAfter, isBefore, startOfWeek, endOfWeek } from "date-fns";
 import { Badge } from "@/components/ui/badge";
+import { useState } from "react";
+import { TimeOffRequestForm, TimeOffRequestList } from "@/components/scheduler/TimeOffRequests";
 
 export function PersonalDashboard() {
   const { id } = useParams<{ id: string }>();
   const providerId = parseInt(id);
   const provider = PROVIDERS.find(p => p.id === providerId);
+  const [showTimeOffForm, setShowTimeOffForm] = useState(false);
 
   const { data: shifts } = useQuery<Shift[]>({
     queryKey: ["/api/shifts"],
@@ -51,7 +54,6 @@ export function PersonalDashboard() {
 
   const providerShifts = shifts?.filter(s => s.providerId === providerId) || [];
 
-  // Calculate total days worked
   const totalDays = providerShifts.reduce((acc, shift) => {
     const start = new Date(shift.startDate);
     const end = new Date(shift.endDate);
@@ -59,16 +61,13 @@ export function PersonalDashboard() {
     return acc + days;
   }, 0);
 
-  // Calculate progress
   const progress = Math.min((totalDays / provider.targetDays) * 100, 100);
 
-  // Get upcoming shifts
   const upcomingShifts = providerShifts
     .filter(shift => isAfter(new Date(shift.endDate), new Date()))
     .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
     .slice(0, 5);
 
-  // Calculate weekly stats
   const thisWeekStart = startOfWeek(new Date());
   const thisWeekEnd = endOfWeek(new Date());
   const thisWeekShifts = providerShifts.filter(shift =>
@@ -76,10 +75,8 @@ export function PersonalDashboard() {
     isBefore(new Date(shift.startDate), thisWeekEnd)
   );
 
-  // Get pending time-off requests
   const pendingTimeOff = timeOffRequests?.filter(req => req.status === 'pending') || [];
 
-  // Get upcoming approved time-off
   const upcomingTimeOff = timeOffRequests
     ?.filter(req =>
       req.status === 'approved' &&
@@ -128,13 +125,7 @@ export function PersonalDashboard() {
             <Link href={`/preferences?provider=${provider.id}`}>
               <Button variant="outline">
                 <Sliders className="mr-2 h-4 w-4" />
-                Shift Preferences {/* Modified button label */}
-              </Button>
-            </Link>
-            <Link href={`/time-off?provider=${provider.id}`}>
-              <Button variant="outline">
-                <Calendar className="mr-2 h-4 w-4" />
-                Time Off
+                Shift Preferences
               </Button>
             </Link>
           </div>
@@ -203,6 +194,32 @@ export function PersonalDashboard() {
 
         <Card className="md:col-span-2">
           <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>Time Off</CardTitle>
+              <Button
+                variant="outline"
+                onClick={() => setShowTimeOffForm(!showTimeOffForm)}
+              >
+                {showTimeOffForm ? "Cancel" : "Request Time Off"}
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {showTimeOffForm ? (
+              <div className="mb-6">
+                <TimeOffRequestForm
+                  providerId={providerId}
+                  onSuccess={() => setShowTimeOffForm(false)}
+                  onCancel={() => setShowTimeOffForm(false)}
+                />
+              </div>
+            ) : null}
+            <TimeOffRequestList providerId={providerId} />
+          </CardContent>
+        </Card>
+
+        <Card className="md:col-span-2">
+          <CardHeader>
             <CardTitle>Upcoming Shifts</CardTitle>
           </CardHeader>
           <CardContent>
@@ -236,64 +253,6 @@ export function PersonalDashboard() {
               </div>
             ) : (
               <p className="text-muted-foreground">No upcoming shifts</p>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Time Off Requests</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {pendingTimeOff.length > 0 ? (
-              <div className="space-y-4">
-                {pendingTimeOff.map(request => (
-                  <div
-                    key={request.id}
-                    className="flex items-center justify-between p-3 rounded-lg border"
-                  >
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        {getStatusBadge(request.status)}
-                      </div>
-                      <p className="text-sm">
-                        {format(new Date(request.startDate), 'MMM d, yyyy')} - {format(new Date(request.endDate), 'MMM d, yyyy')}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-muted-foreground">No pending time-off requests</p>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Upcoming Time Off</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {upcomingTimeOff.length > 0 ? (
-              <div className="space-y-4">
-                {upcomingTimeOff.map(timeOff => (
-                  <div
-                    key={timeOff.id}
-                    className="flex items-center justify-between p-3 rounded-lg border"
-                  >
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        {getStatusBadge(timeOff.status)}
-                      </div>
-                      <p className="text-sm">
-                        {format(new Date(timeOff.startDate), 'MMM d, yyyy')} - {format(new Date(timeOff.endDate), 'MMM d, yyyy')}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-muted-foreground">No upcoming approved time-off</p>
             )}
           </CardContent>
         </Card>

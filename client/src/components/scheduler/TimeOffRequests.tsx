@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { Calendar as CalendarIcon, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
+import { DatePickerWithRange } from "@/components/ui/date-range-picker";
 import {
   Dialog,
   DialogContent,
@@ -20,11 +20,6 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { PROVIDERS } from "@/lib/constants";
@@ -69,7 +64,7 @@ export function TimeOffRequestForm({ providerId, onSuccess, onCancel }: TimeOffR
     },
   });
 
-  const { mutate: createRequest, isLoading } = useMutation({
+  const { mutate: createRequest, isLoading: isSubmitting } = useMutation({
     mutationFn: async (data: TimeOffRequestFormData) => {
       const res = await fetch("/api/time-off-requests", {
         method: "POST",
@@ -116,70 +111,14 @@ export function TimeOffRequestForm({ providerId, onSuccess, onCancel }: TimeOffR
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           <FormField
             control={form.control}
-            name="providerId"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Provider</FormLabel>
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select provider" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PROVIDERS.map((provider) => (
-                      <SelectItem key={provider.id} value={provider.id}>
-                        {provider.name}, {provider.title}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
             name="dateRange"
             render={({ field }) => (
               <FormItem className="flex flex-col">
                 <FormLabel>Select dates</FormLabel>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <FormControl>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          "w-full justify-start text-left font-normal",
-                          !field.value && "text-muted-foreground"
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {field.value?.from ? (
-                          field.value.to ? (
-                            <>
-                              {format(field.value.from, "LLL dd, y")} -{" "}
-                              {format(field.value.to, "LLL dd, y")}
-                            </>
-                          ) : (
-                            format(field.value.from, "LLL dd, y")
-                          )
-                        ) : (
-                          <span>Pick a date range</span>
-                        )}
-                      </Button>
-                    </FormControl>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      initialFocus
-                      mode="range"
-                      defaultMonth={field.value?.from}
-                      selected={field.value}
-                      onSelect={field.onChange}
-                      numberOfMonths={2}
-                      disabled={(date) => date < new Date()}
-                    />
-                  </PopoverContent>
-                </Popover>
+                <DatePickerWithRange
+                  selected={field.value}
+                  onSelect={field.onChange}
+                />
                 <FormMessage />
               </FormItem>
             )}
@@ -190,8 +129,8 @@ export function TimeOffRequestForm({ providerId, onSuccess, onCancel }: TimeOffR
                 Cancel
               </Button>
             )}
-            <Button type="submit" disabled={isLoading}>
-              {isLoading ? (
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Submitting...
@@ -223,15 +162,15 @@ export function TimeOffRequestForm({ providerId, onSuccess, onCancel }: TimeOffR
             <Button
               variant="outline"
               onClick={() => setConfirmOpen(false)}
-              disabled={isLoading}
+              disabled={isSubmitting}
             >
               Cancel
             </Button>
             <Button
               onClick={() => createRequest(form.getValues())}
-              disabled={isLoading}
+              disabled={isSubmitting}
             >
-              {isLoading ? (
+              {isSubmitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Submitting...
@@ -370,8 +309,6 @@ export function TimeOffRequestList({ providerId, showActions = true }: TimeOffRe
 export function TimeOffRequests() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<number | null>(null);
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
 
   return (
     <div className="min-h-screen bg-background">

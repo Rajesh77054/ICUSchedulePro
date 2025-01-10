@@ -1,7 +1,6 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import { setupWebSocket } from "./websocket";
 
 const app = express();
 app.use(express.json());
@@ -38,63 +37,29 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  try {
-    // Create HTTP server first
-    const server = registerRoutes(app);
+  const server = registerRoutes(app);
 
-    // Setup error handling
-    app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-      const status = err.status || err.statusCode || 500;
-      const message = err.message || "Internal Server Error";
-      log(`Error: ${message}`);
-      res.status(status).json({ message });
-    });
+  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+    const status = err.status || err.statusCode || 500;
+    const message = err.message || "Internal Server Error";
 
-    // Setup WebSocket server
-    const wsServer = setupWebSocket(server);
+    res.status(status).json({ message });
+    throw err;
+  });
 
-    // Setup Vite/Static serving
-    if (app.get("env") === "development") {
-      await setupVite(app, server);
-    } else {
-      serveStatic(app);
-    }
-
-    // Start server with port retry logic
-    const PORT = 5000;
-    const MAX_RETRIES = 3;
-    let currentPort = PORT;
-    let retries = 0;
-
-    const startServer = () => {
-      server.listen(currentPort, "0.0.0.0", () => {
-        log(`Server running on port ${currentPort}`);
-      }).on('error', (err: any) => {
-        if (err.code === 'EADDRINUSE' && retries < MAX_RETRIES) {
-          log(`Port ${currentPort} is in use, trying port ${currentPort + 1}`);
-          retries++;
-          currentPort++;
-          startServer();
-        } else {
-          log(`Failed to start server: ${err.message}`);
-          process.exit(1);
-        }
-      });
-    };
-
-    startServer();
-
-    // Handle graceful shutdown
-    process.on('SIGTERM', () => {
-      log('SIGTERM received. Shutting down gracefully...');
-      server.close(() => {
-        log('Server closed');
-        process.exit(0);
-      });
-    });
-
-  } catch (error) {
-    log(`Fatal error: ${error}`);
-    process.exit(1);
+  // importantly only setup vite in development and after
+  // setting up all the other routes so the catch-all route
+  // doesn't interfere with the other routes
+  if (app.get("env") === "development") {
+    await setupVite(app, server);
+  } else {
+    serveStatic(app);
   }
+
+  // ALWAYS serve the app on port 5000
+  // this serves both the API and the client
+  const PORT = 5000;
+  server.listen(PORT, "0.0.0.0", () => {
+    log(`serving on port ${PORT}`);
+  });
 })();

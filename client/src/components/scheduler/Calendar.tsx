@@ -13,10 +13,22 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -37,6 +49,91 @@ import { ShiftSwap } from "./ShiftSwap";
 import { OverlappingShiftsDialog } from "./OverlappingShiftsDialog";
 
 type CalendarView = 'dayGridWeek' | 'dayGridMonth' | 'multiMonth' | 'listWeek';
+
+interface ShiftDetailsProps {
+  shift: Shift;
+  onClose: () => void;
+  onSwapRequest: () => void;
+  onDelete: () => void;
+}
+
+function ShiftDetails({ shift, onClose, onSwapRequest, onDelete }: ShiftDetailsProps) {
+  const provider = PROVIDERS.find(p => p.id === shift.providerId);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  return (
+    <>
+      <Dialog open={true} onOpenChange={onClose}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Shift Details</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid gap-2">
+              <p className="text-sm font-medium">Provider</p>
+              <p className="text-sm text-muted-foreground">
+                {provider?.name}, {provider?.title}
+              </p>
+            </div>
+            <div className="grid gap-2">
+              <p className="text-sm font-medium">Period</p>
+              <p className="text-sm text-muted-foreground">
+                {format(new Date(shift.startDate), 'MMM d, yyyy')} - {format(new Date(shift.endDate), 'MMM d, yyyy')}
+              </p>
+            </div>
+            <div className="flex flex-col gap-2 pt-2">
+              <Button onClick={() => {
+                onSwapRequest();
+                onClose();
+              }}>
+                <ArrowRightLeft className="mr-2 h-4 w-4" />
+                Request Shift Swap
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => setShowDeleteConfirm(true)}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete Shift
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Shift</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p>Are you sure you want to delete this shift?</p>
+            <p className="text-sm text-muted-foreground">
+              This action cannot be undone.
+            </p>
+            <div className="flex justify-end space-x-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowDeleteConfirm(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  onDelete();
+                  setShowDeleteConfirm(false);
+                }}
+              >
+                Delete
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
 
 export function Calendar() {
   const [date, setDate] = useState<Date>(new Date());
@@ -248,9 +345,26 @@ export function Calendar() {
     if (!shift) return null;
 
     return (
-      <div className="p-1 select-none truncate">
-        {eventInfo.event.title}
-      </div>
+      <ContextMenu>
+        <ContextMenuTrigger className="block w-full h-full cursor-context-menu">
+          <div className="p-1 select-none truncate">
+            {eventInfo.event.title}
+          </div>
+        </ContextMenuTrigger>
+        <ContextMenuContent className="w-48">
+          <ContextMenuItem onClick={() => setSwapShift(shift)}>
+            <ArrowRightLeft className="mr-2 h-4 w-4" />
+            Request Swap
+          </ContextMenuItem>
+          <ContextMenuItem
+            onClick={() => deleteShift(shift.id)}
+            className="text-destructive focus:text-destructive"
+          >
+            <Trash2 className="mr-2 h-4 w-4" />
+            Delete Shift
+          </ContextMenuItem>
+        </ContextMenuContent>
+      </ContextMenu>
     );
   };
 
@@ -439,6 +553,21 @@ export function Calendar() {
           onOpenChange={setDialogOpen}
           startDate={selectedDates.start}
           endDate={selectedDates.end}
+        />
+      )}
+
+      {selectedShift && (
+        <ShiftDetails
+          shift={selectedShift}
+          onClose={() => setSelectedShift(null)}
+          onSwapRequest={() => {
+            setSwapShift(selectedShift);
+            setSelectedShift(null);
+          }}
+          onDelete={() => {
+            deleteShift(selectedShift.id);
+            setSelectedShift(null);
+          }}
         />
       )}
 

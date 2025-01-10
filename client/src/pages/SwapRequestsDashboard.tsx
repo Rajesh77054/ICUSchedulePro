@@ -100,8 +100,8 @@ export function SwapRequestsDashboard() {
 
   const filteredRequests = requests?.filter(request => {
     if (statusFilter !== "all" && request.status !== statusFilter) return false;
-    if (providerFilter !== "all" && 
-        request.requestorId.toString() !== providerFilter && 
+    if (providerFilter !== "all" &&
+        request.requestorId.toString() !== providerFilter &&
         request.recipientId.toString() !== providerFilter) return false;
     return true;
   });
@@ -152,7 +152,7 @@ export function SwapRequestsDashboard() {
         <Link href="/">
           <Button variant="outline">
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Dashboard
+            Back to Schedule
           </Button>
         </Link>
       </div>

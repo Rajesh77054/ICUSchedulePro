@@ -128,7 +128,7 @@ export function PersonalDashboard() {
             <Link href={`/preferences?provider=${provider.id}`}>
               <Button variant="outline">
                 <Sliders className="mr-2 h-4 w-4" />
-                Schedule Preferences
+                Shift Preferences {/* Modified button label */}
               </Button>
             </Link>
             <Link href={`/time-off?provider=${provider.id}`}>

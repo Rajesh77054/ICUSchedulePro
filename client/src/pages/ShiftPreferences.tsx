@@ -84,7 +84,7 @@ export function ShiftPreferences() {
         title: "Success",
         description: "Shift preferences updated successfully",
       });
-      // Reset provider selection after successful update
+      // Reset provider selection after successful update to return to selection screen
       setSelectedProvider(undefined);
     },
     onError: (error: Error) => {

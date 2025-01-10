@@ -1,11 +1,22 @@
 import { useState, useRef } from "react";
+import { Calendar as MiniCalendar } from "@/components/ui/calendar";
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, ArrowRightLeft, Trash2 } from "lucide-react";
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import multiMonthPlugin from '@fullcalendar/multimonth';
 import interactionPlugin from '@fullcalendar/interaction';
 import listPlugin from '@fullcalendar/list';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -15,7 +26,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { format } from "date-fns";
+import { format, addDays } from "date-fns";
 import { PROVIDERS, HOLIDAYS_2024_2025 } from "@/lib/constants";
 import type { Shift } from "@/lib/types";
 import { ShiftDialog } from "./ShiftDialog";
@@ -130,6 +141,7 @@ export function Calendar() {
   const [viewTitle, setViewTitle] = useState<string>("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedDates, setSelectedDates] = useState<{ start: Date; end: Date }>();
+  const [miniCalendarOpen, setMiniCalendarOpen] = useState(false);
   const [activeConflicts, setActiveConflicts] = useState<{
     shift: Shift;
     conflicts: ReturnType<typeof detectShiftConflicts>;
@@ -380,6 +392,17 @@ export function Calendar() {
     return false;
   };
 
+  const handleDateSelect = (newDate: Date | undefined) => {
+    if (newDate) {
+      const calendar = calendarRef.current;
+      if (calendar) {
+        calendar.getApi().gotoDate(newDate);
+        setDate(newDate);
+        setMiniCalendarOpen(false);
+      }
+    }
+  };
+
   if (isLoading) {
     return (
       <Card className="h-full">
@@ -397,6 +420,24 @@ export function Calendar() {
       <CardHeader className="flex flex-col space-y-4 md:flex-row md:items-center md:justify-between md:space-y-0 pb-2">
         <div className="flex items-center space-x-4">
           <CardTitle className="text-lg md:text-xl font-bold">{viewTitle}</CardTitle>
+          <Popover open={miniCalendarOpen} onOpenChange={setMiniCalendarOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className="h-9 w-9 p-0"
+              >
+                <CalendarIcon className="h-4 w-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0">
+              <MiniCalendar
+                mode="single"
+                selected={date}
+                onSelect={handleDateSelect}
+                initialFocus
+              />
+            </PopoverContent>
+          </Popover>
         </div>
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 md:gap-2">
           <div className="flex items-center justify-center gap-2">

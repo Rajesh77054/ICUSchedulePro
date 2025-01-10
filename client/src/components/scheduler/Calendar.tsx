@@ -375,7 +375,7 @@ export function Calendar() {
 
     setOverlappingShifts(shifts);
     setOverlappingShiftsOpen(true);
-    return false;
+    return undefined; // Fix TypeScript error by returning undefined instead of false
   };
 
   const handleDateSelect = (newDate: Date | undefined) => {
@@ -516,6 +516,9 @@ export function Calendar() {
               eventContent={renderEventContent}
               moreLinkClick={handleMoreLinkClick}
               height="100%"
+              longPressDelay={0}
+              eventLongPressDelay={0}
+              selectLongPressDelay={0}
               views={{
                 dayGridWeek: {
                   titleFormat: { year: 'numeric', month: 'long', day: 'numeric' },

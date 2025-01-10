@@ -39,9 +39,10 @@ app.use((req, res, next) => {
 
 (async () => {
   try {
+    // Create HTTP server first
     const server = registerRoutes(app);
-    const wsServer = setupWebSocket(server);
 
+    // Setup error handling
     app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
       const status = err.status || err.statusCode || 500;
       const message = err.message || "Internal Server Error";
@@ -49,12 +50,17 @@ app.use((req, res, next) => {
       res.status(status).json({ message });
     });
 
+    // Setup WebSocket server
+    const wsServer = setupWebSocket(server);
+
+    // Setup Vite/Static serving
     if (app.get("env") === "development") {
       await setupVite(app, server);
     } else {
       serveStatic(app);
     }
 
+    // Start server with port retry logic
     const PORT = 5000;
     const MAX_RETRIES = 3;
     let currentPort = PORT;

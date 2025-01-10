@@ -16,6 +16,11 @@ export function setupWebSocket(server: Server) {
   const wss = new WebSocketServer({ 
     server,
     path: '/ws',
+    verifyClient: (info) => {
+      // Ignore Vite HMR WebSocket connections
+      const protocol = info.req.headers['sec-websocket-protocol'];
+      return !protocol || protocol !== 'vite-hmr';
+    }
   });
 
   const clients = new Set<WebSocket>();

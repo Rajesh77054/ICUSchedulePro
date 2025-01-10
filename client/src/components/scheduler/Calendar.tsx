@@ -375,7 +375,7 @@ export function Calendar() {
 
     setOverlappingShifts(shifts);
     setOverlappingShiftsOpen(true);
-    return undefined; // Fix TypeScript error by returning undefined instead of false
+    return undefined; 
   };
 
   const handleDateSelect = (newDate: Date | undefined) => {
@@ -404,8 +404,10 @@ export function Calendar() {
   return (
     <Card className="h-full">
       <CardHeader className="flex flex-col space-y-4 md:flex-row md:items-center md:justify-between md:space-y-0 pb-2">
-        <div className="flex items-center space-x-4">
-          <CardTitle className="text-lg md:text-xl font-bold truncate">{viewTitle}</CardTitle>
+        <div className="flex items-center space-x-4 min-w-0">
+          <CardTitle className="text-lg md:text-xl font-bold truncate flex-shrink min-w-0">
+            <span className="truncate block">{viewTitle}</span>
+          </CardTitle>
           <Popover open={miniCalendarOpen} onOpenChange={setMiniCalendarOpen}>
             <PopoverTrigger asChild>
               <Button
@@ -427,7 +429,7 @@ export function Calendar() {
             </PopoverContent>
           </Popover>
         </div>
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 md:gap-2">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 md:gap-2 flex-shrink-0">
           <div className="flex items-center justify-center gap-2">
             <Button
               variant="outline"
@@ -460,7 +462,7 @@ export function Calendar() {
             value={view}
             onValueChange={handleViewChange}
           >
-            <SelectTrigger className="h-9 md:h-8 min-w-[120px] md:w-[140px] touch-manipulation">
+            <SelectTrigger className="h-9 md:h-8 w-[120px] touch-manipulation">
               <SelectValue placeholder="Select view" />
             </SelectTrigger>
             <SelectContent>

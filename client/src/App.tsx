@@ -8,19 +8,25 @@ import { ShiftPreferences } from "@/pages/ShiftPreferences";
 import { AlertCircle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { BreadcrumbNavigation } from "@/components/layout/BreadcrumbNavigation";
 
 function App() {
   return (
     <TooltipProvider>
-      <Switch>
-        <Route path="/" component={Dashboard} />
-        <Route path="/provider/:id" component={PersonalDashboard} />
-        <Route path="/swap-requests" component={SwapRequestsDashboard} />
-        <Route path="/time-off" component={TimeOffRequests} />
-        <Route path="/time-off/admin" component={TimeOffAdmin} />
-        <Route path="/preferences" component={ShiftPreferences} />
-        <Route component={NotFound} />
-      </Switch>
+      <div className="min-h-screen bg-background">
+        <BreadcrumbNavigation />
+        <main className="container mx-auto py-6">
+          <Switch>
+            <Route path="/" component={Dashboard} />
+            <Route path="/provider/:id" component={PersonalDashboard} />
+            <Route path="/swap-requests" component={SwapRequestsDashboard} />
+            <Route path="/time-off" component={TimeOffRequests} />
+            <Route path="/time-off/admin" component={TimeOffAdmin} />
+            <Route path="/preferences" component={ShiftPreferences} />
+            <Route component={NotFound} />
+          </Switch>
+        </main>
+      </div>
     </TooltipProvider>
   );
 }

@@ -64,7 +64,7 @@ export function Sidebar() {
     ],
     scheduling: [
       {
-        href: "/personal",
+        href: "/provider/1",
         icon: <CalendarDays className="h-4 w-4" />,
         label: "Personal Schedule",
       },

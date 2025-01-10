@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Calendar as CalendarIcon, Loader2, X, Settings } from "lucide-react";
+import { Calendar as CalendarIcon, X, Settings, Loader2 } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { DatePickerWithRange } from "@/components/ui/date-range-picker";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
@@ -72,8 +73,13 @@ export function TimeOffRequestForm({ providerId, onSuccess, onCancel }: TimeOffR
     },
   });
 
-  const { mutate: createRequest, isLoading: isSubmitting } = useMutation({
+  const { mutate: createRequest, isPending: isSubmitting } = useMutation({
     mutationFn: async (data: TimeOffRequestFormData) => {
+      toast({
+        title: "Submitting request...",
+        description: "Please wait while we process your request.",
+      });
+
       const res = await fetch("/api/time-off-requests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -84,6 +90,7 @@ export function TimeOffRequestForm({ providerId, onSuccess, onCancel }: TimeOffR
           status: "pending",
         }),
       });
+
       if (!res.ok) {
         const error = await res.text();
         throw new Error(error || "Failed to create time-off request");
@@ -95,6 +102,7 @@ export function TimeOffRequestForm({ providerId, onSuccess, onCancel }: TimeOffR
       toast({
         title: "Success",
         description: "Time-off request submitted successfully",
+        variant: "default",
       });
       setConfirmOpen(false);
       form.reset();
@@ -161,9 +169,9 @@ export function TimeOffRequestForm({ providerId, onSuccess, onCancel }: TimeOffR
           </DialogHeader>
           <div className="py-4">
             <p className="text-sm text-muted-foreground">
-              From: {form.getValues().dateRange?.from && format(form.getValues().dateRange.from, "MMMM d, yyyy")}
+              From: {form.getValues().dateRange?.from && format(form.getValues().dateRange.from, "MMM d, yyyy")}
               <br />
-              To: {form.getValues().dateRange?.to && format(form.getValues().dateRange.to, "MMMM d, yyyy")}
+              To: {form.getValues().dateRange?.to && format(form.getValues().dateRange.to, "MMM d, yyyy")}
             </p>
           </div>
           <DialogFooter>
@@ -199,30 +207,42 @@ interface TimeOffRequestListProps {
   showActions?: boolean;
 }
 
+function TimeOffRequestSkeleton() {
+  return (
+    <div className="space-y-4">
+      {[1, 2, 3].map((i) => (
+        <div
+          key={i}
+          className="flex items-center justify-between p-4 rounded-lg border bg-card"
+        >
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-4 w-48" />
+            <Skeleton className="h-6 w-20 rounded-full" />
+          </div>
+          <Skeleton className="h-9 w-[120px]" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function TimeOffRequestList({ providerId, showActions = true }: TimeOffRequestListProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [cancelRequestId, setCancelRequestId] = useState<number | null>(null);
 
-  const { data: requests = [], isLoading } = useQuery<TimeOffRequest[]>({
-    queryKey: ["/api/time-off-requests", providerId],
-    queryFn: async ({ queryKey }) => {
-      const [_, providerId] = queryKey;
-      const url = new URL("/api/time-off-requests", window.location.origin);
-      if (providerId) {
-        url.searchParams.append("providerId", providerId.toString());
-      }
-      const res = await fetch(url);
-      if (!res.ok) throw new Error("Failed to fetch time-off requests");
-      return res.json();
-    },
-  });
-
-  const { mutate: cancelRequest, isLoading: isCancelling } = useMutation({
+  const { mutate: cancelRequest, isPending: isCancelling } = useMutation({
     mutationFn: async (requestId: number) => {
+      toast({
+        title: "Cancelling request...",
+        description: "Please wait while we process the cancellation.",
+      });
+
       const res = await fetch(`/api/time-off-requests/${requestId}`, {
         method: "DELETE",
       });
+
       if (!res.ok) {
         const error = await res.text();
         throw new Error(error || "Failed to cancel time-off request");
@@ -234,6 +254,7 @@ export function TimeOffRequestList({ providerId, showActions = true }: TimeOffRe
       toast({
         title: "Success",
         description: "Time-off request cancelled successfully",
+        variant: "default",
       });
       setCancelRequestId(null);
     },
@@ -257,17 +278,27 @@ export function TimeOffRequestList({ providerId, showActions = true }: TimeOffRe
     }
   };
 
+  const { data: requests = [], isLoading } = useQuery<TimeOffRequest[]>({
+    queryKey: ["/api/time-off-requests", providerId],
+    queryFn: async ({ queryKey }) => {
+      const [_, providerId] = queryKey;
+      const url = new URL("/api/time-off-requests", window.location.origin);
+      if (providerId) {
+        url.searchParams.append("providerId", providerId.toString());
+      }
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Failed to fetch time-off requests");
+      return res.json();
+    },
+  });
+
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-4">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <TimeOffRequestSkeleton />;
   }
 
   if (requests.length === 0) {
     return (
-      <div className="text-center py-4">
+      <div className="text-center py-8 bg-muted/20 rounded-lg">
         <p className="text-muted-foreground">No time-off requests found</p>
       </div>
     );
@@ -301,6 +332,11 @@ export function TimeOffRequestList({ providerId, showActions = true }: TimeOffRe
                 >
                   {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
                 </span>
+                {request.status === 'rejected' && request.reason && (
+                  <p className="text-sm text-red-600 mt-1">
+                    Reason: {request.reason}
+                  </p>
+                )}
               </div>
               {canCancel && (
                 <Button
@@ -360,7 +396,7 @@ export function TimeOffRequestList({ providerId, showActions = true }: TimeOffRe
 
 export function TimeOffRequests() {
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [selectedProvider, setSelectedProvider] = useState<number | null>(null);
+  const [selectedProvider, setSelectedProvider] = useState<number | undefined>(undefined);
 
   return (
     <div className="min-h-screen bg-background">
@@ -368,14 +404,17 @@ export function TimeOffRequests() {
         <div className="flex justify-between items-center">
           <h2 className="text-2xl font-semibold">Time Off Requests</h2>
           <div className="flex items-center gap-4">
-            <Select value={selectedProvider ?? undefined} onValueChange={setSelectedProvider}>
+            <Select
+              value={selectedProvider}
+              onValueChange={(value: string | undefined) => setSelectedProvider(value ? parseInt(value, 10) : undefined)}
+            >
               <SelectTrigger className="w-[200px]">
                 <SelectValue placeholder="Filter by provider" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Providers</SelectItem>
                 {PROVIDERS.map((provider) => (
-                  <SelectItem key={provider.id} value={provider.id}>
+                  <SelectItem key={provider.id} value={provider.id.toString()}>
                     {provider.name}, {provider.title}
                   </SelectItem>
                 ))}
@@ -402,7 +441,9 @@ export function TimeOffRequests() {
           </DialogContent>
         </Dialog>
 
-        <TimeOffRequestList providerId={selectedProvider} />
+        <TimeOffRequestList
+          providerId={selectedProvider === "all" ? undefined : selectedProvider}
+        />
       </div>
     </div>
   );

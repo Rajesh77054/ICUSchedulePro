@@ -19,8 +19,9 @@ export function Dashboard() {
   const isLoading = isLoadingShifts || isLoadingProviders;
 
   return (
-    <div className="container mx-auto p-4 md:py-6 space-y-4 md:space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="container mx-auto p-4 md:py-6">
+      {/* Header section */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <h1 className="text-2xl md:text-3xl font-bold">ICU Shift Schedule</h1>
         <div className="flex items-center gap-2 md:gap-4">
           <Link href="/swap-requests" className="w-full md:w-auto">
@@ -40,11 +41,15 @@ export function Dashboard() {
           <Loader size="lg" />
         </div>
       ) : (
-        <div className="space-y-4 md:space-y-6">
+        // Main content grid layout
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr,300px] gap-4 md:gap-6">
+          {/* Calendar section - spans full width on mobile, main area on desktop */}
           <div className="w-full">
             <Calendar />
           </div>
-          <div className="w-full">
+
+          {/* Providers list - spans full width on mobile, right sidebar on desktop */}
+          <div className="w-full lg:max-w-[300px]">
             <ProviderList />
           </div>
         </div>

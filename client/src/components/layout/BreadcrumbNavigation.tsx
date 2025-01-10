@@ -17,8 +17,8 @@ import { Info } from "lucide-react";
 
 // Map routes to breadcrumb items with tooltips
 const routeMap: Record<string, { title: string; parent?: string; tooltip?: string }> = {
-  "/": { title: "Dashboard" },
-  "/provider": { title: "Provider Dashboard", parent: "/", tooltip: "View and manage your personal schedule" },
+  "/": { title: "Schedule" },
+  "/provider": { title: "Provider Schedule", parent: "/", tooltip: "View and manage your personal schedule" },
   "/swap-requests": { title: "Shift Swaps", parent: "/", tooltip: "Request and manage shift swaps with other providers" },
   "/time-off": { title: "Time Off", parent: "/", tooltip: "Submit and track time-off requests" },
   "/time-off/admin": { title: "Time Off Admin", parent: "/time-off", tooltip: "Review and manage time-off requests" },

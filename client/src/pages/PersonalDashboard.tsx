@@ -40,7 +40,7 @@ export function PersonalDashboard() {
             <Link href="/">
               <Button className="mt-4">
                 <ArrowLeft className="mr-2 h-4 w-4" />
-                Back to Dashboard
+                Back to Schedule
               </Button>
             </Link>
           </CardContent>
@@ -141,7 +141,7 @@ export function PersonalDashboard() {
           <Link href="/">
             <Button variant="outline">
               <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Dashboard
+              Back to Schedule
             </Button>
           </Link>
         </div>

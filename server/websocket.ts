@@ -1,9 +1,9 @@
 import { WebSocket, WebSocketServer } from 'ws';
 import type { Server } from 'http';
-import { type shifts } from '@db/schema';
+import { type shifts, type timeOffRequests } from '@db/schema';
 
 interface NotificationMessage {
-  type: 'shift_created' | 'shift_updated' | 'shift_deleted' | 'shift_swap_requested' | 'shift_swap_responded';
+  type: 'shift_created' | 'shift_updated' | 'shift_deleted' | 'shift_swap_requested' | 'shift_swap_responded' | 'time_off_requested' | 'time_off_responded' | 'time_off_cancelled';
   data: any;
   timestamp: string;
   provider?: {
@@ -88,6 +88,27 @@ export const notify = {
   ) => ({
     type: 'shift_swap_responded' as const,
     data: { shift, requestor, recipient, status },
+    timestamp: new Date().toISOString(),
+  }),
+
+  timeOffRequested: (request: typeof timeOffRequests.$inferSelect, provider: { name: string; title: string }) => ({
+    type: 'time_off_requested' as const,
+    data: request,
+    provider,
+    timestamp: new Date().toISOString(),
+  }),
+
+  timeOffResponded: (request: typeof timeOffRequests.$inferSelect, provider: { name: string; title: string }, status: 'approved' | 'rejected') => ({
+    type: 'time_off_responded' as const,
+    data: { ...request, status },
+    provider,
+    timestamp: new Date().toISOString(),
+  }),
+
+  timeOffCancelled: (request: typeof timeOffRequests.$inferSelect, provider: { name: string; title: string }) => ({
+    type: 'time_off_cancelled' as const,
+    data: request,
+    provider,
     timestamp: new Date().toISOString(),
   }),
 };

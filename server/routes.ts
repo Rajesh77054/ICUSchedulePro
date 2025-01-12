@@ -229,10 +229,14 @@ export function registerRoutes(app: Express): Server {
       // Step 2: Fetch and parse QGenda calendar
       const response = await fetch(subscriptionUrl);
       if (!response.ok) {
-        throw new Error("Failed to fetch QGenda calendar");
+        throw new Error(`Failed to fetch QGenda calendar: ${response.status} ${response.statusText}`);
       }
 
       const icalData = await response.text();
+      if (!icalData.includes('BEGIN:VCALENDAR')) {
+        throw new Error('Invalid iCal data received from QGenda');
+      }
+
       const events = await ical.async.parseICS(icalData);
 
       // Step 3: Insert new shifts from QGenda

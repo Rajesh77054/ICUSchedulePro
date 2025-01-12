@@ -79,6 +79,9 @@ export const shifts = pgTable("shifts", {
   status: text("status").notNull().default('confirmed'), // confirmed, pending_swap, swapped
   satisfactionScore: integer("satisfaction_score"), // Provider's satisfaction with this shift
   schedulingNotes: jsonb("scheduling_notes"), // AI insights and scheduling decisions
+  source: text("source").default('manual'), // manual, qgenda, etc.
+  conflictResolution: jsonb("conflict_resolution").default(null), // Store conflict resolution details
+  externalId: text("external_id"), // ID from external system (e.g., QGenda)
 });
 
 export const swapRequests = pgTable("swap_requests", {

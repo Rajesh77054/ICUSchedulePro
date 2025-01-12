@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { db } from "@db";
 import { shifts, swapRequests, providers, timeOffRequests, providerPreferences, qgendaSyncHistory } from "@db/schema"; // Added qgendaSyncHistory
-import { eq, and, gte, lte, or, sql } from "drizzle-orm";
+import { eq, and, gte, lte, or, sql, desc } from "drizzle-orm";
 import { setupWebSocket, notify } from "./websocket";
 import ical from 'node-ical';
 import fetch from 'node-fetch';
@@ -727,7 +727,7 @@ export function registerRoutes(app: Express): Server {
   // Add QGenda iCal import endpoint
   app.post("/api/integrations/qgenda/import-ical", async (req, res) => {
     try {
-      const { subscriptionUrl, providerId } = req.body;
+      const { subscriptionUrl, providerId, conflictStrategy = 'qgenda-priority' } = req.body;
 
       if (!subscriptionUrl || !providerId) {
         res.status(400).json({ message: "Missing required parameters" });
@@ -755,26 +755,94 @@ export function registerRoutes(app: Express): Server {
       const icalData = await response.text();
       const events = await ical.async.parseICS(icalData);
 
-      // Convert iCal events to shifts
+      // Process events and handle conflicts
       const shiftsToInsert = [];
+      const conflicts = [];
+      const processedShifts = [];
+
       for (const event of Object.values(events)) {
         if (event.type === 'VEVENT') {
+          const startDate = event.start.toISOString().split('T')[0];
+          const endDate = event.end.toISOString().split('T')[0];
+          const eventId = event.uid || `qgenda-${startDate}-${endDate}`;
+
+          // Check for existing shifts in this time period
+          const existingShifts = await db.select()
+            .from(shifts)
+            .where(
+              and(
+                eq(shifts.providerId, providerId),
+                or(
+                  and(
+                    lte(shifts.startDate, startDate),
+                    gte(shifts.endDate, startDate)
+                  ),
+                  and(
+                    lte(shifts.startDate, endDate),
+                    gte(shifts.endDate, endDate)
+                  )
+                )
+              )
+            );
+
+          if (existingShifts.length > 0) {
+            // Handle conflicts based on strategy
+            if (conflictStrategy === 'qgenda-priority') {
+              // Archive or mark existing shifts as replaced
+              for (const existing of existingShifts) {
+                await db.update(shifts)
+                  .set({
+                    conflictResolution: {
+                      resolvedAt: new Date().toISOString(),
+                      action: 'replaced-by-qgenda',
+                      qgendaEventId: eventId,
+                      originalShift: {
+                        startDate: existing.startDate,
+                        endDate: existing.endDate,
+                        status: existing.status
+                      }
+                    },
+                    status: 'archived'
+                  })
+                  .where(eq(shifts.id, existing.id));
+
+                conflicts.push({
+                  type: 'replaced',
+                  original: existing,
+                  qgendaEvent: {
+                    startDate,
+                    endDate,
+                    summary: event.summary
+                  }
+                });
+              }
+            }
+          }
+
+          // Add the new QGenda shift
           shiftsToInsert.push({
             providerId,
-            startDate: event.start.toISOString(),
-            endDate: event.end.toISOString(),
+            startDate,
+            endDate,
             status: 'confirmed',
-            schedulingNotes: `Imported from QGenda: ${event.summary || ''}`
+            source: 'qgenda',
+            externalId: eventId,
+            schedulingNotes: {
+              importedFrom: 'QGenda',
+              eventSummary: event.summary || '',
+              importedAt: new Date().toISOString()
+            }
+          });
+
+          processedShifts.push({
+            startDate,
+            endDate,
+            summary: event.summary
           });
         }
       }
 
-      if (shiftsToInsert.length === 0) {
-        res.status(400).json({ message: "No valid shifts found in the calendar" });
-        return;
-      }
-
-      // Insert the shifts
+      // Insert the new shifts
       const result = await db.insert(shifts).values(shiftsToInsert).returning();
 
       // Log the sync in history
@@ -782,6 +850,10 @@ export function registerRoutes(app: Express): Server {
         providerId,
         status: 'success',
         shiftsImported: shiftsToInsert.length,
+        details: {
+          conflicts,
+          processedShifts
+        }
       });
 
       // Get provider info for notification
@@ -795,10 +867,24 @@ export function registerRoutes(app: Express): Server {
         for (const shift of result) {
           broadcast(notify.shiftCreated(shift, provider[0]));
         }
+
+        // If there were conflicts, send additional notifications
+        if (conflicts.length > 0) {
+          broadcast({
+            type: 'calendar-conflicts-resolved',
+            message: `${conflicts.length} schedule conflicts were resolved during QGenda import`,
+            provider: provider[0],
+            details: {
+              resolvedConflicts: conflicts.length,
+              strategy: conflictStrategy
+            }
+          });
+        }
       }
 
       res.json({
         message: `Successfully imported ${result.length} shifts`,
+        conflicts,
         shifts: result
       });
     } catch (error: any) {
@@ -820,33 +906,25 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Add endpoint to manage QGenda sync settings
-  app.patch("/api/provider-preferences/:providerId/qgenda-sync", async (req, res) => {
+  // Add endpoint to get sync history and conflicts
+  app.get("/api/integrations/qgenda/sync-history/:providerId", async (req, res) => {
     try {
       const { providerId } = req.params;
-      const { enabled, syncInterval } = req.body;
+      const history = await db.select()
+        .from(qgendaSyncHistory)
+        .where(eq(qgendaSyncHistory.providerId, parseInt(providerId)))
+        .orderBy(desc(qgendaSyncHistory.createdAt))
+        .limit(10);
 
-      const result = await db.update(providerPreferences)
-        .set({
-          qgendaIntegration: {
-            enabled,
-            syncInterval,
-            lastSyncAt: new Date().toISOString(),
-          }
-        })
-        .where(eq(providerPreferences.providerId, parseInt(providerId)))
-        .returning();
-
-      res.json(result[0]);
+      res.json(history);
     } catch (error: any) {
       res.status(500).json({
-        message: "Failed to update QGenda sync settings",
+        message: "Failed to fetch sync history",
         error: error.message
       });
     }
   });
 
-  // Add iCal export endpoint
   app.get("/api/schedules/export/:providerId", async (req, res) => {
     try {
       const { providerId } = req.params;

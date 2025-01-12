@@ -2,16 +2,21 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { db } from "@db";
 import { shifts, swapRequests, providers, timeOffRequests, providerPreferences, qgendaSyncHistory } from "@db/schema";
-import { eq, and, gte, lte, or, desc, sql } from "drizzle-orm";
+import type { ShiftStatus } from "@db/schema";
+import { eq, and, gte, lte, or, desc } from "drizzle-orm";
 import { setupWebSocket, notify } from "./websocket";
 import ical from 'node-ical';
 import fetch from 'node-fetch';
 
 // Initialize providers if they don't exist
-const initializeProviders = async () => {
+async function initializeProviders() {
+  const existingProviders = await db.select().from(providers);
+  if (existingProviders.length > 0) {
+    return; // Providers already exist
+  }
+
   const defaultProviders = [
     {
-      id: 1,
       name: "Ashley Liou",
       title: "MD",
       targetDays: 105,
@@ -20,86 +25,80 @@ const initializeProviders = async () => {
       color: "hsl(230, 75%, 60%)",
     },
     {
-      id: 2,
       name: "Joseph Brading",
       title: "MD",
       targetDays: 170,
+      tolerance: 0,
       maxConsecutiveWeeks: 2,
       color: "hsl(160, 75%, 40%)",
     },
     {
-      id: 3,
       name: "Rajesh Harrykissoon",
       title: "MD",
       targetDays: 62,
+      tolerance: 0,
       maxConsecutiveWeeks: 1,
       color: "hsl(350, 75%, 50%)",
     },
     {
-      id: 4,
       name: "Anthony Zachria",
       title: "DO",
       targetDays: 28,
+      tolerance: 0,
       maxConsecutiveWeeks: 1,
       color: "hsl(45, 75%, 45%)",
     },
   ];
 
-  // Initialize default preferences for each provider
-  const defaultPreferences = [
-    {
-      providerId: 1,
-      preferredShiftLength: 7,
-      preferredDaysOfWeek: [1, 2, 3], // Mon, Tue, Wed
-      preferredCoworkers: [2, 3],
-      avoidedDaysOfWeek: [0, 6], // Sun, Sat
-      maxShiftsPerWeek: 1,
-      minDaysBetweenShifts: 14,
-    },
-    {
-      providerId: 2,
-      preferredShiftLength: 14,
-      preferredDaysOfWeek: [1, 2, 3, 4], // Mon-Thu
-      preferredCoworkers: [1, 4],
-      avoidedDaysOfWeek: [5, 6], // Fri, Sat
-      maxShiftsPerWeek: 1,
-      minDaysBetweenShifts: 7,
-    },
-    {
-      providerId: 3,
-      preferredShiftLength: 7,
-      preferredDaysOfWeek: [2, 3, 4], // Tue-Thu
-      preferredCoworkers: [1, 2],
-      avoidedDaysOfWeek: [0, 6], // Sun, Sat
-      maxShiftsPerWeek: 1,
-      minDaysBetweenShifts: 21,
-    },
-    {
-      providerId: 4,
-      preferredShiftLength: 5,
-      preferredDaysOfWeek: [1, 2, 3, 4, 5], // Mon-Fri
-      preferredCoworkers: [2],
-      avoidedDaysOfWeek: [0, 6], // Sun, Sat
-      maxShiftsPerWeek: 1,
-      minDaysBetweenShifts: 14,
-    },
-  ];
-
+  // Insert providers and get their IDs
+  const insertedProviders = [];
   for (const provider of defaultProviders) {
-    await db.insert(providers).values(provider).onConflictDoNothing();
+    const result = await db.insert(providers)
+      .values(provider)
+      .returning();
+    if (result.length > 0) {
+      insertedProviders.push(result[0]);
+    }
   }
+
+  // Initialize default preferences for each provider
+  const defaultPreferences = insertedProviders.map(provider => ({
+    providerId: provider.id,
+    preferredShiftLength: 7,
+    preferredDaysOfWeek: [1, 2, 3], // Mon, Tue, Wed
+    preferredCoworkers: [],
+    avoidedDaysOfWeek: [0, 6], // Sun, Sat
+    maxShiftsPerWeek: 1,
+    minDaysBetweenShifts: 14,
+    defaultView: 'dayGridMonth',
+    defaultCalendarDuration: 'month',
+    notificationPreferences: {
+      emailNotifications: true,
+      inAppNotifications: true,
+      notifyOnNewShifts: true,
+      notifyOnSwapRequests: true,
+      notifyOnTimeOffUpdates: true,
+      notifyBeforeShift: 24,
+    },
+    qgendaIntegration: {
+      subscriptionUrl: null,
+      enabled: false,
+      syncInterval: 60,
+      lastSyncAt: null,
+    }
+  }));
 
   for (const pref of defaultPreferences) {
-    await db.insert(providerPreferences).values(pref).onConflictDoNothing();
+    await db.insert(providerPreferences).values(pref);
   }
-};
+}
 
 export function registerRoutes(app: Express): Server {
-  // Initialize providers when the server starts
-  initializeProviders().catch(console.error);
-
   const httpServer = createServer(app);
   const { broadcast } = setupWebSocket(httpServer);
+
+  // Initialize providers when the server starts
+  initializeProviders().catch(console.error);
 
   // Get all providers
   app.get("/api/providers", async (_req, res) => {
@@ -147,7 +146,7 @@ export function registerRoutes(app: Express): Server {
       // Validate provider exists
       const provider = await db.select()
         .from(providers)
-        .where(sql`${providers.id} = ${providerId}`)
+        .where(eq(providers.id, providerId))
         .limit(1);
 
       if (!provider.length) {
@@ -162,7 +161,7 @@ export function registerRoutes(app: Express): Server {
         providerId,
         startDate,
         endDate,
-        status: 'confirmed'
+        status: 'confirmed' as ShiftStatus
       }).returning();
 
       // Broadcast notification
@@ -198,7 +197,7 @@ export function registerRoutes(app: Express): Server {
       // Get provider info for notification
       const provider = await db.select()
         .from(providers)
-        .where(sql`${providers.id} = ${result[0].providerId}`)
+        .where(eq(providers.id, result[0].providerId))
         .limit(1);
 
       if (provider.length) {
@@ -231,7 +230,7 @@ export function registerRoutes(app: Express): Server {
 
       const provider = await db.select()
         .from(providers)
-        .where(sql`${providers.id} = ${shift[0].providerId}`)
+        .where(eq(providers.id, shift[0].providerId))
         .limit(1);
 
       // Delete the shift
@@ -270,9 +269,9 @@ export function registerRoutes(app: Express): Server {
       const enrichedRequests = await Promise.all(
         requests.map(async (request) => {
           const [[requestor], [recipient], [shift]] = await Promise.all([
-            db.select().from(providers).where(sql`${providers.id} = ${request.requestorId}`),
-            db.select().from(providers).where(sql`${providers.id} = ${request.recipientId}`),
-            db.select().from(shifts).where(sql`${shifts.id} = ${request.shiftId}`)
+            db.select().from(providers).where(eq(providers.id, request.requestorId)),
+            db.select().from(providers).where(eq(providers.id, request.recipientId)),
+            db.select().from(shifts).where(eq(shifts.id, request.shiftId))
           ]);
 
           return {
@@ -310,9 +309,9 @@ export function registerRoutes(app: Express): Server {
       if (existingRequest.length > 0) {
         // Get provider and shift details for the existing request
         const [[requestor], [recipient], [shift]] = await Promise.all([
-          db.select().from(providers).where(sql`${providers.id} = ${existingRequest[0].requestorId}`),
-          db.select().from(providers).where(sql`${providers.id} = ${existingRequest[0].recipientId}`),
-          db.select().from(shifts).where(sql`${shifts.id} = ${existingRequest[0].shiftId}`)
+          db.select().from(providers).where(eq(providers.id, existingRequest[0].requestorId)),
+          db.select().from(providers).where(eq(providers.id, existingRequest[0].recipientId)),
+          db.select().from(shifts).where(eq(shifts.id, existingRequest[0].shiftId))
         ]);
 
         res.status(400).json({
@@ -336,9 +335,9 @@ export function registerRoutes(app: Express): Server {
 
       // Get provider info for notification
       const [requestor, recipient, shift] = await Promise.all([
-        db.select().from(providers).where(sql`${providers.id} = ${requestorId}`).limit(1),
-        db.select().from(providers).where(sql`${providers.id} = ${recipientId}`).limit(1),
-        db.select().from(shifts).where(sql`${shifts.id} = ${shiftId}`).limit(1),
+        db.select().from(providers).where(eq(providers.id, requestorId)).limit(1),
+        db.select().from(providers).where(eq(providers.id, recipientId)).limit(1),
+        db.select().from(shifts).where(eq(shifts.id, shiftId)).limit(1),
       ]);
 
       if (requestor.length && recipient.length && shift.length) {
@@ -385,9 +384,9 @@ export function registerRoutes(app: Express): Server {
 
       // Get provider info for notification
       const [requestor, recipient, shift] = await Promise.all([
-        db.select().from(providers).where(sql`${providers.id} = ${request[0].requestorId}`).limit(1),
-        db.select().from(providers).where(sql`${providers.id} = ${request[0].recipientId}`).limit(1),
-        db.select().from(shifts).where(sql`${shifts.id} = ${request[0].shiftId}`).limit(1),
+        db.select().from(providers).where(eq(providers.id, request[0].requestorId)).limit(1),
+        db.select().from(providers).where(eq(providers.id, request[0].recipientId)).limit(1),
+        db.select().from(shifts).where(eq(shifts.id, request[0].shiftId)).limit(1),
       ]);
 
       if (requestor.length && recipient.length && shift.length) {
@@ -460,16 +459,16 @@ export function registerRoutes(app: Express): Server {
         await db.update(shifts)
           .set({
             providerId: request.recipientId,
-            status: 'swapped'
+            status: 'swapped' as ShiftStatus
           })
           .where(eq(shifts.id, request.shiftId));
       }
 
       // Get provider info for notification
       const [requestor, recipient, shift] = await Promise.all([
-        db.select().from(providers).where(sql`${providers.id} = ${request.requestorId}`).limit(1),
-        db.select().from(providers).where(sql`${providers.id} = ${request.recipientId}`).limit(1),
-        db.select().from(shifts).where(sql`${shifts.id} = ${request.shiftId}`).limit(1),
+        db.select().from(providers).where(eq(providers.id, request.requestorId)).limit(1),
+        db.select().from(providers).where(eq(providers.id, request.recipientId)).limit(1),
+        db.select().from(shifts).where(eq(shifts.id, request.shiftId)).limit(1),
       ]);
 
       if (requestor.length && recipient.length && shift.length) {
@@ -599,7 +598,7 @@ export function registerRoutes(app: Express): Server {
       // Get provider info for notification
       const provider = await db.select()
         .from(providers)
-        .where(sql`${providers.id} = ${result[0].providerId}`)
+        .where(eq(providers.id, result[0].providerId))
         .limit(1);
 
       if (provider.length) {
@@ -642,7 +641,7 @@ export function registerRoutes(app: Express): Server {
       // Get provider info for notification
       const provider = await db.select()
         .from(providers)
-        .where(sql`${providers.id} = ${request[0].providerId}`)
+        .where(eq(providers.id, request[0].providerId))
         .limit(1);
 
       if (provider.length) {
@@ -802,7 +801,7 @@ export function registerRoutes(app: Express): Server {
                         status: existing.status
                       }
                     },
-                    status: 'archived'
+                    status: 'archived' as ShiftStatus
                   })
                   .where(eq(shifts.id, existing.id));
 
@@ -824,7 +823,7 @@ export function registerRoutes(app: Express): Server {
             providerId,
             startDate,
             endDate,
-            status: 'confirmed',
+            status: 'confirmed' as ShiftStatus,
             source: 'qgenda',
             externalId: eventId,
             schedulingNotes: {
@@ -859,7 +858,7 @@ export function registerRoutes(app: Express): Server {
       // Get provider info for notification
       const provider = await db.select()
         .from(providers)
-        .where(sql`${providers.id} = ${providerId}`)
+        .where(eq(providers.id, providerId))
         .limit(1);
 
       if (provider.length) {
@@ -932,7 +931,7 @@ export function registerRoutes(app: Express): Server {
       // Get provider info
       const provider = await db.select()
         .from(providers)
-        .where(sql`${providers.id} = ${parseInt(providerId)}`)
+        .where(eq(providers.id, parseInt(providerId)))
         .limit(1);
 
       if (!provider.length) {
@@ -988,6 +987,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // QGenda conflict resolution endpoint
   app.post("/api/shifts/resolve-qgenda-conflicts", async (req, res) => {
     try {
       const { resolutions } = req.body;
@@ -998,14 +998,19 @@ export function registerRoutes(app: Express): Server {
       }
 
       // Process each resolution
-            for (const { shiftId, action } of resolutions) {
+      const processedShifts = [];
+      const errors = [];
+
+      for (const { shiftId, action } of resolutions) {
         try {
-          const shift = await db.select().from(shifts)
+          // Get the shift and validate it exists
+          const shift = await db.select()
+            .from(shifts)
             .where(eq(shifts.id, shiftId))
             .limit(1);
 
           if (!shift.length) {
-            console.error(`Shift ${shiftId} not found during conflict resolution`);
+            errors.push(`Shift ${shiftId} not found`);
             continue;
           }
 
@@ -1015,83 +1020,118 @@ export function registerRoutes(app: Express): Server {
             .where(eq(providers.id, shift[0].providerId))
             .limit(1);
 
+          if (!provider.length) {
+            errors.push(`Provider not found for shift ${shiftId}`);
+            continue;
+          }
+
+          const currentShift = shift[0];
+          const currentProvider = provider[0];
+
           if (action === 'keep-qgenda') {
-            // Archive the local shift
+            // Set local shift to inactive and store conflict resolution details
             const updatedShift = await db.update(shifts)
               .set({
-                status: 'archived',
+                status: 'inactive' as ShiftStatus,
+                updatedAt: new Date(),
                 conflictResolution: {
                   resolvedAt: new Date().toISOString(),
-                  action: 'replaced-by-qgenda',
-                  resolution: 'kept-qgenda',
+                  action: 'kept-qgenda',
                   originalShift: {
-                    startDate: shift[0].startDate,
-                    endDate: shift[0].endDate,
-                    status: shift[0].status,
-                    schedulingNotes: shift[0].schedulingNotes
+                    startDate: currentShift.startDate,
+                    endDate: currentShift.endDate,
+                    status: currentShift.status,
+                    schedulingNotes: currentShift.schedulingNotes
                   }
                 }
               })
               .where(eq(shifts.id, shiftId))
               .returning();
 
-            if (provider.length && updatedShift.length) {
-              broadcast(notify.shiftUpdated(updatedShift[0], provider[0]));
+            if (updatedShift.length) {
+              processedShifts.push(updatedShift[0]);
+              broadcast(notify.shiftUpdated(updatedShift[0], currentProvider));
             }
           } else if (action === 'keep-local') {
-            // Keep the local shift and mark it as resolved
+            // Update local shift status and resolution details
             const updatedShift = await db.update(shifts)
               .set({
-                status: 'confirmed',
+                status: 'confirmed' as ShiftStatus,
+                updatedAt: new Date(),
                 conflictResolution: {
                   resolvedAt: new Date().toISOString(),
                   action: 'kept-local',
-                  resolution: 'kept-local',
-                  originalFormat: 'all-day-week'
+                  resolution: 'conflict-resolved'
                 }
               })
               .where(eq(shifts.id, shiftId))
               .returning();
 
-            if (provider.length && updatedShift.length) {
-              broadcast(notify.shiftUpdated(updatedShift[0], provider[0]));
+            if (updatedShift.length) {
+              processedShifts.push(updatedShift[0]);
+              broadcast(notify.shiftUpdated(updatedShift[0], currentProvider));
             }
           }
         } catch (error) {
-          console.error(`Error processing resolution for shift ${shiftId}:`, error);
-          throw error;
+          console.error(`Error processing shift ${shiftId}:`, error);
+          errors.push(`Failed to process shift ${shiftId}: ${error.message}`);
         }
       }
 
-      // Add an entry to sync history
-      await db.insert(qgendaSyncHistory).values({
-        status: 'success',
-        shiftsImported: 0,
-        details: {
-          resolutionsApplied: resolutions.length,
-          resolvedAt: new Date().toISOString(),
-          resolutions: resolutions.map(r => ({
-            ...r,
-            processedAt: new Date().toISOString()
-          }))
-        }
-      });
+      // Log the resolution in sync history
+      await db.insert(qgendaSyncHistory)
+        .values({
+          status: errors.length ? 'partial' : 'success',
+          shiftsImported: 0,
+          providerId: processedShifts[0]?.providerId,
+          details: {
+            resolutionsApplied: processedShifts.length,
+            failedResolutions: errors.length,
+            errors: errors,
+            resolvedAt: new Date().toISOString(),
+            processedShifts: processedShifts.map(s => ({
+              id: s.id,
+              status: s.status,
+              resolution: s.conflictResolution
+            }))
+          }
+        });
 
+      // If some shifts were processed but there were also errors,
+      // return a 207 Multi-Status response
+      if (processedShifts.length > 0 && errors.length > 0) {
+        res.status(207).json({
+          message: "Some conflicts resolved with errors",
+          processedShifts,
+          errors
+        });
+        return;
+      }
+
+      // If no shifts were processed, return an error
+      if (processedShifts.length === 0) {
+        res.status(400).json({
+          message: "Failed to resolve conflicts",
+          errors
+        });
+        return;
+      }
+
+      // All shifts processed successfully
       res.json({
-        message: `Successfully resolved ${resolutions.length} conflicts`,
-        resolutions
+        message: `Successfully resolved ${processedShifts.length} conflicts`,
+        processedShifts
       });
-    } catch (error: any) {
-      console.error('Failed to resolve conflicts:', error);
+    } catch (error) {
+      console.error('Conflict resolution error:', error);
       res.status(500).json({
         message: "Failed to resolve conflicts",
-        error: error.message,
-        details: error.stack
+        error: error.message
       });
     }
   });
 
-  // Add the QGenda conflict resolution endpoint
+  // QGenda conflict resolution endpoint (REPLACED)
   app.post("/api/shifts/resolve-qgenda-conflicts", async (req, res) => {
     try {
       const { resolutions } = req.body;
@@ -1102,51 +1142,51 @@ export function registerRoutes(app: Express): Server {
       }
 
       // Process each resolution
+      const processedShifts = [];
       for (const { shiftId, action } of resolutions) {
         try {
-          const shift = await db.select().from(shifts)
-            .where(eq(shifts.id, shiftId))
-            .limit(1);
-
-          if (!shift.length) {
+          // Get the shift and validate it exists
+          const existingShifts = await db.select().from(shifts).where(eq(shifts.id, shiftId));
+          if (!existingShifts.length) {
             console.error(`Shift ${shiftId} not found during conflict resolution`);
             continue;
           }
+          const shift = existingShifts[0];
 
-          // Get provider info for notification
-          const provider = await db.select()
+          // Get provider info
+          const providerResults = await db.select()
             .from(providers)
-            .where(eq(providers.id, shift[0].providerId))
-            .limit(1);
+            .where(eq(providers.id, shift.providerId));
 
           if (action === 'keep-qgenda') {
-            // Archive the local shift
+            // Set local shift to inactive
             const updatedShift = await db.update(shifts)
               .set({
-                status: 'archived',
+                status: 'inactive' as ShiftStatus,
                 conflictResolution: {
                   resolvedAt: new Date().toISOString(),
                   action: 'replaced-by-qgenda',
                   resolution: 'kept-qgenda',
                   originalShift: {
-                    startDate: shift[0].startDate,
-                    endDate: shift[0].endDate,
-                    status: shift[0].status,
-                    schedulingNotes: shift[0].schedulingNotes
+                    startDate: shift.startDate,
+                    endDate: shift.endDate,
+                    status: shift.status,
+                    schedulingNotes: shift.schedulingNotes
                   }
                 }
               })
               .where(eq(shifts.id, shiftId))
               .returning();
 
-            if (provider.length && updatedShift.length) {
-              broadcast(notify.shiftUpdated(updatedShift[0], provider[0]));
+            if (providerResults.length && updatedShift.length) {
+              processedShifts.push(updatedShift[0]);
+              broadcast(notify.shiftUpdated(updatedShift[0], providerResults[0]));
             }
           } else if (action === 'keep-local') {
-            // Keep the local shift and mark it as resolved
+            // Keep the local shift and mark it as confirmed
             const updatedShift = await db.update(shifts)
               .set({
-                status: 'confirmed',
+                status: 'confirmed' as ShiftStatus,
                 conflictResolution: {
                   resolvedAt: new Date().toISOString(),
                   action: 'kept-local',
@@ -1157,8 +1197,9 @@ export function registerRoutes(app: Express): Server {
               .where(eq(shifts.id, shiftId))
               .returning();
 
-            if (provider.length && updatedShift.length) {
-              broadcast(notify.shiftUpdated(updatedShift[0], provider[0]));
+            if (providerResults.length && updatedShift.length) {
+              processedShifts.push(updatedShift[0]);
+              broadcast(notify.shiftUpdated(updatedShift[0], providerResults[0]));
             }
           }
         } catch (error) {
@@ -1168,21 +1209,24 @@ export function registerRoutes(app: Express): Server {
       }
 
       // Add an entry to sync history
-      await db.insert(qgendaSyncHistory).values({
-        status: 'success',
-        shiftsImported: 0,
-        details: {
-          resolutionsApplied: resolutions.length,
-          resolvedAt: new Date().toISOString(),
-          resolutions: resolutions.map(r => ({
-            ...r,
-            processedAt: new Date().toISOString()
-          }))
-        }
-      });
+      await db.insert(qgendaSyncHistory)
+        .values({
+          status: 'success',
+          shiftsImported: 0,
+          details: {
+            resolutionsApplied: resolutions.length,
+            resolvedAt: new Date().toISOString(),
+            processedShifts,
+            resolutions: resolutions.map(r => ({
+              ...r,
+              processedAt: new Date().toISOString()
+            }))
+          }
+        });
 
       res.json({
         message: `Successfully resolved ${resolutions.length} conflicts`,
+        processedShifts,
         resolutions
       });
     } catch (error: any) {

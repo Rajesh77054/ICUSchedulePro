@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import { Calendar as MiniCalendar } from "@/components/ui/calendar";
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, ArrowRightLeft, Trash2, AlertTriangle } from "lucide-react";
 import { ConflictResolutionWizard } from "./ConflictResolutionWizard";
@@ -235,51 +235,21 @@ export function Calendar() {
     },
   });
 
-  const handleConflictResolution = async (resolutions: Array<{ shiftId: number; action: 'keep-qgenda' | 'keep-local' }>) => {
-    try {
-      const response = await fetch('/api/shifts/resolve-qgenda-conflicts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ resolutions }),
-      });
-
-      if (!response.ok) {
-        throw new Error(await response.text());
-      }
-
-      // Force refresh the shifts data
-      await queryClient.invalidateQueries({ queryKey: ["/api/shifts"] });
-
-      toast({
-        title: "Success",
-        description: "Calendar conflicts resolved successfully",
-      });
-
-      setShowConflictWizard(false);
-      setQgendaConflicts([]);
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
-  };
-
-  const getProviderColor = (providerId: number) => {
-    return PROVIDERS.find(p => p.id === providerId)?.color || "hsl(0, 0%, 50%)";
-  };
-
-  const calendarEvents = shifts?.map(shift => ({
-    id: shift.id.toString(),
-    title: PROVIDERS.find(p => p.id === shift.providerId)?.name || 'Unknown',
-    start: shift.startDate,
-    end: shift.endDate,
-    backgroundColor: getProviderColor(shift.providerId),
-    borderColor: getProviderColor(shift.providerId),
-    textColor: 'white',
-    extendedProps: { shift },
-  })) || [];
+  // Filter out inactive shifts from calendar events using useMemo
+  const calendarEvents = useMemo(() => 
+    shifts?.filter(shift => shift.status !== 'inactive')
+      .map(shift => ({
+        id: shift.id.toString(),
+        title: PROVIDERS.find(p => p.id === shift.providerId)?.name || 'Unknown',
+        start: shift.startDate,
+        end: shift.endDate,
+        backgroundColor: getProviderColor(shift.providerId),
+        borderColor: getProviderColor(shift.providerId),
+        textColor: 'white',
+        extendedProps: { shift },
+      })) || [],
+    [shifts]
+  );
 
   const backgroundEvents = HOLIDAYS_2024_2025.map(holiday => ({
     start: holiday.date,
@@ -568,6 +538,52 @@ export function Calendar() {
       </Card>
     );
   }
+
+  // Update the conflict resolution handler to force refresh
+  const handleConflictResolution = async (resolutions: Array<{ shiftId: number; action: 'keep-qgenda' | 'keep-local' }>) => {
+    try {
+      const response = await fetch('/api/shifts/resolve-qgenda-conflicts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resolutions }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText);
+      }
+
+      // Force refresh all data
+      await queryClient.invalidateQueries({ queryKey: ["/api/shifts"] });
+
+      // Explicitly refetch events for the calendar
+      if (calendarRef.current) {
+        calendarRef.current.getApi().refetchEvents();
+      }
+
+      toast({
+        title: "Success",
+        description: "Calendar conflicts resolved successfully",
+      });
+
+      // Clear all conflict-related states
+      setShowConflictWizard(false);
+      setQgendaConflicts([]);
+      setActiveConflicts(null);
+    } catch (error: any) {
+      console.error('Conflict resolution error:', error);
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const getProviderColor = (providerId: number) => {
+    return PROVIDERS.find(p => p.id === providerId)?.color || "hsl(0, 0%, 50%)";
+  };
+
 
   return (
     <Card className="h-full">

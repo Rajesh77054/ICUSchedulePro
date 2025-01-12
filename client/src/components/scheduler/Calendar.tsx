@@ -371,11 +371,50 @@ export function Calendar() {
     const conflicts = detectShiftConflicts(shift, shifts || []);
     if (conflicts.length > 0) {
       setActiveConflicts({ shift, conflicts });
+
+      // Create a tooltip with resolve button
+      const tooltip = document.createElement('div');
+      tooltip.className = 'fc-tooltip bg-destructive text-destructive-foreground p-2 rounded shadow-lg';
+      tooltip.innerHTML = `
+        <div class="flex items-center gap-2">
+          <span class="text-sm">Shift overlaps with ${conflicts.length} other shift(s)</span>
+          <button class="bg-white text-destructive px-2 py-1 rounded text-xs hover:bg-destructive-foreground">
+            Resolve
+          </button>
+        </div>
+      `;
+
+      tooltip.querySelector('button')?.addEventListener('click', () => {
+        setShowConflictWizard(true);
+        setQgendaConflicts([
+          {
+            local: shift,
+            qgenda: {
+              startDate: conflicts[0].startDate,
+              endDate: conflicts[0].endDate,
+              summary: `Conflicting shift with ${PROVIDERS.find(p => p.id === conflicts[0].providerId)?.name}`
+            }
+          }
+        ]);
+      });
+
+      const eventEl = info.el;
+      tooltip.style.position = 'absolute';
+      tooltip.style.zIndex = '10';
+      tooltip.style.left = `${eventEl.offsetLeft}px`;
+      tooltip.style.top = `${eventEl.offsetTop + eventEl.offsetHeight}px`;
+
+      eventEl.appendChild(tooltip);
+      info.el._tooltip = tooltip;
     }
   };
 
-  const handleEventMouseLeave = () => {
+  const handleEventMouseLeave = (info: any) => {
     setActiveConflicts(null);
+    if (info.el._tooltip) {
+      info.el._tooltip.remove();
+      delete info.el._tooltip;
+    }
   };
 
   const renderEventContent = (eventInfo: any) => {

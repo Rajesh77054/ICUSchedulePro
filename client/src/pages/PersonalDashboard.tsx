@@ -233,6 +233,7 @@ export function PersonalDashboard() {
                       </div>
                       <Switch
                         id="autoSync"
+                        className="data-[state=checked]:bg-primary"
                         checked={preferences?.qgendaIntegration?.enabled ?? false}
                         onCheckedChange={(enabled) => {
                           fetch(`/api/provider-preferences/${providerId}/qgenda-sync`, {

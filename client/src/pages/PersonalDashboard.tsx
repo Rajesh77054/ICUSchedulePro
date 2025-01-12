@@ -18,6 +18,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { toast } from "@/components/ui/toast";
+
 
 export function PersonalDashboard() {
   const { id } = useParams<{ id: string }>();
@@ -149,6 +151,63 @@ export function PersonalDashboard() {
           <PreferencesForm providerId={providerId} />
         </DialogContent>
       </Dialog>
+
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Import QGenda Schedule</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={(e) => {
+            e.preventDefault();
+            const form = e.target as HTMLFormElement;
+            const url = new FormData(form).get('qgendaUrl') as string;
+
+            fetch('/api/integrations/qgenda/import-ical', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ 
+                subscriptionUrl: url,
+                providerId 
+              })
+            })
+            .then(res => {
+              if (!res.ok) throw new Error('Failed to import schedule');
+              return res.json();
+            })
+            .then(() => {
+              toast({
+                title: 'Success',
+                description: 'QGenda schedule imported successfully',
+              });
+              form.reset();
+            })
+            .catch(error => {
+              toast({
+                title: 'Error',
+                description: error.message,
+                variant: 'destructive'
+              });
+            });
+          }}>
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="qgendaUrl" className="block text-sm font-medium mb-2">
+                  QGenda Subscription URL
+                </label>
+                <input 
+                  id="qgendaUrl"
+                  name="qgendaUrl"
+                  type="url" 
+                  className="w-full p-2 border rounded-md"
+                  placeholder="Paste your QGenda subscription URL here"
+                  required
+                />
+              </div>
+              <Button type="submit">Import Schedule</Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card>

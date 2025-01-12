@@ -8,7 +8,7 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function detectShiftConflicts(shift: Shift, allShifts: Shift[]): {
+export function detectShiftConflicts(shift: Shift | null | undefined, allShifts: Shift[]): {
   type: 'overlap' | 'consecutive' | 'maxDays';
   message: string;
   conflictingShift?: Shift;
@@ -19,16 +19,24 @@ export function detectShiftConflicts(shift: Shift, allShifts: Shift[]): {
     conflictingShift?: Shift;
   }[] = [];
 
+  // Early return if shift is null/undefined or missing required properties
+  if (!shift?.startDate || !shift?.endDate || !shift?.providerId) {
+    return conflicts;
+  }
+
   const shiftStart = new Date(shift.startDate);
   const shiftEnd = new Date(shift.endDate);
   const provider = PROVIDERS.find(p => p.id === shift.providerId);
 
   if (!provider) return conflicts;
 
-  // Check for overlapping shifts
-  allShifts.forEach(existingShift => {
-    if (existingShift.id === shift.id) return;
+  // Filter out invalid shifts from allShifts
+  const validShifts = allShifts.filter(s => 
+    s && s.startDate && s.endDate && s.providerId && s.id !== shift.id
+  );
 
+  // Check for overlapping shifts
+  validShifts.forEach(existingShift => {
     const existingStart = new Date(existingShift.startDate);
     const existingEnd = new Date(existingShift.endDate);
 
@@ -46,9 +54,8 @@ export function detectShiftConflicts(shift: Shift, allShifts: Shift[]): {
 
   // Check for consecutive weeks
   if (provider.maxConsecutiveWeeks) {
-    const providerShifts = allShifts.filter(s => 
-      s.providerId === shift.providerId &&
-      s.id !== shift.id
+    const providerShifts = validShifts.filter(s => 
+      s.providerId === shift.providerId
     );
 
     let consecutiveCount = 1; // Count current shift
@@ -84,7 +91,7 @@ export function detectShiftConflicts(shift: Shift, allShifts: Shift[]): {
     }
   }
 
-  const providerShifts = allShifts.filter(s => s.providerId === shift.providerId);
+  const providerShifts = validShifts.filter(s => s.providerId === shift.providerId);
   const totalDays = providerShifts.reduce((acc, s) => {
     const start = new Date(s.startDate);
     const end = new Date(s.endDate);

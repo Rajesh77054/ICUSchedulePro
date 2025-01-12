@@ -236,7 +236,7 @@ export function Calendar() {
   });
 
   // Filter out inactive shifts from calendar events using useMemo
-  const calendarEvents = useMemo(() => 
+  const calendarEvents = useMemo(() =>
     shifts?.filter(shift => shift.status !== 'inactive')
       .map(shift => ({
         id: shift.id.toString(),
@@ -355,7 +355,9 @@ export function Calendar() {
   };
 
   const handleEventMouseEnter = (info: any) => {
-    const shift = info.event.extendedProps.shift;
+    const shift = info.event?.extendedProps?.shift;
+    if (!shift) return;
+
     const conflicts = detectShiftConflicts(shift, (shifts || []).filter(s => s.id !== shift.id));
     if (conflicts.length > 0) {
       setActiveConflicts({

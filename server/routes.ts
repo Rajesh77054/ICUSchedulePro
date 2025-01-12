@@ -997,40 +997,69 @@ export function registerRoutes(app: Express): Server {
         res.status(400).json({ message: "Invalid resolutions format" });
         return;
       }
-
       // Process each resolution
       for (const { shiftId, action } of resolutions) {
-        const shift = await db.select().from(shifts)
-          .where(eq(shifts.id, shiftId))
-          .limit(1);
+        try {
+          const shift = await db.select().from(shifts)
+            .where(eq(shifts.id, shiftId))
+            .limit(1);
 
-        if (!shift.length) {
-          continue; // Skip if shift not found
-        }
+          if (!shift.length) {
+            console.error(`Shift ${shiftId} not found during conflict resolution`);
+            continue;
+          }
 
-        if (action === 'keep-qgenda') {
-          // Archive the local shift
-          await db.update(shifts)
-            .set({
-              status: 'archived',
-              conflictResolution: {
-                resolvedAt: new Date().toISOString(),
-                action: 'replaced-by-qgenda',
-                resolution: 'kept-qgenda'
-              }
-            })
-            .where(eq(shifts.id, shiftId));
-        } else if (action === 'keep-local') {
-          // Update the local shift to mark it as winning the conflict
-          await db.update(shifts)
-            .set({
-              conflictResolution: {
-                resolvedAt: new Date().toISOString(),
-                action: 'kept-local',
-                resolution: 'kept-local'
-              }
-            })
-            .where(eq(shifts.id, shiftId));
+          // Get provider info for notification
+          const provider = await db.select()
+            .from(providers)
+            .where(eq(providers.id, shift[0].providerId))
+            .limit(1);
+
+          if (action === 'keep-qgenda') {
+            // Handle QGenda shift keeping
+            // Convert the QGenda shift time format to match local format
+            await db.update(shifts)
+              .set({
+                status: 'archived',
+                conflictResolution: {
+                  resolvedAt: new Date().toISOString(),
+                  action: 'replaced-by-qgenda',
+                  resolution: 'kept-qgenda',
+                  originalShift: {
+                    startDate: shift[0].startDate,
+                    endDate: shift[0].endDate,
+                    status: shift[0].status,
+                    schedulingNotes: shift[0].schedulingNotes
+                  }
+                }
+              })
+              .where(eq(shifts.id, shiftId))
+              .returning();
+
+            if (provider.length) {
+              broadcast(notify.shiftUpdated(shift[0], provider[0]));
+            }
+          } else if (action === 'keep-local') {
+            // Keep the local shift and just mark it as resolved
+            await db.update(shifts)
+              .set({
+                conflictResolution: {
+                  resolvedAt: new Date().toISOString(),
+                  action: 'kept-local',
+                  resolution: 'kept-local',
+                  originalFormat: 'all-day-week'
+                }
+              })
+              .where(eq(shifts.id, shiftId))
+              .returning();
+
+            if (provider.length) {
+              broadcast(notify.shiftUpdated(shift[0], provider[0]));
+            }
+          }
+        } catch (error) {
+          console.error(`Error processing resolution for shift ${shiftId}:`, error);
+          throw error;
         }
       }
 
@@ -1041,7 +1070,10 @@ export function registerRoutes(app: Express): Server {
         details: {
           resolutionsApplied: resolutions.length,
           resolvedAt: new Date().toISOString(),
-          resolutions
+          resolutions: resolutions.map(r => ({
+            ...r,
+            processedAt: new Date().toISOString()
+          }))
         }
       });
 
@@ -1053,7 +1085,8 @@ export function registerRoutes(app: Express): Server {
       console.error('Failed to resolve conflicts:', error);
       res.status(500).json({
         message: "Failed to resolve conflicts",
-        error: error.message
+        error: error.message,
+        details: error.stack
       });
     }
   });

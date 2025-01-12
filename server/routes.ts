@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { db } from "@db";
-import { shifts, swapRequests, providers, timeOffRequests, providerPreferences } from "@db/schema";
+import { shifts, swapRequests, providers, timeOffRequests, providerPreferences, qgendaSyncHistory } from "@db/schema"; // Added qgendaSyncHistory
 import { eq, and, gte, lte, or, sql } from "drizzle-orm";
 import { setupWebSocket, notify } from "./websocket";
 import ical from 'node-ical';
@@ -734,6 +734,18 @@ export function registerRoutes(app: Express): Server {
         return;
       }
 
+      // Store the subscription URL in provider preferences
+      await db.update(providerPreferences)
+        .set({
+          qgendaIntegration: {
+            subscriptionUrl,
+            enabled: true,
+            syncInterval: 60,
+            lastSyncAt: new Date().toISOString(),
+          }
+        })
+        .where(eq(providerPreferences.providerId, providerId));
+
       // Fetch the iCal data
       const response = await fetch(subscriptionUrl);
       if (!response.ok) {
@@ -765,6 +777,13 @@ export function registerRoutes(app: Express): Server {
       // Insert the shifts
       const result = await db.insert(shifts).values(shiftsToInsert).returning();
 
+      // Log the sync in history
+      await db.insert(qgendaSyncHistory).values({
+        providerId,
+        status: 'success',
+        shiftsImported: shiftsToInsert.length,
+      });
+
       // Get provider info for notification
       const provider = await db.select()
         .from(providers)
@@ -783,9 +802,45 @@ export function registerRoutes(app: Express): Server {
         shifts: result
       });
     } catch (error: any) {
+      // Log failed sync
+      if (req.body.providerId) {
+        await db.insert(qgendaSyncHistory).values({
+          providerId: req.body.providerId,
+          status: 'failed',
+          error: error.message,
+          shiftsImported: 0,
+        });
+      }
+
       console.error('QGenda import error:', error);
       res.status(500).json({
         message: "Failed to import QGenda schedule",
+        error: error.message
+      });
+    }
+  });
+
+  // Add endpoint to manage QGenda sync settings
+  app.patch("/api/provider-preferences/:providerId/qgenda-sync", async (req, res) => {
+    try {
+      const { providerId } = req.params;
+      const { enabled, syncInterval } = req.body;
+
+      const result = await db.update(providerPreferences)
+        .set({
+          qgendaIntegration: {
+            enabled,
+            syncInterval,
+            lastSyncAt: new Date().toISOString(),
+          }
+        })
+        .where(eq(providerPreferences.providerId, parseInt(providerId)))
+        .returning();
+
+      res.json(result[0]);
+    } catch (error: any) {
+      res.status(500).json({
+        message: "Failed to update QGenda sync settings",
         error: error.message
       });
     }

@@ -19,6 +19,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+} from "@/components/ui/form";
+import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
 
 export function PersonalDashboard() {
   const { id } = useParams<{ id: string }>();
@@ -41,6 +51,10 @@ export function PersonalDashboard() {
       if (!res.ok) throw new Error("Failed to fetch time-off requests");
       return res.json();
     },
+  });
+
+  const { data: preferences } = useQuery({
+    queryKey: ["/api/provider-preferences", providerId],
   });
 
   if (!provider) {
@@ -204,7 +218,103 @@ export function PersonalDashboard() {
                       className="w-full p-2 border rounded-md"
                       placeholder="Paste your QGenda subscription URL here"
                       required
+                      defaultValue={preferences?.qgendaIntegration?.subscriptionUrl || ''}
                     />
+                  </div>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <label htmlFor="autoSync" className="text-sm font-medium">
+                          Automatic Sync
+                        </label>
+                        <p className="text-sm text-muted-foreground">
+                          Automatically sync your QGenda schedule
+                        </p>
+                      </div>
+                      <Switch
+                        id="autoSync"
+                        checked={preferences?.qgendaIntegration?.enabled ?? false}
+                        onCheckedChange={(enabled) => {
+                          fetch(`/api/provider-preferences/${providerId}/qgenda-sync`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              enabled,
+                              syncInterval: preferences?.qgendaIntegration?.syncInterval || 60
+                            })
+                          })
+                            .then(res => {
+                              if (!res.ok) throw new Error('Failed to update sync settings');
+                              return res.json();
+                            })
+                            .then(() => {
+                              toast({
+                                title: 'Success',
+                                description: 'QGenda sync settings updated successfully',
+                              });
+                            })
+                            .catch(error => {
+                              toast({
+                                title: 'Error',
+                                description: error.message,
+                                variant: 'destructive'
+                              });
+                            });
+                        }}
+                      />
+                    </div>
+                    {preferences?.qgendaIntegration?.enabled && (
+                      <div>
+                        <label htmlFor="syncInterval" className="block text-sm font-medium mb-2">
+                          Sync Interval (minutes)
+                        </label>
+                        <div className="flex items-center space-x-2">
+                          <Input
+                            id="syncInterval"
+                            type="number"
+                            min="15"
+                            max="1440"
+                            defaultValue={preferences?.qgendaIntegration?.syncInterval || 60}
+                            onChange={(e) => {
+                              const interval = parseInt(e.target.value);
+                              if (interval >= 15 && interval <= 1440) {
+                                fetch(`/api/provider-preferences/${providerId}/qgenda-sync`, {
+                                  method: 'PATCH',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({
+                                    enabled: true,
+                                    syncInterval: interval
+                                  })
+                                })
+                                  .then(res => {
+                                    if (!res.ok) throw new Error('Failed to update sync interval');
+                                    return res.json();
+                                  })
+                                  .then(() => {
+                                    toast({
+                                      title: 'Success',
+                                      description: 'QGenda sync interval updated successfully',
+                                    });
+                                  })
+                                  .catch(error => {
+                                    toast({
+                                      title: 'Error',
+                                      description: error.message,
+                                      variant: 'destructive'
+                                    });
+                                  });
+                              }
+                            }}
+                          />
+                          <span className="text-sm text-muted-foreground">minutes</span>
+                        </div>
+                        {preferences?.qgendaIntegration?.lastSyncAt && (
+                          <p className="text-sm text-muted-foreground mt-2">
+                            Last synced: {new Date(preferences.qgendaIntegration.lastSyncAt).toLocaleString()}
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <Button type="submit">Import Schedule</Button>
                 </div>

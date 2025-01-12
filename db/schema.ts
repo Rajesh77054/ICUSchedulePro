@@ -16,8 +16,8 @@ export const providerPreferences = pgTable("provider_preferences", {
   id: serial("id").primaryKey(),
   providerId: integer("provider_id").references(() => providers.id),
   // Calendar preferences
-  defaultView: text("default_view").notNull().default('dayGridMonth'), // dayGridMonth, dayGridWeek, listWeek
-  defaultCalendarDuration: text("default_calendar_duration").notNull().default('month'), // month, week, year
+  defaultView: text("default_view").notNull().default('dayGridMonth'),
+  defaultCalendarDuration: text("default_calendar_duration").notNull().default('month'),
   // Notification preferences
   notificationPreferences: jsonb("notification_preferences").notNull().default({
     emailNotifications: true,
@@ -27,15 +27,32 @@ export const providerPreferences = pgTable("provider_preferences", {
     notifyOnTimeOffUpdates: true,
     notifyBeforeShift: 24, // hours before shift
   }),
-  // Existing scheduling preferences
+  // QGenda integration preferences
+  qgendaIntegration: jsonb("qgenda_integration").notNull().default({
+    subscriptionUrl: null,
+    enabled: false,
+    syncInterval: 60, // minutes
+    lastSyncAt: null,
+  }),
+  // Scheduling preferences
   preferredShiftLength: integer("preferred_shift_length").notNull(),
-  preferredDaysOfWeek: jsonb("preferred_days_of_week").notNull(), // Array of preferred days (0-6)
-  preferredCoworkers: jsonb("preferred_coworkers").notNull(), // Array of provider IDs
-  avoidedDaysOfWeek: jsonb("avoided_days_of_week").notNull(), // Array of days to avoid (0-6)
+  preferredDaysOfWeek: jsonb("preferred_days_of_week").notNull(),
+  preferredCoworkers: jsonb("preferred_coworkers").notNull(),
+  avoidedDaysOfWeek: jsonb("avoided_days_of_week").notNull(),
   maxShiftsPerWeek: integer("max_shifts_per_week"),
   minDaysBetweenShifts: integer("min_days_between_shifts"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Add sync history table
+export const qgendaSyncHistory = pgTable("qgenda_sync_history", {
+  id: serial("id").primaryKey(),
+  providerId: integer("provider_id").references(() => providers.id),
+  status: text("status").notNull(), // success, failed
+  shiftsImported: integer("shifts_imported"),
+  error: text("error"),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 export const schedulingMetrics = pgTable("scheduling_metrics", {
@@ -101,6 +118,7 @@ export const providersRelations = relations(providers, ({ many, one }) => ({
     references: [providerPreferences.providerId],
   }),
   metrics: many(schedulingMetrics),
+  syncHistory: many(qgendaSyncHistory),
 }));
 
 export const shiftsRelations = relations(shifts, ({ one }) => ({

@@ -18,8 +18,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { useToast } from "@/components/ui/toast"; // Added useToast import
-
+import { useToast } from "@/hooks/use-toast";
 
 export function PersonalDashboard() {
   const { id } = useParams<{ id: string }>();
@@ -27,7 +26,7 @@ export function PersonalDashboard() {
   const provider = PROVIDERS.find(p => p.id === providerId);
   const [showTimeOffForm, setShowTimeOffForm] = useState(false);
   const [showPreferences, setShowPreferences] = useState(false);
-  const { toast } = useToast(); // Added useToast hook
+  const { toast } = useToast();
 
   const { data: shifts } = useQuery<Shift[]>({
     queryKey: ["/api/shifts"],
@@ -166,39 +165,39 @@ export function PersonalDashboard() {
             fetch('/api/integrations/qgenda/import-ical', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ 
+              body: JSON.stringify({
                 subscriptionUrl: url,
-                providerId 
+                providerId
               })
             })
-            .then(res => {
-              if (!res.ok) throw new Error('Failed to import schedule');
-              return res.json();
-            })
-            .then(() => {
-              toast({
-                title: 'Success',
-                description: 'QGenda schedule imported successfully',
+              .then(res => {
+                if (!res.ok) throw new Error('Failed to import schedule');
+                return res.json();
+              })
+              .then(() => {
+                toast({
+                  title: 'Success',
+                  description: 'QGenda schedule imported successfully',
+                });
+                form.reset();
+              })
+              .catch(error => {
+                toast({
+                  title: 'Error',
+                  description: error.message,
+                  variant: 'destructive'
+                });
               });
-              form.reset();
-            })
-            .catch(error => {
-              toast({
-                title: 'Error',
-                description: error.message,
-                variant: 'destructive'
-              });
-            });
           }}>
             <div className="space-y-4">
               <div>
                 <label htmlFor="qgendaUrl" className="block text-sm font-medium mb-2">
                   QGenda Subscription URL
                 </label>
-                <input 
+                <input
                   id="qgendaUrl"
                   name="qgendaUrl"
-                  type="url" 
+                  type="url"
                   className="w-full p-2 border rounded-md"
                   placeholder="Paste your QGenda subscription URL here"
                   required

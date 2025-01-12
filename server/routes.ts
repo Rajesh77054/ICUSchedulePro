@@ -4,6 +4,8 @@ import { db } from "@db";
 import { shifts, swapRequests, providers, timeOffRequests, providerPreferences } from "@db/schema";
 import { eq, and, gte, lte, or, sql } from "drizzle-orm";
 import { setupWebSocket, notify } from "./websocket";
+import ical from 'node-ical';
+import fetch from 'node-fetch';
 
 // Initialize providers if they don't exist
 const initializeProviders = async () => {
@@ -717,6 +719,73 @@ export function registerRoutes(app: Express): Server {
     } catch (error: any) {
       res.status(500).json({
         message: "Failed to update provider preferences",
+        error: error.message
+      });
+    }
+  });
+
+  // Add QGenda iCal import endpoint
+  app.post("/api/integrations/qgenda/import-ical", async (req, res) => {
+    try {
+      const { subscriptionUrl, providerId } = req.body;
+
+      if (!subscriptionUrl || !providerId) {
+        res.status(400).json({ message: "Missing required parameters" });
+        return;
+      }
+
+      // Fetch the iCal data
+      const response = await fetch(subscriptionUrl);
+      if (!response.ok) {
+        throw new Error("Failed to fetch QGenda calendar");
+      }
+
+      const icalData = await response.text();
+      const events = await ical.async.parseICS(icalData);
+
+      // Convert iCal events to shifts
+      const shiftsToInsert = [];
+      for (const event of Object.values(events)) {
+        if (event.type === 'VEVENT') {
+          shiftsToInsert.push({
+            providerId,
+            startDate: event.start.toISOString(),
+            endDate: event.end.toISOString(),
+            status: 'confirmed',
+            schedulingNotes: `Imported from QGenda: ${event.summary || ''}`
+          });
+        }
+      }
+
+      if (shiftsToInsert.length === 0) {
+        res.status(400).json({ message: "No valid shifts found in the calendar" });
+        return;
+      }
+
+      // Insert the shifts
+      const result = await db.insert(shifts).values(shiftsToInsert).returning();
+
+      // Get provider info for notification
+      const provider = await db.select()
+        .from(providers)
+        .where(sql`${providers.id} = ${providerId}`)
+        .limit(1);
+
+      if (provider.length) {
+        // Notify for each imported shift
+        for (const shift of result) {
+          broadcast(notify.shiftCreated(shift, provider[0]));
+        }
+      }
+
+      res.json({
+        message: `Successfully imported ${result.length} shifts`,
+        shifts: result
+      });
+    } catch (error: any) {
+      console.error('QGenda import error:', error);
+      res.status(500).json({
+        message: "Failed to import QGenda schedule",
         error: error.message
       });
     }

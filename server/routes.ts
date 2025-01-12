@@ -1,8 +1,8 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { db } from "@db";
-import { shifts, swapRequests, providers, timeOffRequests, providerPreferences, qgendaSyncHistory } from "@db/schema"; // Added qgendaSyncHistory
-import { eq, and, gte, lte, or, sql, desc } from "drizzle-orm";
+import { shifts, swapRequests, providers, timeOffRequests, providerPreferences, qgendaSyncHistory } from "@db/schema";
+import { eq, and, gte, lte, or, desc, type SQL } from "drizzle-orm";
 import { setupWebSocket, notify } from "./websocket";
 import ical from 'node-ical';
 import fetch from 'node-fetch';
@@ -198,7 +198,7 @@ export function registerRoutes(app: Express): Server {
       // Get provider info for notification
       const provider = await db.select()
         .from(providers)
-        .where(eq(providers.id, result[0].providerId))
+        .where(sql`${providers.id} = ${result[0].providerId}`)
         .limit(1);
 
       if (provider.length) {
@@ -231,7 +231,7 @@ export function registerRoutes(app: Express): Server {
 
       const provider = await db.select()
         .from(providers)
-        .where(eq(providers.id, shift[0].providerId))
+        .where(sql`${providers.id} = ${shift[0].providerId}`)
         .limit(1);
 
       // Delete the shift
@@ -270,9 +270,9 @@ export function registerRoutes(app: Express): Server {
       const enrichedRequests = await Promise.all(
         requests.map(async (request) => {
           const [[requestor], [recipient], [shift]] = await Promise.all([
-            db.select().from(providers).where(eq(providers.id, request.requestorId)),
-            db.select().from(providers).where(eq(providers.id, request.recipientId)),
-            db.select().from(shifts).where(eq(shifts.id, request.shiftId))
+            db.select().from(providers).where(sql`${providers.id} = ${request.requestorId}`),
+            db.select().from(providers).where(sql`${providers.id} = ${request.recipientId}`),
+            db.select().from(shifts).where(sql`${shifts.id} = ${request.shiftId}`)
           ]);
 
           return {
@@ -310,9 +310,9 @@ export function registerRoutes(app: Express): Server {
       if (existingRequest.length > 0) {
         // Get provider and shift details for the existing request
         const [[requestor], [recipient], [shift]] = await Promise.all([
-          db.select().from(providers).where(eq(providers.id, existingRequest[0].requestorId)),
-          db.select().from(providers).where(eq(providers.id, existingRequest[0].recipientId)),
-          db.select().from(shifts).where(eq(shifts.id, existingRequest[0].shiftId))
+          db.select().from(providers).where(sql`${providers.id} = ${existingRequest[0].requestorId}`),
+          db.select().from(providers).where(sql`${providers.id} = ${existingRequest[0].recipientId}`),
+          db.select().from(shifts).where(sql`${shifts.id} = ${existingRequest[0].shiftId}`)
         ]);
 
         res.status(400).json({
@@ -336,9 +336,9 @@ export function registerRoutes(app: Express): Server {
 
       // Get provider info for notification
       const [requestor, recipient, shift] = await Promise.all([
-        db.select().from(providers).where(eq(providers.id, requestorId)).limit(1),
-        db.select().from(providers).where(eq(providers.id, recipientId)).limit(1),
-        db.select().from(shifts).where(eq(shifts.id, shiftId)).limit(1),
+        db.select().from(providers).where(sql`${providers.id} = ${requestorId}`).limit(1),
+        db.select().from(providers).where(sql`${providers.id} = ${recipientId}`).limit(1),
+        db.select().from(shifts).where(sql`${shifts.id} = ${shiftId}`).limit(1),
       ]);
 
       if (requestor.length && recipient.length && shift.length) {
@@ -385,9 +385,9 @@ export function registerRoutes(app: Express): Server {
 
       // Get provider info for notification
       const [requestor, recipient, shift] = await Promise.all([
-        db.select().from(providers).where(eq(providers.id, request[0].requestorId)).limit(1),
-        db.select().from(providers).where(eq(providers.id, request[0].recipientId)).limit(1),
-        db.select().from(shifts).where(eq(shifts.id, request[0].shiftId)).limit(1),
+        db.select().from(providers).where(sql`${providers.id} = ${request[0].requestorId}`).limit(1),
+        db.select().from(providers).where(sql`${providers.id} = ${request[0].recipientId}`).limit(1),
+        db.select().from(shifts).where(sql`${shifts.id} = ${request[0].shiftId}`).limit(1),
       ]);
 
       if (requestor.length && recipient.length && shift.length) {
@@ -467,9 +467,9 @@ export function registerRoutes(app: Express): Server {
 
       // Get provider info for notification
       const [requestor, recipient, shift] = await Promise.all([
-        db.select().from(providers).where(eq(providers.id, request.requestorId)).limit(1),
-        db.select().from(providers).where(eq(providers.id, request.recipientId)).limit(1),
-        db.select().from(shifts).where(eq(shifts.id, request.shiftId)).limit(1),
+        db.select().from(providers).where(sql`${providers.id} = ${request.requestorId}`).limit(1),
+        db.select().from(providers).where(sql`${providers.id} = ${request.recipientId}`).limit(1),
+        db.select().from(shifts).where(sql`${shifts.id} = ${request.shiftId}`).limit(1),
       ]);
 
       if (requestor.length && recipient.length && shift.length) {
@@ -599,7 +599,7 @@ export function registerRoutes(app: Express): Server {
       // Get provider info for notification
       const provider = await db.select()
         .from(providers)
-        .where(eq(providers.id, result[0].providerId))
+        .where(sql`${providers.id} = ${result[0].providerId}`)
         .limit(1);
 
       if (provider.length) {
@@ -642,7 +642,7 @@ export function registerRoutes(app: Express): Server {
       // Get provider info for notification
       const provider = await db.select()
         .from(providers)
-        .where(eq(providers.id, request[0].providerId))
+        .where(sql`${providers.id} = ${request[0].providerId}`)
         .limit(1);
 
       if (provider.length) {
@@ -871,7 +871,7 @@ export function registerRoutes(app: Express): Server {
         // If there were conflicts, send additional notifications
         if (conflicts.length > 0) {
           broadcast({
-            type: 'calendar-conflicts-resolved',
+            type: 'shift_swap_notification' as const,
             message: `${conflicts.length} schedule conflicts were resolved during QGenda import`,
             provider: provider[0],
             details: {

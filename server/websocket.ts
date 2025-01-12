@@ -3,7 +3,7 @@ import type { Server } from 'http';
 import { type shifts, type timeOffRequests } from '@db/schema';
 
 interface NotificationMessage {
-  type: 'shift_created' | 'shift_updated' | 'shift_deleted' | 'shift_swap_requested' | 'shift_swap_responded' | 'time_off_requested' | 'time_off_responded' | 'time_off_cancelled';
+  type: 'shift_created' | 'shift_updated' | 'shift_deleted' | 'shift_swap_requested' | 'shift_swap_responded' | 'time_off_requested' | 'time_off_responded' | 'time_off_cancelled' | 'qgenda_sync_completed' | 'qgenda_sync_failed';
   data: any;
   timestamp: string;
   provider?: {
@@ -108,6 +108,37 @@ export const notify = {
   timeOffCancelled: (request: typeof timeOffRequests.$inferSelect, provider: { name: string; title: string }) => ({
     type: 'time_off_cancelled' as const,
     data: request,
+    provider,
+    timestamp: new Date().toISOString(),
+  }),
+
+  qgendaSyncCompleted: (
+    provider: { name: string; title: string },
+    syncResult: {
+      shiftsImported: number;
+      conflicts: Array<{
+        type: 'replaced';
+        original: typeof shifts.$inferSelect;
+        qgendaEvent: {
+          startDate: string;
+          endDate: string;
+          summary: string;
+        };
+      }>;
+    }
+  ) => ({
+    type: 'qgenda_sync_completed' as const,
+    data: syncResult,
+    provider,
+    timestamp: new Date().toISOString(),
+  }),
+
+  qgendaSyncFailed: (
+    provider: { name: string; title: string },
+    error: string
+  ) => ({
+    type: 'qgenda_sync_failed' as const,
+    data: { error },
     provider,
     timestamp: new Date().toISOString(),
   }),

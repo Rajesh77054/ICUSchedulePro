@@ -2,6 +2,17 @@ import { pgTable, text, serial, integer, boolean, date, timestamp, jsonb } from 
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { relations } from "drizzle-orm";
 
+// Add sync history table
+export const qgendaSyncHistory = pgTable("qgenda_sync_history", {
+  id: serial("id").primaryKey(),
+  providerId: integer("provider_id").references(() => providers.id),
+  status: text("status").notNull(), // success, failed
+  shiftsImported: integer("shifts_imported"),
+  error: text("error"),
+  details: jsonb("details"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const providers = pgTable("providers", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
@@ -45,14 +56,17 @@ export const providerPreferences = pgTable("provider_preferences", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-// Add sync history table
-export const qgendaSyncHistory = pgTable("qgenda_sync_history", {
+export const shifts = pgTable("shifts", {
   id: serial("id").primaryKey(),
   providerId: integer("provider_id").references(() => providers.id),
-  status: text("status").notNull(), // success, failed
-  shiftsImported: integer("shifts_imported"),
-  error: text("error"),
-  createdAt: timestamp("created_at").defaultNow(),
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date").notNull(),
+  status: text("status").notNull().default('confirmed'), // confirmed, pending_swap, swapped, archived
+  satisfactionScore: integer("satisfaction_score"), // Provider's satisfaction with this shift
+  schedulingNotes: jsonb("scheduling_notes"), // AI insights and scheduling decisions
+  source: text("source").default('manual'), // manual, qgenda, etc.
+  conflictResolution: jsonb("conflict_resolution").default(null), // Store conflict resolution details
+  externalId: text("external_id"), // ID from external system (e.g., QGenda)
 });
 
 export const schedulingMetrics = pgTable("scheduling_metrics", {
@@ -69,19 +83,6 @@ export const schedulingMetrics = pgTable("scheduling_metrics", {
   consecutiveShiftWeeks: integer("consecutive_shift_weeks").notNull(),
   satisfaction: integer("satisfaction"), // Optional satisfaction score
   createdAt: timestamp("created_at").defaultNow(),
-});
-
-export const shifts = pgTable("shifts", {
-  id: serial("id").primaryKey(),
-  providerId: integer("provider_id").references(() => providers.id),
-  startDate: date("start_date").notNull(),
-  endDate: date("end_date").notNull(),
-  status: text("status").notNull().default('confirmed'), // confirmed, pending_swap, swapped
-  satisfactionScore: integer("satisfaction_score"), // Provider's satisfaction with this shift
-  schedulingNotes: jsonb("scheduling_notes"), // AI insights and scheduling decisions
-  source: text("source").default('manual'), // manual, qgenda, etc.
-  conflictResolution: jsonb("conflict_resolution").default(null), // Store conflict resolution details
-  externalId: text("external_id"), // ID from external system (e.g., QGenda)
 });
 
 export const swapRequests = pgTable("swap_requests", {
@@ -121,7 +122,10 @@ export const providersRelations = relations(providers, ({ many, one }) => ({
     references: [providerPreferences.providerId],
   }),
   metrics: many(schedulingMetrics),
-  syncHistory: many(qgendaSyncHistory),
+  syncHistory: many(qgendaSyncHistory, {
+    fields: [providers.id],
+    references: [qgendaSyncHistory.providerId],
+  }),
 }));
 
 export const shiftsRelations = relations(shifts, ({ one }) => ({
@@ -132,6 +136,9 @@ export const shiftsRelations = relations(shifts, ({ one }) => ({
 }));
 
 // Schemas
+export const insertQgendaSyncHistorySchema = createInsertSchema(qgendaSyncHistory);
+export const selectQgendaSyncHistorySchema = createSelectSchema(qgendaSyncHistory);
+
 export const insertProviderSchema = createInsertSchema(providers);
 export const selectProviderSchema = createSelectSchema(providers);
 export const insertShiftSchema = createInsertSchema(shifts);

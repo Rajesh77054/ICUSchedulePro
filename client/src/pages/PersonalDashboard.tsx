@@ -6,7 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { ArrowLeft, Calendar, Clock, Settings } from "lucide-react";
 import { Link } from "wouter";
 import { PROVIDERS } from "@/lib/constants";
-import type { Shift, TimeOffRequest } from "@/lib/types";
+import type { Shift, TimeOffRequest, ProviderPreferences } from "@/lib/types";
 import { format, isAfter, isBefore, startOfWeek, endOfWeek } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
@@ -53,7 +53,7 @@ export function PersonalDashboard() {
     },
   });
 
-  const { data: preferences } = useQuery({
+  const { data: preferences } = useQuery<ProviderPreferences>({
     queryKey: ["/api/provider-preferences", providerId],
   });
 
@@ -76,8 +76,9 @@ export function PersonalDashboard() {
   }
 
   const providerShifts = shifts?.filter(s => s.providerId === providerId) || [];
+  const activeShifts = providerShifts.filter(s => s.status !== 'archived');
 
-  const totalDays = providerShifts.reduce((acc, shift) => {
+  const totalDays = activeShifts.reduce((acc, shift) => {
     const start = new Date(shift.startDate);
     const end = new Date(shift.endDate);
     const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
@@ -88,25 +89,15 @@ export function PersonalDashboard() {
 
   const thisWeekStart = startOfWeek(new Date());
   const thisWeekEnd = endOfWeek(new Date());
-  const thisWeekShifts = providerShifts.filter(shift =>
+  const thisWeekShifts = activeShifts.filter(shift =>
     isAfter(new Date(shift.endDate), thisWeekStart) &&
     isBefore(new Date(shift.startDate), thisWeekEnd)
   );
 
-  const upcomingShifts = providerShifts
+  const upcomingShifts = activeShifts
     .filter(shift => isAfter(new Date(shift.endDate), new Date()))
     .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
     .slice(0, 5);
-
-  const pendingTimeOff = timeOffRequests?.filter(req => req.status === 'pending') || [];
-
-  const upcomingTimeOff = timeOffRequests
-    ?.filter(req =>
-      req.status === 'approved' &&
-      isAfter(new Date(req.endDate), new Date())
-    )
-    .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
-    .slice(0, 5) || [];
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -184,17 +175,18 @@ export function PersonalDashboard() {
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({
                     subscriptionUrl: url,
-                    providerId
+                    providerId,
+                    conflictStrategy: 'qgenda-priority'
                   })
                 })
                   .then(res => {
                     if (!res.ok) throw new Error('Failed to import schedule');
                     return res.json();
                   })
-                  .then(() => {
+                  .then(data => {
                     toast({
                       title: 'Success',
-                      description: 'QGenda schedule imported successfully',
+                      description: `Successfully imported ${data.shifts.length} shifts. ${data.conflicts.length > 0 ? `${data.conflicts.length} conflicts were resolved.` : ''}`,
                     });
                     form.reset();
                   })

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Bell, X, Check, AlertCircle } from "lucide-react";
+import { Bell, X, Check, AlertCircle, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -16,7 +16,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 
 interface Notification {
-  type: 'shift_created' | 'shift_updated' | 'shift_deleted' | 'shift_swap_requested' | 'shift_swap_responded';
+  type: 'shift_created' | 'shift_updated' | 'shift_deleted' | 'shift_swap_requested' | 'shift_swap_responded' | 'qgenda_sync_completed' | 'qgenda_sync_failed';
   data: any;
   timestamp: string;
   provider?: {
@@ -34,7 +34,7 @@ export function Notifications() {
   const queryClient = useQueryClient();
 
   // Fetch existing swap requests
-  const { data: swapRequests, isLoading } = useQuery({
+  const { data: swapRequests } = useQuery({
     queryKey: ['/api/swap-requests'],
     queryFn: async () => {
       const res = await fetch('/api/swap-requests');
@@ -43,7 +43,7 @@ export function Notifications() {
     }
   });
 
-  const { mutate: respondToSwap, isLoading: isResponding } = useMutation({
+  const { mutate: respondToSwap, isPending: isResponding } = useMutation({
     mutationFn: async ({ requestId, status }: { requestId: number; status: 'accepted' | 'rejected' }) => {
       setError(null);
       const res = await fetch(`/api/swap-requests/${requestId}`, {
@@ -128,12 +128,30 @@ export function Notifications() {
       });
 
       if (!open) setHasNew(true);
+
+      // Show toast for QGenda sync notifications
+      if (notification.type === 'qgenda_sync_completed') {
+        toast({
+          title: 'QGenda Sync Completed',
+          description: `Imported ${notification.data.shiftsImported} shifts. ${
+            notification.data.conflicts.length > 0 
+              ? `${notification.data.conflicts.length} conflicts were resolved.` 
+              : ''
+          }`,
+        });
+      } else if (notification.type === 'qgenda_sync_failed') {
+        toast({
+          title: 'QGenda Sync Failed',
+          description: notification.data.error,
+          variant: 'destructive',
+        });
+      }
     };
 
     return () => {
       ws.close();
     };
-  }, [open]);
+  }, [open, toast]);
 
   const getMessage = (notification: Notification) => {
     switch (notification.type) {
@@ -145,6 +163,14 @@ export function Notifications() {
         return `${notification.data.requestor.name} requested to swap shift with ${notification.data.recipient.name} (${format(new Date(notification.data.shift.startDate), 'MMM d')} - ${format(new Date(notification.data.shift.endDate), 'MMM d')})`;
       case 'shift_swap_responded':
         return `${notification.data.recipient.name} ${notification.data.status} your shift swap request`;
+      case 'qgenda_sync_completed':
+        return `QGenda sync completed: ${notification.data.shiftsImported} shifts imported${
+          notification.data.conflicts.length > 0 
+            ? `, ${notification.data.conflicts.length} conflicts resolved` 
+            : ''
+        }`;
+      case 'qgenda_sync_failed':
+        return `QGenda sync failed: ${notification.data.error}`;
       default:
         return 'Unknown notification';
     }
@@ -183,6 +209,21 @@ export function Notifications() {
         </div>
       );
     }
+
+    if (notification.type === 'qgenda_sync_completed' && notification.data.conflicts.length > 0) {
+      return (
+        <div className="mt-2 space-y-2">
+          <p className="text-sm font-medium">Resolved Conflicts:</p>
+          {notification.data.conflicts.map((conflict: any, index: number) => (
+            <div key={index} className="text-sm text-muted-foreground">
+              <Calendar className="h-4 w-4 inline-block mr-1" />
+              Replaced shift on {format(new Date(conflict.original.startDate), 'MMM d')}
+            </div>
+          ))}
+        </div>
+      );
+    }
+
     return null;
   };
 
@@ -223,11 +264,7 @@ export function Notifications() {
             </Alert>
           )}
 
-          {isLoading ? (
-            <div className="p-4 text-center text-muted-foreground">
-              Loading notifications...
-            </div>
-          ) : notifications.length === 0 ? (
+          {notifications.length === 0 ? (
             <div className="p-4 text-center text-muted-foreground">
               No notifications to display
             </div>

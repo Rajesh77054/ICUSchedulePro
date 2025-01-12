@@ -18,7 +18,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { toast } from "@/components/ui/toast";
+import { useToast } from "@/components/ui/toast"; // Added useToast import
 
 
 export function PersonalDashboard() {
@@ -27,6 +27,7 @@ export function PersonalDashboard() {
   const provider = PROVIDERS.find(p => p.id === providerId);
   const [showTimeOffForm, setShowTimeOffForm] = useState(false);
   const [showPreferences, setShowPreferences] = useState(false);
+  const { toast } = useToast(); // Added useToast hook
 
   const { data: shifts } = useQuery<Shift[]>({
     queryKey: ["/api/shifts"],

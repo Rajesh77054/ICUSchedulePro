@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { Calendar as MiniCalendar } from "@/components/ui/calendar";
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, ArrowRightLeft, Trash2 } from "lucide-react";
+import { ConflictResolutionWizard } from "./ConflictResolutionWizard";
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import multiMonthPlugin from '@fullcalendar/multimonth';
@@ -150,6 +151,15 @@ export function Calendar() {
   const [swapShift, setSwapShift] = useState<Shift | null>(null);
   const [overlappingShifts, setOverlappingShifts] = useState<Shift[]>([]);
   const [overlappingShiftsOpen, setOverlappingShiftsOpen] = useState(false);
+  const [qgendaConflicts, setQgendaConflicts] = useState<Array<{
+    qgenda: {
+      startDate: string;
+      endDate: string;
+      summary: string;
+    };
+    local: Shift;
+  }>>([]);
+  const [showConflictWizard, setShowConflictWizard] = useState(false);
 
   const calendarRef = useRef<FullCalendar>(null);
   const { toast } = useToast();
@@ -206,6 +216,34 @@ export function Calendar() {
         title: "Error",
         description: error.message,
         variant: "destructive",
+      });
+    },
+  });
+
+  const { mutate: resolveQGendaConflicts } = useMutation({
+    mutationFn: async (resolutions: Array<{ shiftId: number; action: 'keep-qgenda' | 'keep-local' }>) => {
+      const res = await fetch('/api/shifts/resolve-qgenda-conflicts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resolutions }),
+      });
+      if (!res.ok) throw new Error('Failed to resolve conflicts');
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/shifts'] });
+      toast({
+        title: 'Success',
+        description: 'Calendar conflicts resolved successfully',
+      });
+      setShowConflictWizard(false);
+      setQgendaConflicts([]);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
       });
     },
   });
@@ -375,7 +413,7 @@ export function Calendar() {
 
     setOverlappingShifts(shifts);
     setOverlappingShiftsOpen(true);
-    return undefined; 
+    return undefined;
   };
 
   const handleDateSelect = (newDate: Date | undefined) => {
@@ -591,6 +629,12 @@ export function Calendar() {
           updateShift(shift);
           setOverlappingShiftsOpen(false);
         }}
+      />
+      <ConflictResolutionWizard
+        open={showConflictWizard}
+        conflicts={qgendaConflicts}
+        onOpenChange={setShowConflictWizard}
+        onResolve={resolveQGendaConflicts}
       />
     </Card>
   );

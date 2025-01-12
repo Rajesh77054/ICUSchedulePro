@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { db } from "@db";
 import { shifts, swapRequests, providers, timeOffRequests, providerPreferences, qgendaSyncHistory } from "@db/schema";
-import { eq, and, gte, lte, or, desc, SQL } from "drizzle-orm";
+import { eq, and, gte, lte, or, desc, sql } from "drizzle-orm";
 import { setupWebSocket, notify } from "./websocket";
 import ical from 'node-ical';
 import fetch from 'node-fetch';
@@ -997,6 +997,7 @@ export function registerRoutes(app: Express): Server {
         res.status(400).json({ message: "Invalid resolutions format" });
         return;
       }
+
       // Process each resolution
       for (const { shiftId, action } of resolutions) {
         try {
@@ -1017,7 +1018,6 @@ export function registerRoutes(app: Express): Server {
 
           if (action === 'keep-qgenda') {
             // Handle QGenda shift keeping
-            // Convert the QGenda shift time format to match local format
             await db.update(shifts)
               .set({
                 status: 'archived',
@@ -1033,8 +1033,7 @@ export function registerRoutes(app: Express): Server {
                   }
                 }
               })
-              .where(eq(shifts.id, shiftId))
-              .returning();
+              .where(eq(shifts.id, shiftId));
 
             if (provider.length) {
               broadcast(notify.shiftUpdated(shift[0], provider[0]));
@@ -1050,8 +1049,7 @@ export function registerRoutes(app: Express): Server {
                   originalFormat: 'all-day-week'
                 }
               })
-              .where(eq(shifts.id, shiftId))
-              .returning();
+              .where(eq(shifts.id, shiftId));
 
             if (provider.length) {
               broadcast(notify.shiftUpdated(shift[0], provider[0]));
@@ -1087,340 +1085,6 @@ export function registerRoutes(app: Express): Server {
         message: "Failed to resolve conflicts",
         error: error.message,
         details: error.stack
-      });
-    }
-  });
-
-  // Add QGenda iCal import endpoint
-  app.post("/api/integrations/qgenda/import-ical", async (req, res) => {
-    try {
-      const { subscriptionUrl, providerId, conflictStrategy = 'qgenda-priority' } = req.body;
-
-      if (!subscriptionUrl || !providerId) {
-        res.status(400).json({ message: "Missing required parameters" });
-        return;
-      }
-
-      // Store the subscription URL in provider preferences
-      await db.update(providerPreferences)
-        .set({
-          qgendaIntegration: {
-            subscriptionUrl,
-            enabled: true,
-            syncInterval: 60,
-            lastSyncAt: new Date().toISOString(),
-          }
-        })
-        .where(eq(providerPreferences.providerId, providerId));
-
-      // Fetch the iCal data
-      const response = await fetch(subscriptionUrl);
-      if (!response.ok) {
-        throw new Error("Failed to fetch QGenda calendar");
-      }
-
-      const icalData = await response.text();
-      const events = await ical.async.parseICS(icalData);
-
-      // Process events and handle conflicts
-      const shiftsToInsert = [];
-      const conflicts = [];
-      const processedShifts = [];
-
-      for (const event of Object.values(events)) {
-        if (event.type === 'VEVENT') {
-          const startDate = event.start.toISOString().split('T')[0];
-          const endDate = event.end.toISOString().split('T')[0];
-          const eventId = event.uid || `qgenda-${startDate}-${endDate}`;
-
-          // Check for existing shifts in this time period
-          const existingShifts = await db.select()
-            .from(shifts)
-            .where(
-              and(
-                eq(shifts.providerId, providerId),
-                or(
-                  and(
-                    lte(shifts.startDate, startDate),
-                    gte(shifts.endDate, startDate)
-                  ),
-                  and(
-                    lte(shifts.startDate, endDate),
-                    gte(shifts.endDate, endDate)
-                  )
-                )
-              )
-            );
-
-          if (existingShifts.length > 0) {
-            // Handle conflicts based on strategy
-            if (conflictStrategy === 'qgenda-priority') {
-              // Archive or mark existing shifts as replaced
-              for (const existing of existingShifts) {
-                await db.update(shifts)
-                  .set({
-                    conflictResolution: {
-                      resolvedAt: new Date().toISOString(),
-                      action: 'replaced-by-qgenda',
-                      qgendaEventId: eventId,
-                      originalShift: {
-                        startDate: existing.startDate,
-                        endDate: existing.endDate,
-                        status: existing.status
-                      }
-                    },
-                    status: 'archived'
-                  })
-                  .where(eq(shifts.id, existing.id));
-
-                conflicts.push({
-                  type: 'replaced',
-                  original: existing,
-                  qgendaEvent: {
-                    startDate,
-                    endDate,
-                    summary: event.summary
-                  }
-                });
-              }
-            }
-          }
-
-          // Add the new QGenda shift
-          shiftsToInsert.push({
-            providerId,
-            startDate,
-            endDate,
-            status: 'confirmed',
-            source: 'qgenda',
-            externalId: eventId,
-            schedulingNotes: {
-              importedFrom: 'QGenda',
-              eventSummary: event.summary || '',
-              importedAt: new Date().toISOString()
-            }
-          });
-
-          processedShifts.push({
-            startDate,
-            endDate,
-            summary: event.summary
-          });
-        }
-      }
-
-      // Insert the new shifts
-      const result = await db.insert(shifts).values(shiftsToInsert).returning();
-
-      // Log the sync in history
-      await db.insert(qgendaSyncHistory).values({
-        providerId,
-        status: 'success',
-        shiftsImported: shiftsToInsert.length,
-        details: {
-          conflicts,
-          processedShifts
-        }
-      });
-
-      // Get provider info for notification
-      const provider = await db.select()
-        .from(providers)
-        .where(sql`${providers.id} = ${providerId}`)
-        .limit(1);
-
-      if (provider.length) {
-        // Notify for each imported shift
-        for (const shift of result) {
-          broadcast(notify.shiftCreated(shift, provider[0]));
-        }
-
-        // If there were conflicts, send additional notifications
-        if (conflicts.length > 0) {
-          broadcast({
-            type: 'shift_swap_notification' as const,
-            message: `${conflicts.length} schedule conflicts were resolved during QGenda import`,
-            provider: provider[0],
-            details: {
-              resolvedConflicts: conflicts.length,
-              strategy: conflictStrategy
-            }
-          });
-        }
-      }
-
-      res.json({
-        message: `Successfully imported ${result.length} shifts`,
-        conflicts,
-        shifts: result
-      });
-    } catch (error: any) {
-      // Log failed sync
-      if (req.body.providerId) {
-        await db.insert(qgendaSyncHistory).values({
-          providerId: req.body.providerId,
-          status: 'failed',
-          error: error.message,
-          shiftsImported: 0,
-        });
-      }
-
-      console.error('QGenda import error:', error);
-      res.status(500).json({
-        message: "Failed to import QGenda schedule",
-        error: error.message
-      });
-    }
-  });
-
-  // Add endpoint to get sync history and conflicts
-  app.get("/api/integrations/qgenda/sync-history/:providerId", async (req, res) => {
-    try {
-      const { providerId } = req.params;
-      const history = await db.select()
-        .from(qgendaSyncHistory)
-        .where(eq(qgendaSyncHistory.providerId, parseInt(providerId)))
-        .orderBy(desc(qgendaSyncHistory.createdAt))
-        .limit(10);
-
-      res.json(history);
-    } catch (error: any) {
-      res.status(500).json({
-        message: "Failed to fetch sync history",
-        error: error.message
-      });
-    }
-  });
-
-  app.get("/api/schedules/export/:providerId", async (req, res) => {
-    try {
-      const { providerId } = req.params;
-
-      // Get provider info
-      const provider = await db.select()
-        .from(providers)
-        .where(sql`${providers.id} = ${parseInt(providerId)}`)
-        .limit(1);
-
-      if (!provider.length) {
-        res.status(404).json({ message: "Provider not found" });
-        return;
-      }
-
-      // Get provider's shifts
-      const providerShifts = await db.select()
-        .from(shifts)
-        .where(eq(shifts.providerId, parseInt(providerId)));
-
-      // Generate iCal content
-      let iCalContent = [
-        'BEGIN:VCALENDAR',
-        'VERSION:2.0',
-        'PRODID:-//ICUSchedulePro//Schedule Export//EN',
-        'CALSCALE:GREGORIAN',
-        'METHOD:PUBLISH',
-        `X-WR-CALNAME:ICU Schedule - ${provider[0].name}`,
-      ];
-
-      // Add shifts as events
-      for (const shift of providerShifts) {
-        const startDate = new Date(shift.startDate).toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-        const endDate = new Date(shift.endDate).toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-
-        iCalContent = iCalContent.concat([
-          'BEGIN:VEVENT',
-          `DTSTART:${startDate}`,
-          `DTEND:${endDate}`,
-          `SUMMARY:ICU Shift - ${provider[0].name}`,
-          `DESCRIPTION:ICU Shift for ${provider[0].name}, ${provider[0].title}`,
-          `UID:shift-${shift.id}@icuschedulepro`,
-          'END:VEVENT'
-        ]);
-      }
-
-      iCalContent.push('END:VCALENDAR');
-
-      // Set response headers for file download
-      res.setHeader('Content-Type', 'text/calendar');
-      res.setHeader('Content-Disposition', `attachment; filename="icu-schedule-${provider[0].name.toLowerCase().replace(/\s+/g, '-')}.ics"`);
-
-      // Send the iCal content
-      res.send(iCalContent.join('\r\n'));
-    } catch (error: any) {
-      console.error('iCal export error:', error);
-      res.status(500).json({
-        message: "Failed to export schedule",
-        error: error.message
-      });
-    }
-  });
-
-  // Add the QGenda conflict resolution endpoint
-  app.post("/api/shifts/resolve-qgenda-conflicts", async (req, res) => {
-    try {
-      const { resolutions } = req.body;
-
-      if (!Array.isArray(resolutions)) {
-        res.status(400).json({ message: "Invalid resolutions format" });
-        return;
-      }
-
-      // Process each resolution
-      for (const { shiftId, action } of resolutions) {
-        const shift = await db.select().from(shifts)
-          .where(eq(shifts.id, shiftId))
-          .limit(1);
-
-        if (!shift.length) {
-          continue; // Skip if shift not found
-        }
-
-        if (action === 'keep-qgenda') {
-          // Archive the local shift
-          await db.update(shifts)
-            .set({
-              status: 'archived',
-              conflictResolution: {
-                resolvedAt: new Date().toISOString(),
-                action: 'replaced-by-qgenda',
-                resolution: 'kept-qgenda'
-              }
-            })
-            .where(eq(shifts.id, shiftId));
-        } else if (action === 'keep-local') {
-          // Update the local shift to mark it as winning the conflict
-          await db.update(shifts)
-            .set({
-              conflictResolution: {
-                resolvedAt: new Date().toISOString(),
-                action: 'kept-local',
-                resolution: 'kept-local'
-              }
-            })
-            .where(eq(shifts.id, shiftId));
-        }
-      }
-
-      // Add an entry to sync history
-      await db.insert(qgendaSyncHistory).values({
-        status: 'success',
-        shiftsImported: 0,
-        details: {
-          resolutionsApplied: resolutions.length,
-          resolvedAt: new Date().toISOString(),
-          resolutions
-        }
-      });
-
-      res.json({
-        message: `Successfully resolved ${resolutions.length} conflicts`,
-        resolutions
-      });
-    } catch (error: any) {
-      console.error('Failed to resolve conflicts:', error);
-      res.status(500).json({
-        message: "Failed to resolve conflicts",
-        error: error.message
       });
     }
   });

@@ -21,6 +21,7 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Loader2, Calendar, AlertTriangle } from "lucide-react";
 import type { Shift } from "@/lib/types";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface ConflictingShift {
   qgenda: {
@@ -48,6 +49,7 @@ export function ConflictResolutionWizard({
   const [resolutions, setResolutions] = useState<Record<number, 'keep-qgenda' | 'keep-local'>>({});
   const [batchMode, setBatchMode] = useState<'keep-qgenda' | 'keep-local' | 'manual'>('manual');
   const [isResolving, setIsResolving] = useState(false);
+  const queryClient = useQueryClient();
 
   const progress = Math.round((Object.keys(resolutions).length / conflicts.length) * 100);
 
@@ -71,6 +73,15 @@ export function ConflictResolutionWizard({
           action,
         }))
       );
+
+      // Invalidate queries to refresh calendar data
+      await queryClient.invalidateQueries({ queryKey: ["/api/shifts"] });
+
+      // Reset state
+      setResolutions({});
+      setBatchMode('manual');
+      setCurrentStep(0);
+
       onOpenChange(false);
     } catch (error) {
       console.error('Failed to resolve conflicts:', error);

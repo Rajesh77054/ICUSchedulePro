@@ -457,17 +457,6 @@ export function Calendar() {
           <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
-      {qgendaConflicts.length > 0 && (
-        <Button
-          variant="destructive"
-          size="sm"
-          onClick={() => setShowConflictWizard(true)}
-          className="h-9 md:h-8 touch-manipulation"
-        >
-          <AlertTriangle className="h-4 w-4 mr-2" />
-          Resolve {qgendaConflicts.length} Calendar Conflicts
-        </Button>
-      )}
       <Select
         value={view}
         onValueChange={handleViewChange}
@@ -485,6 +474,51 @@ export function Calendar() {
     </div>
   );
 
+  const renderHeader = () => (
+    <CardHeader className="flex flex-col space-y-4 md:flex-row md:items-center md:justify-between md:space-y-0 pb-2">
+      <div className="flex items-center space-x-4 min-w-0">
+        <CardTitle className="text-lg md:text-xl font-bold truncate flex-shrink min-w-0">
+          <span className="truncate block">Personal Schedule Dashboard</span>
+        </CardTitle>
+        {qgendaConflicts.length > 0 && (
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => setShowConflictWizard(true)}
+            className="flex items-center gap-2 animate-pulse"
+          >
+            <AlertTriangle className="h-4 w-4" />
+            <span>
+              {qgendaConflicts.length} Calendar {qgendaConflicts.length === 1 ? 'Conflict' : 'Conflicts'} Detected
+            </span>
+          </Button>
+        )}
+        <Popover open={miniCalendarOpen} onOpenChange={setMiniCalendarOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              className="h-9 w-9 p-0 flex-shrink-0"
+              aria-label="Open mini calendar"
+            >
+              <CalendarIcon className="h-4 w-4" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <MiniCalendar
+              mode="single"
+              selected={date}
+              onSelect={handleDateSelect}
+              initialFocus
+              className="touch-manipulation"
+            />
+          </PopoverContent>
+        </Popover>
+      </div>
+      {renderToolbar()}
+    </CardHeader>
+  );
+
+
   if (isLoading) {
     return (
       <Card className="h-full">
@@ -499,34 +533,7 @@ export function Calendar() {
 
   return (
     <Card className="h-full">
-      <CardHeader className="flex flex-col space-y-4 md:flex-row md:items-center md:justify-between md:space-y-0 pb-2">
-        <div className="flex items-center space-x-4 min-w-0">
-          <CardTitle className="text-lg md:text-xl font-bold truncate flex-shrink min-w-0">
-            <span className="truncate block">{viewTitle}</span>
-          </CardTitle>
-          <Popover open={miniCalendarOpen} onOpenChange={setMiniCalendarOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className="h-9 w-9 p-0 flex-shrink-0"
-                aria-label="Open mini calendar"
-              >
-                <CalendarIcon className="h-4 w-4" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <MiniCalendar
-                mode="single"
-                selected={date}
-                onSelect={handleDateSelect}
-                initialFocus
-                className="touch-manipulation"
-              />
-            </PopoverContent>
-          </Popover>
-        </div>
-        {renderToolbar()}
-      </CardHeader>
+      {renderHeader()}
       <CardContent className="p-0">
         <div className="h-[calc(100vh-16rem)] md:h-[600px] relative touch-manipulation">
           <div className="absolute inset-0 w-full h-full">

@@ -791,5 +791,69 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Add iCal export endpoint
+  app.get("/api/schedules/export/:providerId", async (req, res) => {
+    try {
+      const { providerId } = req.params;
+
+      // Get provider info
+      const provider = await db.select()
+        .from(providers)
+        .where(sql`${providers.id} = ${parseInt(providerId)}`)
+        .limit(1);
+
+      if (!provider.length) {
+        res.status(404).json({ message: "Provider not found" });
+        return;
+      }
+
+      // Get provider's shifts
+      const providerShifts = await db.select()
+        .from(shifts)
+        .where(eq(shifts.providerId, parseInt(providerId)));
+
+      // Generate iCal content
+      let iCalContent = [
+        'BEGIN:VCALENDAR',
+        'VERSION:2.0',
+        'PRODID:-//ICUSchedulePro//Schedule Export//EN',
+        'CALSCALE:GREGORIAN',
+        'METHOD:PUBLISH',
+        `X-WR-CALNAME:ICU Schedule - ${provider[0].name}`,
+      ];
+
+      // Add shifts as events
+      for (const shift of providerShifts) {
+        const startDate = new Date(shift.startDate).toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+        const endDate = new Date(shift.endDate).toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+
+        iCalContent = iCalContent.concat([
+          'BEGIN:VEVENT',
+          `DTSTART:${startDate}`,
+          `DTEND:${endDate}`,
+          `SUMMARY:ICU Shift - ${provider[0].name}`,
+          `DESCRIPTION:ICU Shift for ${provider[0].name}, ${provider[0].title}`,
+          `UID:shift-${shift.id}@icuschedulepro`,
+          'END:VEVENT'
+        ]);
+      }
+
+      iCalContent.push('END:VCALENDAR');
+
+      // Set response headers for file download
+      res.setHeader('Content-Type', 'text/calendar');
+      res.setHeader('Content-Disposition', `attachment; filename="icu-schedule-${provider[0].name.toLowerCase().replace(/\s+/g, '-')}.ics"`);
+
+      // Send the iCal content
+      res.send(iCalContent.join('\r\n'));
+    } catch (error: any) {
+      console.error('iCal export error:', error);
+      res.status(500).json({
+        message: "Failed to export schedule",
+        error: error.message
+      });
+    }
+  });
+
   return httpServer;
 }

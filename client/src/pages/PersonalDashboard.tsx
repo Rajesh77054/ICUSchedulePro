@@ -154,58 +154,79 @@ export function PersonalDashboard() {
 
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle>Import QGenda Schedule</CardTitle>
+          <CardTitle>Schedule Integration</CardTitle>
         </CardHeader>
         <CardContent>
-          <form onSubmit={(e) => {
-            e.preventDefault();
-            const form = e.target as HTMLFormElement;
-            const url = new FormData(form).get('qgendaUrl') as string;
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-medium mb-4">Import QGenda Schedule</h3>
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                const form = e.target as HTMLFormElement;
+                const url = new FormData(form).get('qgendaUrl') as string;
 
-            fetch('/api/integrations/qgenda/import-ical', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                subscriptionUrl: url,
-                providerId
-              })
-            })
-              .then(res => {
-                if (!res.ok) throw new Error('Failed to import schedule');
-                return res.json();
-              })
-              .then(() => {
-                toast({
-                  title: 'Success',
-                  description: 'QGenda schedule imported successfully',
-                });
-                form.reset();
-              })
-              .catch(error => {
-                toast({
-                  title: 'Error',
-                  description: error.message,
-                  variant: 'destructive'
-                });
-              });
-          }}>
-            <div className="space-y-4">
-              <div>
-                <label htmlFor="qgendaUrl" className="block text-sm font-medium mb-2">
-                  QGenda Subscription URL
-                </label>
-                <input
-                  id="qgendaUrl"
-                  name="qgendaUrl"
-                  type="url"
-                  className="w-full p-2 border rounded-md"
-                  placeholder="Paste your QGenda subscription URL here"
-                  required
-                />
-              </div>
-              <Button type="submit">Import Schedule</Button>
+                fetch('/api/integrations/qgenda/import-ical', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    subscriptionUrl: url,
+                    providerId
+                  })
+                })
+                  .then(res => {
+                    if (!res.ok) throw new Error('Failed to import schedule');
+                    return res.json();
+                  })
+                  .then(() => {
+                    toast({
+                      title: 'Success',
+                      description: 'QGenda schedule imported successfully',
+                    });
+                    form.reset();
+                  })
+                  .catch(error => {
+                    toast({
+                      title: 'Error',
+                      description: error.message,
+                      variant: 'destructive'
+                    });
+                  });
+              }}>
+                <div className="space-y-4">
+                  <div>
+                    <label htmlFor="qgendaUrl" className="block text-sm font-medium mb-2">
+                      QGenda Subscription URL
+                    </label>
+                    <input
+                      id="qgendaUrl"
+                      name="qgendaUrl"
+                      type="url"
+                      className="w-full p-2 border rounded-md"
+                      placeholder="Paste your QGenda subscription URL here"
+                      required
+                    />
+                  </div>
+                  <Button type="submit">Import Schedule</Button>
+                </div>
+              </form>
             </div>
-          </form>
+
+            <div>
+              <h3 className="text-lg font-medium mb-4">Export Schedule</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Download your schedule in iCal format to import into your preferred calendar application.
+              </p>
+              <Button
+                onClick={() => {
+                  window.location.href = `/api/schedules/export/${providerId}`;
+                }}
+                variant="outline"
+              >
+                <Calendar className="mr-2 h-4 w-4" />
+                Export as iCal
+              </Button>
+            </div>
+          </div>
         </CardContent>
       </Card>
 

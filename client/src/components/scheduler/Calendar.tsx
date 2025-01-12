@@ -136,6 +136,21 @@ function ShiftDetails({ shift, onClose, onSwapRequest, onDelete }: ShiftDetailsP
   );
 }
 
+interface ConflictResolutionWizardProps {
+  open: boolean;
+  conflicts: Array<{
+    qgenda: {
+      startDate: string;
+      endDate: string;
+      summary: string;
+    };
+    local: Shift;
+  }>;
+  onOpenChange: (open: boolean) => void;
+  onResolve: (resolutions: Array<{ shiftId: number; action: 'keep-qgenda' | 'keep-local' }>) => Promise<void>;
+  onResolved?: () => void;
+}
+
 export function Calendar() {
   const [date, setDate] = useState<Date>(new Date());
   const [view, setView] = useState<CalendarView>('dayGridMonth');
@@ -220,33 +235,36 @@ export function Calendar() {
     },
   });
 
-  const { mutate: resolveQGendaConflicts } = useMutation({
-    mutationFn: async (resolutions: Array<{ shiftId: number; action: 'keep-qgenda' | 'keep-local' }>) => {
-      const res = await fetch('/api/shifts/resolve-qgenda-conflicts', {
+  const handleConflictResolution = async (resolutions: Array<{ shiftId: number; action: 'keep-qgenda' | 'keep-local' }>) => {
+    try {
+      const response = await fetch('/api/shifts/resolve-qgenda-conflicts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ resolutions }),
       });
-      if (!res.ok) throw new Error('Failed to resolve conflicts');
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/shifts'] });
+
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+
+      // Force refresh the shifts data
+      await queryClient.invalidateQueries({ queryKey: ["/api/shifts"] });
+
       toast({
-        title: 'Success',
-        description: 'Calendar conflicts resolved successfully',
+        title: "Success",
+        description: "Calendar conflicts resolved successfully",
       });
+
       setShowConflictWizard(false);
       setQgendaConflicts([]);
-    },
-    onError: (error: Error) => {
+    } catch (error: any) {
       toast({
-        title: 'Error',
+        title: "Error",
         description: error.message,
-        variant: 'destructive',
+        variant: "destructive",
       });
-    },
-  });
+    }
+  };
 
   const getProviderColor = (providerId: number) => {
     return PROVIDERS.find(p => p.id === providerId)?.color || "hsl(0, 0%, 50%)";
@@ -696,7 +714,12 @@ export function Calendar() {
         open={showConflictWizard}
         conflicts={qgendaConflicts}
         onOpenChange={setShowConflictWizard}
-        onResolve={resolveQGendaConflicts}
+        onResolve={handleConflictResolution}
+        onResolved={() => {
+          // Additional UI updates after resolution
+          setActiveConflicts(null);
+          queryClient.invalidateQueries({ queryKey: ["/api/shifts"] });
+        }}
       />
     </Card>
   );

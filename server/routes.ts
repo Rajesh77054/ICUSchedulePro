@@ -988,6 +988,109 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  app.post("/api/shifts/resolve-qgenda-conflicts", async (req, res) => {
+    try {
+      const { resolutions } = req.body;
+
+      if (!Array.isArray(resolutions)) {
+        res.status(400).json({ message: "Invalid resolutions format" });
+        return;
+      }
+
+      // Process each resolution
+            for (const { shiftId, action } of resolutions) {
+        try {
+          const shift = await db.select().from(shifts)
+            .where(eq(shifts.id, shiftId))
+            .limit(1);
+
+          if (!shift.length) {
+            console.error(`Shift ${shiftId} not found during conflict resolution`);
+            continue;
+          }
+
+          // Get provider info for notification
+          const provider = await db.select()
+            .from(providers)
+            .where(eq(providers.id, shift[0].providerId))
+            .limit(1);
+
+          if (action === 'keep-qgenda') {
+            // Archive the local shift
+            const updatedShift = await db.update(shifts)
+              .set({
+                status: 'archived',
+                conflictResolution: {
+                  resolvedAt: new Date().toISOString(),
+                  action: 'replaced-by-qgenda',
+                  resolution: 'kept-qgenda',
+                  originalShift: {
+                    startDate: shift[0].startDate,
+                    endDate: shift[0].endDate,
+                    status: shift[0].status,
+                    schedulingNotes: shift[0].schedulingNotes
+                  }
+                }
+              })
+              .where(eq(shifts.id, shiftId))
+              .returning();
+
+            if (provider.length && updatedShift.length) {
+              broadcast(notify.shiftUpdated(updatedShift[0], provider[0]));
+            }
+          } else if (action === 'keep-local') {
+            // Keep the local shift and mark it as resolved
+            const updatedShift = await db.update(shifts)
+              .set({
+                status: 'confirmed',
+                conflictResolution: {
+                  resolvedAt: new Date().toISOString(),
+                  action: 'kept-local',
+                  resolution: 'kept-local',
+                  originalFormat: 'all-day-week'
+                }
+              })
+              .where(eq(shifts.id, shiftId))
+              .returning();
+
+            if (provider.length && updatedShift.length) {
+              broadcast(notify.shiftUpdated(updatedShift[0], provider[0]));
+            }
+          }
+        } catch (error) {
+          console.error(`Error processing resolution for shift ${shiftId}:`, error);
+          throw error;
+        }
+      }
+
+      // Add an entry to sync history
+      await db.insert(qgendaSyncHistory).values({
+        status: 'success',
+        shiftsImported: 0,
+        details: {
+          resolutionsApplied: resolutions.length,
+          resolvedAt: new Date().toISOString(),
+          resolutions: resolutions.map(r => ({
+            ...r,
+            processedAt: new Date().toISOString()
+          }))
+        }
+      });
+
+      res.json({
+        message: `Successfully resolved ${resolutions.length} conflicts`,
+        resolutions
+      });
+    } catch (error: any) {
+      console.error('Failed to resolve conflicts:', error);
+      res.status(500).json({
+        message: "Failed to resolve conflicts",
+        error: error.message,
+        details: error.stack
+      });
+    }
+  });
+
   // Add the QGenda conflict resolution endpoint
   app.post("/api/shifts/resolve-qgenda-conflicts", async (req, res) => {
     try {
@@ -1017,8 +1120,8 @@ export function registerRoutes(app: Express): Server {
             .limit(1);
 
           if (action === 'keep-qgenda') {
-            // Handle QGenda shift keeping
-            await db.update(shifts)
+            // Archive the local shift
+            const updatedShift = await db.update(shifts)
               .set({
                 status: 'archived',
                 conflictResolution: {
@@ -1033,15 +1136,17 @@ export function registerRoutes(app: Express): Server {
                   }
                 }
               })
-              .where(eq(shifts.id, shiftId));
+              .where(eq(shifts.id, shiftId))
+              .returning();
 
-            if (provider.length) {
-              broadcast(notify.shiftUpdated(shift[0], provider[0]));
+            if (provider.length && updatedShift.length) {
+              broadcast(notify.shiftUpdated(updatedShift[0], provider[0]));
             }
           } else if (action === 'keep-local') {
-            // Keep the local shift and just mark it as resolved
-            await db.update(shifts)
+            // Keep the local shift and mark it as resolved
+            const updatedShift = await db.update(shifts)
               .set({
+                status: 'confirmed',
                 conflictResolution: {
                   resolvedAt: new Date().toISOString(),
                   action: 'kept-local',
@@ -1049,10 +1154,11 @@ export function registerRoutes(app: Express): Server {
                   originalFormat: 'all-day-week'
                 }
               })
-              .where(eq(shifts.id, shiftId));
+              .where(eq(shifts.id, shiftId))
+              .returning();
 
-            if (provider.length) {
-              broadcast(notify.shiftUpdated(shift[0], provider[0]));
+            if (provider.length && updatedShift.length) {
+              broadcast(notify.shiftUpdated(updatedShift[0], provider[0]));
             }
           }
         } catch (error) {

@@ -37,6 +37,7 @@ interface ConflictResolutionWizardProps {
   conflicts: ConflictingShift[];
   onOpenChange: (open: boolean) => void;
   onResolve: (resolutions: Array<{ shiftId: number; action: 'keep-qgenda' | 'keep-local' }>) => Promise<void>;
+  onResolved?: () => void;
 }
 
 export function ConflictResolutionWizard({
@@ -44,6 +45,7 @@ export function ConflictResolutionWizard({
   conflicts,
   onOpenChange,
   onResolve,
+  onResolved
 }: ConflictResolutionWizardProps) {
   const [currentStep, setCurrentStep] = useState(0);
   const [resolutions, setResolutions] = useState<Record<number, 'keep-qgenda' | 'keep-local'>>({});
@@ -74,14 +76,15 @@ export function ConflictResolutionWizard({
         }))
       );
 
-      // Invalidate queries to refresh calendar data
-      await queryClient.invalidateQueries({ queryKey: ["/api/shifts"] });
-
       // Reset state
       setResolutions({});
       setBatchMode('manual');
       setCurrentStep(0);
 
+      // Call the onResolved callback if provided
+      onResolved?.();
+
+      // Close the dialog
       onOpenChange(false);
     } catch (error) {
       console.error('Failed to resolve conflicts:', error);
@@ -134,7 +137,7 @@ export function ConflictResolutionWizard({
                         <div className="space-y-2 text-sm">
                           <p className="flex items-center gap-2">
                             <Calendar className="h-4 w-4" />
-                            {format(new Date(conflict.qgenda.startDate), 'MMM d, yyyy')} - 
+                            {format(new Date(conflict.qgenda.startDate), 'MMM d, yyyy')} -
                             {format(new Date(conflict.qgenda.endDate), 'MMM d, yyyy')}
                           </p>
                           <p>{conflict.qgenda.summary}</p>
@@ -146,7 +149,7 @@ export function ConflictResolutionWizard({
                         <div className="space-y-2 text-sm">
                           <p className="flex items-center gap-2">
                             <Calendar className="h-4 w-4" />
-                            {format(new Date(conflict.local.startDate), 'MMM d, yyyy')} - 
+                            {format(new Date(conflict.local.startDate), 'MMM d, yyyy')} -
                             {format(new Date(conflict.local.endDate), 'MMM d, yyyy')}
                           </p>
                           {conflict.local.schedulingNotes && (
@@ -211,7 +214,7 @@ export function ConflictResolutionWizard({
             <Button
               onClick={handleResolve}
               disabled={
-                isResolving || 
+                isResolving ||
                 (batchMode === 'manual' && Object.keys(resolutions).length !== conflicts.length)
               }
             >

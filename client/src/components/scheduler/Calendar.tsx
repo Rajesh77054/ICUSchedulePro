@@ -368,44 +368,68 @@ export function Calendar() {
 
   const handleEventMouseEnter = (info: any) => {
     const shift = info.event.extendedProps.shift;
-    const conflicts = detectShiftConflicts(shift, shifts || []);
+    const conflicts = detectShiftConflicts(shift, (shifts || []).filter(s => s.id !== shift.id));
     if (conflicts.length > 0) {
       setActiveConflicts({ shift, conflicts });
 
-      // Create a tooltip with resolve button
+      // Create a floating tooltip with resolve button
       const tooltip = document.createElement('div');
-      tooltip.className = 'fc-tooltip bg-destructive text-destructive-foreground p-2 rounded shadow-lg';
+      tooltip.className = 'fixed z-50 bg-destructive text-destructive-foreground px-4 py-2 rounded-lg shadow-lg border border-destructive-foreground/20';
+
+      const conflictingProvider = PROVIDERS.find(p => p.id === conflicts[0].providerId)?.name || 'another provider';
+
       tooltip.innerHTML = `
-        <div class="flex items-center gap-2">
-          <span class="text-sm">Shift overlaps with ${conflicts.length} other shift(s)</span>
-          <button class="bg-white text-destructive px-2 py-1 rounded text-xs hover:bg-destructive-foreground">
-            Resolve
+        <div class="flex items-center gap-3">
+          <div class="flex items-center gap-2">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/>
+              <line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            <span>Conflict with ${conflictingProvider}'s shift</span>
+          </div>
+          <button class="bg-white hover:bg-gray-100 text-destructive font-medium px-3 py-1 rounded-md text-sm transition-colors">
+            Resolve Conflict
           </button>
         </div>
       `;
 
+      // Position the tooltip relative to the event
+      const rect = info.el.getBoundingClientRect();
+      tooltip.style.left = `${rect.left}px`;
+      tooltip.style.top = `${rect.bottom + window.scrollY + 8}px`; // 8px offset
+
+      // Add click handler
       tooltip.querySelector('button')?.addEventListener('click', () => {
-        setShowConflictWizard(true);
-        setQgendaConflicts([
-          {
-            local: shift,
-            qgenda: {
-              startDate: conflicts[0].startDate,
-              endDate: conflicts[0].endDate,
-              summary: `Conflicting shift with ${PROVIDERS.find(p => p.id === conflicts[0].providerId)?.name}`
+        if (conflicts[0]) {
+          setQgendaConflicts([
+            {
+              local: shift,
+              qgenda: {
+                startDate: conflicts[0].startDate,
+                endDate: conflicts[0].endDate,
+                summary: `Conflicting shift with ${PROVIDERS.find(p => p.id === conflicts[0].providerId)?.name}`
+              }
             }
-          }
-        ]);
+          ]);
+          setShowConflictWizard(true);
+
+          // Remove tooltip after clicking
+          document.body.removeChild(tooltip);
+        }
       });
 
-      const eventEl = info.el;
-      tooltip.style.position = 'absolute';
-      tooltip.style.zIndex = '10';
-      tooltip.style.left = `${eventEl.offsetLeft}px`;
-      tooltip.style.top = `${eventEl.offsetTop + eventEl.offsetHeight}px`;
-
-      eventEl.appendChild(tooltip);
+      // Add tooltip to body
+      document.body.appendChild(tooltip);
       info.el._tooltip = tooltip;
+
+      // Highlight the conflicting shifts
+      const conflictingEventEls = document.querySelectorAll(
+        `.fc-event[data-event-id="${conflicts[0].id}"]`
+      );
+      conflictingEventEls.forEach(el => {
+        el.classList.add('ring-2', 'ring-destructive', 'ring-offset-2');
+      });
     }
   };
 
@@ -415,6 +439,11 @@ export function Calendar() {
       info.el._tooltip.remove();
       delete info.el._tooltip;
     }
+
+    // Remove highlight from conflicting shifts
+    document.querySelectorAll('.fc-event.ring-2').forEach(el => {
+      el.classList.remove('ring-2', 'ring-destructive', 'ring-offset-2');
+    });
   };
 
   const renderEventContent = (eventInfo: any) => {

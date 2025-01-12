@@ -27,6 +27,7 @@ import {
   FormItem,
   FormLabel,
 } from "@/components/ui/form";
+import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 
 export function PersonalDashboard() {

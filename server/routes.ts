@@ -988,5 +988,93 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Add the QGenda conflict resolution endpoint
+  app.post("/api/shifts/resolve-qgenda-conflicts", async (req, res) => {
+    try {
+      const { resolutions } = req.body;
+
+      if (!Array.isArray(resolutions)) {
+        res.status(400).json({ message: "Invalid resolutions format" });
+        return;
+      }
+
+      // Process each resolution
+      const results = await Promise.all(
+        resolutions.map(async ({ shiftId, action }) => {
+          const shift = await db.select()
+            .from(shifts)
+            .where(eq(shifts.id, shiftId))
+            .limit(1);
+
+          if (!shift.length) {
+            throw new Error(`Shift ${shiftId} not found`);
+          }
+
+          // Get provider info for notification
+          const provider = await db.select()
+            .from(providers)
+            .where(sql`${providers.id} = ${shift[0].providerId}`)
+            .limit(1);
+
+          if (action === 'keep-qgenda') {
+            // Update the shift with QGenda data
+            await db.update(shifts)
+              .set({
+                status: 'confirmed',
+                source: 'qgenda',
+                conflictResolution: {
+                  resolvedAt: new Date().toISOString(),
+                  action: 'kept-qgenda',
+                  originalShift: {
+                    startDate: shift[0].startDate,
+                    endDate: shift[0].endDate,
+                    status: shift[0].status
+                  }
+                }
+              })
+              .where(eq(shifts.id, shiftId));
+
+          } else if (action === 'keep-local') {
+            // Keep the local shift, just mark it as resolved
+            await db.update(shifts)
+              .set({
+                conflictResolution: {
+                  resolvedAt: new Date().toISOString(),
+                  action: 'kept-local',
+                  qgendaEventId: shift[0].externalId
+                }
+              })
+              .where(eq(shifts.id, shiftId));
+          }
+
+          return { shiftId, action, provider: provider[0] };
+        })
+      );
+
+      // Send notifications for resolved conflicts
+      results.forEach(({ provider }) => {
+        if (provider) {
+          broadcast(notify.qgendaSyncCompleted(
+            provider,
+            {
+              shiftsImported: 0,
+              conflicts: []
+            }
+          ));
+        }
+      });
+
+      res.json({ 
+        message: "Conflicts resolved successfully",
+        results 
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        message: "Failed to resolve conflicts",
+        error: error.message
+      });
+    }
+  });
+
   return httpServer;
 }

@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { Calendar as MiniCalendar } from "@/components/ui/calendar";
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, ArrowRightLeft, Trash2 } from "lucide-react";
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, ArrowRightLeft, Trash2, AlertTriangle } from "lucide-react";
 import { ConflictResolutionWizard } from "./ConflictResolutionWizard";
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
@@ -427,6 +427,64 @@ export function Calendar() {
     }
   };
 
+  const renderToolbar = () => (
+    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 md:gap-2 flex-shrink-0">
+      <div className="flex items-center justify-center gap-2">
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={handlePrev}
+          className="h-9 w-9 md:h-8 md:w-8 touch-manipulation"
+          aria-label="Previous"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleToday}
+          className="h-9 md:h-8 touch-manipulation"
+        >
+          Today
+        </Button>
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={handleNext}
+          className="h-9 w-9 md:h-8 md:w-8 touch-manipulation"
+          aria-label="Next"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
+      {qgendaConflicts.length > 0 && (
+        <Button
+          variant="destructive"
+          size="sm"
+          onClick={() => setShowConflictWizard(true)}
+          className="h-9 md:h-8 touch-manipulation"
+        >
+          <AlertTriangle className="h-4 w-4 mr-2" />
+          Resolve {qgendaConflicts.length} Calendar Conflicts
+        </Button>
+      )}
+      <Select
+        value={view}
+        onValueChange={handleViewChange}
+      >
+        <SelectTrigger className="h-9 md:h-8 w-[120px] touch-manipulation">
+          <SelectValue placeholder="Select view" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="dayGridWeek">Week</SelectItem>
+          <SelectItem value="dayGridMonth">Month</SelectItem>
+          <SelectItem value="multiMonth">Year</SelectItem>
+          <SelectItem value="listWeek">List</SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
+  );
+
   if (isLoading) {
     return (
       <Card className="h-full">
@@ -467,50 +525,7 @@ export function Calendar() {
             </PopoverContent>
           </Popover>
         </div>
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 md:gap-2 flex-shrink-0">
-          <div className="flex items-center justify-center gap-2">
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={handlePrev}
-              className="h-9 w-9 md:h-8 md:w-8 touch-manipulation"
-              aria-label="Previous"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleToday}
-              className="h-9 md:h-8 touch-manipulation"
-            >
-              Today
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={handleNext}
-              className="h-9 w-9 md:h-8 md:w-8 touch-manipulation"
-              aria-label="Next"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-          <Select
-            value={view}
-            onValueChange={handleViewChange}
-          >
-            <SelectTrigger className="h-9 md:h-8 w-[120px] touch-manipulation">
-              <SelectValue placeholder="Select view" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="dayGridWeek">Week</SelectItem>
-              <SelectItem value="dayGridMonth">Month</SelectItem>
-              <SelectItem value="multiMonth">Year</SelectItem>
-              <SelectItem value="listWeek">List</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        {renderToolbar()}
       </CardHeader>
       <CardContent className="p-0">
         <div className="h-[calc(100vh-16rem)] md:h-[600px] relative touch-manipulation">

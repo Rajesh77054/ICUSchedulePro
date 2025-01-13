@@ -200,7 +200,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // QGenda sync endpoint with simplified conflict resolution
+  // QGenda sync endpoint with proper error handling and iCal support
   app.post("/api/integrations/qgenda/import", async (req, res) => {
     try {
       const { subscriptionUrl, providerId } = req.body;

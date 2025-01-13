@@ -209,21 +209,37 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).json({ message: "Missing required parameters" });
       }
 
-      // Step 1: Fetch and parse QGenda calendar
+      // Step 1: Fetch and parse QGenda calendar with proper headers
       console.log('Fetching QGenda calendar from:', subscriptionUrl);
-      const response = await fetch(subscriptionUrl);
+      const response = await fetch(subscriptionUrl, {
+        headers: {
+          'Accept': 'text/calendar',
+          'User-Agent': 'ICU-Scheduler/1.0'
+        },
+        redirect: 'follow'
+      });
 
       if (!response.ok) {
         console.error('QGenda fetch error:', response.status, response.statusText);
         throw new Error(`Failed to fetch QGenda calendar: ${response.status} ${response.statusText}`);
       }
 
+      const contentType = response.headers.get('content-type');
+      console.log('Response content type:', contentType);
+
       const icalData = await response.text();
-      console.log('Received iCal data length:', icalData.length);
+      console.log('Received data length:', icalData.length);
+      console.log('First 100 characters:', icalData.substring(0, 100));
 
       if (!icalData.includes('BEGIN:VCALENDAR')) {
-        console.error('Invalid iCal data:', icalData.substring(0, 200));
-        throw new Error('Invalid iCal data received from QGenda');
+        console.error('Invalid iCal data received:', icalData.substring(0, 200));
+        return res.status(400).json({ 
+          message: "Invalid iCal data received. Please verify the QGenda URL is correct and accessible.",
+          debug: {
+            contentType,
+            dataPreview: icalData.substring(0, 100)
+          }
+        });
       }
 
       const events = await ical.async.parseICS(icalData);
@@ -294,7 +310,8 @@ export function registerRoutes(app: Express): Server {
       console.error('QGenda import error:', error);
       res.status(500).json({
         message: "Failed to import QGenda schedule",
-        error: error.message
+        error: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
       });
     }
   });

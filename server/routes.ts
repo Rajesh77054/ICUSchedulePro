@@ -201,7 +201,7 @@ export function registerRoutes(app: Express): Server {
   });
 
   // QGenda sync endpoint with proper error handling and iCal support
-  app.post("/api/integrations/qgenda/import", async (req, res) => {
+  app.post("/api/integrations/qgenda/import-ical", async (req, res) => {
     try {
       const { subscriptionUrl, providerId } = req.body;
 
@@ -211,9 +211,10 @@ export function registerRoutes(app: Express): Server {
 
       // Step 1: Fetch and parse QGenda calendar with proper headers
       console.log('Fetching QGenda calendar from:', subscriptionUrl);
-      const response = await fetch(subscriptionUrl, {
+      const encodedUrl = encodeURI(subscriptionUrl);
+      const response = await fetch(encodedUrl, {
         headers: {
-          'Accept': 'text/calendar',
+          'Accept': 'text/calendar,application/x-www-form-urlencoded',
           'User-Agent': 'ICU-Scheduler/1.0'
         },
         redirect: 'follow'

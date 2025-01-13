@@ -180,6 +180,10 @@ export function Calendar() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  const getProviderColor = (providerId: number) => {
+    return PROVIDERS.find(p => p.id === providerId)?.color || "hsl(0, 0%, 50%)";
+  };
+
   const { data: shifts, isLoading } = useQuery<Shift[]>({
     queryKey: ["/api/shifts", view, date],
   });
@@ -235,7 +239,6 @@ export function Calendar() {
     },
   });
 
-  // Filter out inactive shifts from calendar events using useMemo
   const calendarEvents = useMemo(() =>
     shifts?.filter(shift => shift.status !== 'inactive')
       .map(shift => ({
@@ -365,7 +368,6 @@ export function Calendar() {
         conflicts,
       });
 
-      // Highlight the conflicting shifts
       conflicts.forEach(conflict => {
         if (conflict.type === 'overlap' && conflict.conflictingShift) {
           const conflictingEventEls = document.querySelectorAll(
@@ -382,7 +384,6 @@ export function Calendar() {
   const handleEventMouseLeave = (info: any) => {
     setActiveConflicts(null);
 
-    // Remove highlight from conflicting shifts
     document.querySelectorAll('.fc-event.ring-2').forEach(el => {
       el.classList.remove('ring-2', 'ring-destructive', 'ring-offset-2');
     });
@@ -541,7 +542,6 @@ export function Calendar() {
     );
   }
 
-  // Update the conflict resolution handler to force refresh
   const handleConflictResolution = async (resolutions: Array<{ shiftId: number; action: 'keep-qgenda' | 'keep-local' }>) => {
     try {
       const response = await fetch('/api/shifts/resolve-qgenda-conflicts', {
@@ -555,10 +555,8 @@ export function Calendar() {
         throw new Error(errorText);
       }
 
-      // Force refresh all data
       await queryClient.invalidateQueries({ queryKey: ["/api/shifts"] });
 
-      // Explicitly refetch events for the calendar
       if (calendarRef.current) {
         calendarRef.current.getApi().refetchEvents();
       }
@@ -568,7 +566,6 @@ export function Calendar() {
         description: "Calendar conflicts resolved successfully",
       });
 
-      // Clear all conflict-related states
       setShowConflictWizard(false);
       setQgendaConflicts([]);
       setActiveConflicts(null);
@@ -580,10 +577,6 @@ export function Calendar() {
         variant: "destructive",
       });
     }
-  };
-
-  const getProviderColor = (providerId: number) => {
-    return PROVIDERS.find(p => p.id === providerId)?.color || "hsl(0, 0%, 50%)";
   };
 
 
@@ -734,7 +727,6 @@ export function Calendar() {
         onOpenChange={setShowConflictWizard}
         onResolve={handleConflictResolution}
         onResolved={() => {
-          // Additional UI updates after resolution
           setActiveConflicts(null);
           queryClient.invalidateQueries({ queryKey: ["/api/shifts"] });
         }}

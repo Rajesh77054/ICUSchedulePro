@@ -247,7 +247,23 @@ export function registerRoutes(app: Express): Server {
       console.log('Parsed events count:', Object.keys(events).length);
 
       // Step 2: Process the events into shifts
-      const shiftsToInsert = [];
+      const shiftsToInsert: Array<{
+        providerId: number;
+        startDate: string;
+        endDate: string;
+        status: ShiftStatus;
+        source: string;
+        externalId: string;
+        schedulingNotes: Record<string, any>;
+      }> = [];
+
+      if (!events || typeof events !== 'object') {
+        return res.status(400).json({
+          message: "No valid calendar data found",
+          debug: { events }
+        });
+      }
+
       for (const event of Object.values(events)) {
         if (event.type === 'VEVENT' && event.start && event.end) {
           const startDate = event.start.toISOString().split('T')[0];

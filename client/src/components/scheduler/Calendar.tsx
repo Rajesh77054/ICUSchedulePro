@@ -489,7 +489,7 @@ export function Calendar() {
     <CardHeader className="flex flex-col space-y-4 md:flex-row md:items-center md:justify-between md:space-y-0 pb-2">
       <div className="flex items-center space-x-4 min-w-0">
         <CardTitle className="text-lg md:text-xl font-bold truncate flex-shrink min-w-0">
-          <span className="truncate block">Personal Schedule Dashboard</span>
+          {viewTitle}
         </CardTitle>
         {qgendaConflicts.length > 0 && (
           <Button

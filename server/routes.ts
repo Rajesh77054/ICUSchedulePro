@@ -209,40 +209,30 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).json({ message: "Missing required parameters" });
       }
 
-      // Step 1: Mark existing shifts as inactive
-      await db.update(shifts)
-        .set({
-          status: 'inactive' as ShiftStatus,
-          updatedAt: new Date(),
-          schedulingNotes: {
-            reason: 'Replaced by QGenda sync',
-            updatedAt: new Date().toISOString()
-          }
-        })
-        .where(
-          and(
-            eq(shifts.providerId, providerId),
-            eq(shifts.status, 'confirmed')
-          )
-        );
-
-      // Step 2: Fetch and parse QGenda calendar
+      // Step 1: Fetch and parse QGenda calendar
+      console.log('Fetching QGenda calendar from:', subscriptionUrl);
       const response = await fetch(subscriptionUrl);
+
       if (!response.ok) {
+        console.error('QGenda fetch error:', response.status, response.statusText);
         throw new Error(`Failed to fetch QGenda calendar: ${response.status} ${response.statusText}`);
       }
 
       const icalData = await response.text();
+      console.log('Received iCal data length:', icalData.length);
+
       if (!icalData.includes('BEGIN:VCALENDAR')) {
+        console.error('Invalid iCal data:', icalData.substring(0, 200));
         throw new Error('Invalid iCal data received from QGenda');
       }
 
       const events = await ical.async.parseICS(icalData);
+      console.log('Parsed events count:', Object.keys(events).length);
 
-      // Step 3: Insert new shifts from QGenda
+      // Step 2: Process the events into shifts
       const shiftsToInsert = [];
       for (const event of Object.values(events)) {
-        if (event.type === 'VEVENT') {
+        if (event.type === 'VEVENT' && event.start && event.end) {
           const startDate = event.start.toISOString().split('T')[0];
           const endDate = event.end.toISOString().split('T')[0];
           const eventId = event.uid || `qgenda-${startDate}-${endDate}`;
@@ -263,11 +253,38 @@ export function registerRoutes(app: Express): Server {
         }
       }
 
-      // Step 4: Insert new shifts
-      const result = await db.insert(shifts)
-        .values(shiftsToInsert)
-        .returning();
+      if (shiftsToInsert.length === 0) {
+        return res.status(400).json({ 
+          message: "No valid shifts found in the QGenda calendar" 
+        });
+      }
 
+      // Step 3: Insert new shifts in a transaction
+      const result = await db.transaction(async (tx) => {
+        // First mark existing shifts as inactive
+        await tx.update(shifts)
+          .set({
+            status: 'inactive' as ShiftStatus,
+            updatedAt: new Date(),
+            schedulingNotes: {
+              reason: 'Replaced by QGenda sync',
+              updatedAt: new Date().toISOString()
+            }
+          })
+          .where(
+            and(
+              eq(shifts.providerId, providerId),
+              eq(shifts.status, 'confirmed')
+            )
+          );
+
+        // Then insert the new shifts
+        return await tx.insert(shifts)
+          .values(shiftsToInsert)
+          .returning();
+      });
+
+      console.log('Successfully imported shifts:', result.length);
       res.json({
         message: `Successfully imported ${result.length} shifts`,
         shifts: result

@@ -5,7 +5,6 @@ import { SwapRequestsDashboard } from "@/pages/SwapRequestsDashboard";
 import { TimeOffRequests } from "@/components/scheduler/TimeOffRequests";
 import { TimeOffAdmin } from "@/pages/TimeOffAdmin";
 import { Settings } from "@/pages/Settings";
-import { ShiftPreferences } from "@/pages/ShiftPreferences";
 import { AlertCircle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { TooltipProvider } from "@/components/ui/tooltip";

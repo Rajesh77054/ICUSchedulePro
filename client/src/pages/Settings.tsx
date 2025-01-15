@@ -1,5 +1,11 @@
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -10,13 +16,21 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
 import { Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { ShiftPreferences } from "./ShiftPreferences";
 
 export function Settings() {
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState("preferences");
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -36,7 +50,7 @@ export function Settings() {
       });
       setClearDialogOpen(false);
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       toast({
         title: "Error",
         description: error.message,
@@ -48,28 +62,42 @@ export function Settings() {
   return (
     <div className="container mx-auto p-4 md:py-6">
       <h1 className="text-2xl md:text-3xl font-bold mb-6">Settings</h1>
-      
-      <div className="space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Calendar Management</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Button
-              variant="destructive"
-              size="sm"
-              className="gap-2"
-              onClick={() => setClearDialogOpen(true)}
-            >
-              <Trash2 className="h-4 w-4" />
-              Clear Calendar
-            </Button>
-            <p className="text-sm text-muted-foreground mt-2">
-              Remove all shifts from the calendar. This action cannot be undone.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="mb-4">
+          <TabsTrigger value="preferences">Preferences</TabsTrigger>
+          <TabsTrigger value="admin">Admin</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="preferences">
+          <ShiftPreferences />
+        </TabsContent>
+
+        <TabsContent value="admin">
+          <Card>
+            <CardHeader>
+              <CardTitle>Calendar Management</CardTitle>
+              <CardDescription>
+                Manage calendar data and perform administrative tasks
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button
+                variant="destructive"
+                size="sm"
+                className="gap-2"
+                onClick={() => setClearDialogOpen(true)}
+              >
+                <Trash2 className="h-4 w-4" />
+                Clear Calendar
+              </Button>
+              <p className="text-sm text-muted-foreground mt-2">
+                Remove all shifts from the calendar. This action cannot be undone.
+              </p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       <AlertDialog open={clearDialogOpen} onOpenChange={setClearDialogOpen}>
         <AlertDialogContent>

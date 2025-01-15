@@ -1,6 +1,6 @@
 import { useState, useRef, useMemo } from "react";
 import { Calendar as MiniCalendar } from "@/components/ui/calendar";
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight } from "lucide-react";
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, AlertTriangle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
@@ -10,13 +10,13 @@ import { format } from "date-fns";
 import { PROVIDERS } from "@/lib/constants";
 import type { Shift } from "@/lib/types";
 import { ShiftDialog } from "./ShiftDialog";
-
 // Import FullCalendar and required plugins
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import multiMonthPlugin from '@fullcalendar/multimonth';
 import interactionPlugin from '@fullcalendar/interaction';
 import listPlugin from '@fullcalendar/list';
+import { DuplicateShiftsDialog } from "./DuplicateShiftsDialog";
 
 type CalendarView = 'dayGridWeek' | 'dayGridMonth' | 'multiMonth' | 'listWeek';
 
@@ -31,6 +31,8 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedDates, setSelectedDates] = useState<{ start: Date; end: Date }>();
   const [miniCalendarOpen, setMiniCalendarOpen] = useState(false);
+  const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false);
+  const [selectedProviderId, setSelectedProviderId] = useState<number>();
 
   const calendarRef = useRef<FullCalendar>(null);
   const queryClient = useQueryClient();
@@ -101,6 +103,29 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
     }
   };
 
+  const handleCheckDuplicates = (providerId: number) => {
+    setSelectedProviderId(providerId);
+    setDuplicateDialogOpen(true);
+  };
+
+  const providersWithDuplicates = useMemo(() => {
+    const duplicates = new Map<number, number>();
+
+    initialShifts.forEach(shift => {
+      const key = `${shift.providerId}-${shift.startDate}-${shift.endDate}`;
+      const count = duplicates.get(shift.providerId) || 0;
+      if (count > 0) {
+        duplicates.set(shift.providerId, count + 1);
+      } else {
+        duplicates.set(shift.providerId, 1);
+      }
+    });
+
+    return Array.from(duplicates.entries())
+      .filter(([_, count]) => count > 1)
+      .map(([providerId]) => providerId);
+  }, [initialShifts]);
+
   return (
     <Card className="h-full">
       <CardHeader className="flex flex-col space-y-4 md:flex-row md:items-center md:justify-between md:space-y-0 pb-2">
@@ -146,24 +171,43 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
             </SelectContent>
           </Select>
         </div>
-        <Popover open={miniCalendarOpen} onOpenChange={setMiniCalendarOpen}>
-          <PopoverTrigger asChild>
-            <Button
-              variant="outline"
-              className="h-9 w-9 p-0"
-            >
-              <CalendarIcon className="h-4 w-4" />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
-            <MiniCalendar
-              mode="single"
-              selected={date}
-              onSelect={handleDateSelect}
-              initialFocus
-            />
-          </PopoverContent>
-        </Popover>
+        <div className="flex items-center gap-2">
+          {providersWithDuplicates.map(providerId => {
+            const provider = PROVIDERS.find(p => p.id === providerId);
+            if (!provider) return null;
+
+            return (
+              <Button
+                key={providerId}
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                onClick={() => handleCheckDuplicates(providerId)}
+              >
+                <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                {provider.name} Duplicates
+              </Button>
+            );
+          })}
+          <Popover open={miniCalendarOpen} onOpenChange={setMiniCalendarOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className="h-9 w-9 p-0"
+              >
+                <CalendarIcon className="h-4 w-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <MiniCalendar
+                mode="single"
+                selected={date}
+                onSelect={handleDateSelect}
+                initialFocus
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
       </CardHeader>
       <CardContent className="p-0">
         <div className="h-[calc(100vh-16rem)] md:h-[600px] relative">
@@ -227,6 +271,14 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
           onOpenChange={setDialogOpen}
           startDate={selectedDates.start}
           endDate={selectedDates.end}
+        />
+      )}
+
+      {selectedProviderId && (
+        <DuplicateShiftsDialog
+          open={duplicateDialogOpen}
+          onOpenChange={setDuplicateDialogOpen}
+          providerId={selectedProviderId}
         />
       )}
     </Card>

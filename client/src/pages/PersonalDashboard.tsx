@@ -1,5 +1,5 @@
 import { useParams } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -37,6 +37,7 @@ export function PersonalDashboard() {
   const [showTimeOffForm, setShowTimeOffForm] = useState(false);
   const [showPreferences, setShowPreferences] = useState(false);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const { data: shifts } = useQuery<Shift[]>({
     queryKey: ["/api/shifts"],
@@ -176,7 +177,6 @@ export function PersonalDashboard() {
                   body: JSON.stringify({
                     subscriptionUrl: url,
                     providerId,
-                    conflictStrategy: 'qgenda-priority'
                   })
                 })
                   .then(res => {
@@ -186,9 +186,10 @@ export function PersonalDashboard() {
                   .then(data => {
                     toast({
                       title: 'Success',
-                      description: `Successfully imported ${data.shifts.length} shifts. ${data.conflicts.length > 0 ? `${data.conflicts.length} conflicts were resolved.` : ''}`,
+                      description: `Successfully imported ${data.shifts?.length || 0} shifts.`,
                     });
                     form.reset();
+                    queryClient.invalidateQueries({ queryKey: ["/api/shifts"] });
                   })
                   .catch(error => {
                     toast({
@@ -227,6 +228,15 @@ export function PersonalDashboard() {
                         id="autoSync"
                         defaultChecked={preferences?.qgendaIntegration?.enabled ?? false}
                         onCheckedChange={(enabled) => {
+                          if (!preferences?.qgendaIntegration?.subscriptionUrl) {
+                            toast({
+                              title: 'Error',
+                              description: 'Please enter a QGenda subscription URL first',
+                              variant: 'destructive'
+                            });
+                            return;
+                          }
+
                           fetch(`/api/provider-preferences/${providerId}/qgenda-sync`, {
                             method: 'PATCH',
                             headers: { 'Content-Type': 'application/json' },
@@ -243,6 +253,9 @@ export function PersonalDashboard() {
                               toast({
                                 title: 'Success',
                                 description: 'QGenda sync settings updated successfully',
+                              });
+                              queryClient.invalidateQueries({ 
+                                queryKey: ["/api/provider-preferences", providerId] 
                               });
                             })
                             .catch(error => {

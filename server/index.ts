@@ -37,45 +37,48 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  const server = registerRoutes(app);
-
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
-
-    res.status(status).json({ message });
-    throw err;
-  });
-
-  if (app.get("env") === "development") {
-    await setupVite(app, server);
-  } else {
-    serveStatic(app);
-  }
-
-  // Try ports in sequence until one works
-  const tryPort = (port: number): Promise<void> => {
-    return new Promise((resolve, reject) => {
-      server.listen(port, "0.0.0.0")
-        .once('listening', () => {
-          log(`Server started on port ${port}`);
-          resolve();
-        })
-        .once('error', (err: any) => {
-          if (err.code === 'EADDRINUSE') {
-            log(`Port ${port} is in use, trying next port...`);
-            tryPort(port + 1).then(resolve).catch(reject);
-          } else {
-            reject(err);
-          }
-        });
-    });
-  };
-
   try {
-    await tryPort(5000);
+    const server = registerRoutes(app);
+
+    app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+      console.error('Error:', err);
+      const status = err.status || err.statusCode || 500;
+      const message = err.message || "Internal Server Error";
+      res.status(status).json({ message });
+    });
+
+    if (app.get("env") === "development") {
+      await setupVite(app, server);
+    } else {
+      serveStatic(app);
+    }
+
+    const tryPort = (port: number): Promise<void> => {
+      return new Promise((resolve, reject) => {
+        server.listen(port, "0.0.0.0")
+          .once('listening', () => {
+            log(`Server started on port ${port}`);
+            resolve();
+          })
+          .once('error', (err: any) => {
+            if (err.code === 'EADDRINUSE') {
+              log(`Port ${port} is in use, trying next port...`);
+              tryPort(port + 1).then(resolve).catch(reject);
+            } else {
+              reject(err);
+            }
+          });
+      });
+    };
+
+    try {
+      await tryPort(5000);
+    } catch (error: any) {
+      console.error('Failed to start server:', error);
+      process.exit(1);
+    }
   } catch (error: any) {
-    console.error('Failed to start server:', error);
+    console.error('Server initialization error:', error);
     process.exit(1);
   }
 })();

@@ -6,13 +6,16 @@ import {
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Link } from "wouter";
-import { PROVIDERS } from "@/lib/constants";
-import { useQuery } from "@tanstack/react-query";
-import type { Shift } from "@/lib/types";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import type { Provider, Shift } from "@/lib/types";
+import { useQuery } from "@tanstack/react-query";
 
-export function ProviderList() {
+interface ProviderListProps {
+  providers?: Provider[];
+}
+
+export function ProviderList({ providers = [] }: ProviderListProps) {
   const { data: shifts } = useQuery<Shift[]>({
     queryKey: ["/api/shifts"],
   });
@@ -35,7 +38,7 @@ export function ProviderList() {
         <CardTitle>Providers</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {PROVIDERS.map(provider => {
+        {providers.map(provider => {
           const days = getProviderStats(provider.id);
           const progress = Math.min((days / provider.targetDays) * 100, 100);
 

@@ -1,105 +1,69 @@
 import express from 'express';
 import { Server } from 'http';
-import ical from 'node-ical';
 import { db } from '../db';
-import { shifts } from '@db/schema';
+import { providers, shifts } from '@db/schema';
 import { and, eq } from 'drizzle-orm';
-import { setupWebSocket } from './websocket';
+import { setupWebSocket, notify } from './websocket';
 
 export function registerRoutes(app: express.Application) {
   const server = new Server(app);
   const { broadcast } = setupWebSocket(server);
 
-  // QGenda import endpoint
-  app.post("/api/integrations/qgenda/import-ical", async (req, res) => {
+  // Get all providers
+  app.get("/api/providers", async (_req, res) => {
     try {
-      const { subscriptionUrl, providerId } = req.body;
+      const result = await db.query.providers.findMany();
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
 
-      if (!subscriptionUrl || !providerId) {
-        return res.status(400).json({ 
-          message: "Missing required parameters" 
-        });
-      }
+  // Get all shifts
+  app.get("/api/shifts", async (_req, res) => {
+    try {
+      const result = await db.query.shifts.findMany({
+        with: {
+          provider: true
+        }
+      });
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
 
-      // Fetch and parse QGenda calendar
-      console.log('Fetching QGenda calendar from:', subscriptionUrl);
-      const response = await fetch(encodeURI(subscriptionUrl), {
-        headers: {
-          'Accept': 'text/calendar,application/x-www-form-urlencoded',
-          'User-Agent': 'ICU-Scheduler/1.0'
-        },
-        redirect: 'follow'
+  // Create new shift
+  app.post("/api/shifts", async (req, res) => {
+    try {
+      const { providerId, startDate, endDate } = req.body;
+
+      const provider = await db.query.providers.findFirst({
+        where: eq(providers.id, providerId)
       });
 
-      if (!response.ok) {
-        throw new Error(`Failed to fetch QGenda calendar: ${response.status} ${response.statusText}`);
+      if (!provider) {
+        return res.status(404).json({ message: "Provider not found" });
       }
 
-      const icalData = await response.text();
-      if (!icalData.includes('BEGIN:VCALENDAR')) {
-        return res.status(400).json({ 
-          message: "Invalid iCal data received. Please verify the QGenda URL is correct." 
-        });
-      }
-
-      const events = await ical.async.parseICS(icalData);
-      const shiftsToInsert = [];
-
-      for (const [, event] of Object.entries(events)) {
-        if (event.type === 'VEVENT' && event.start && event.end) {
-          shiftsToInsert.push({
-            providerId,
-            startDate: event.start.toISOString().split('T')[0],
-            endDate: event.end.toISOString().split('T')[0],
-            status: 'confirmed' as const,
-            source: 'qgenda',
-            externalId: event.uid || `qgenda-${event.start}-${event.end}`,
-            schedulingNotes: {
-              importedFrom: 'QGenda',
-              eventSummary: event.summary || '',
-              importedAt: new Date().toISOString()
-            }
-          });
-        }
-      }
-
-      if (shiftsToInsert.length === 0) {
-        return res.status(400).json({ 
-          message: "No valid shifts found in the QGenda calendar" 
-        });
-      }
-
-      // Insert new shifts
-      const result = await db.insert(shifts)
-        .values(shiftsToInsert)
+      const [shift] = await db.insert(shifts)
+        .values({
+          providerId,
+          startDate,
+          endDate,
+          status: 'confirmed',
+          source: 'manual'
+        })
         .returning();
 
-      broadcast({
-        type: 'qgenda_sync_completed',
-        data: {
-          shiftsImported: result.length,
-          conflicts: []
-        },
-        timestamp: new Date().toISOString(),
-      });
+      broadcast(notify.shiftCreated(shift, {
+        name: provider.name,
+        title: provider.title
+      }));
 
-      return res.json({
-        message: `Successfully imported ${result.length} shifts`,
-        shifts: result
-      });
-
+      res.json(shift);
     } catch (error: any) {
-      console.error('QGenda import error:', error);
-      broadcast({
-        type: 'qgenda_sync_failed',
-        data: { error: error.message },
-        timestamp: new Date().toISOString(),
-      });
-
-      res.status(500).json({
-        message: "Failed to import QGenda schedule",
-        error: error.message
-      });
+      res.status(500).json({ message: error.message });
     }
   });
 

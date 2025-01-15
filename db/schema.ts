@@ -24,7 +24,6 @@ export const shifts = pgTable("shifts", {
   endDate: date("end_date").notNull(),
   status: text("status", { enum: ShiftStatus }).notNull().default('confirmed'),
   source: text("source").default('manual'),
-  externalId: text("external_id"),
   schedulingNotes: jsonb("scheduling_notes").default({}),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

@@ -16,17 +16,8 @@ export interface Shift {
   status: 'confirmed' | 'pending_swap' | 'swapped' | 'archived';
   satisfactionScore?: number;
   schedulingNotes?: any;
-  source?: 'manual' | 'qgenda';
-  conflictResolution?: {
-    resolvedAt: string;
-    action: 'replaced-by-qgenda';
-    qgendaEventId: string;
-    originalShift: {
-      startDate: string;
-      endDate: string;
-      status: string;
-    };
-  };
+  source?: 'manual';
+  // Keep external_id in type but don't use it
   externalId?: string;
 }
 
@@ -69,12 +60,6 @@ export interface ProviderPreferences {
     notifyOnTimeOffUpdates: boolean;
     notifyBeforeShift: number;
   };
-  qgendaIntegration: {
-    subscriptionUrl: string | null;
-    enabled: boolean;
-    syncInterval: number;
-    lastSyncAt: string | null;
-  };
   preferredShiftLength: number;
   preferredDaysOfWeek: number[];
   preferredCoworkers: number[];
@@ -83,29 +68,4 @@ export interface ProviderPreferences {
   minDaysBetweenShifts?: number;
   createdAt: string;
   updatedAt: string;
-}
-
-export interface QGendaSyncHistory {
-  id: number;
-  providerId: number;
-  status: 'success' | 'failed';
-  shiftsImported: number;
-  error?: string;
-  details?: {
-    conflicts: Array<{
-      type: 'replaced';
-      original: Shift;
-      qgendaEvent: {
-        startDate: string;
-        endDate: string;
-        summary: string;
-      };
-    }>;
-    processedShifts: Array<{
-      startDate: string;
-      endDate: string;
-      summary: string;
-    }>;
-  };
-  createdAt: string;
 }

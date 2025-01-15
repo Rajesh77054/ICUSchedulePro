@@ -4,6 +4,7 @@ import { PersonalDashboard } from "@/pages/PersonalDashboard";
 import { SwapRequestsDashboard } from "@/pages/SwapRequestsDashboard";
 import { TimeOffRequests } from "@/components/scheduler/TimeOffRequests";
 import { TimeOffAdmin } from "@/pages/TimeOffAdmin";
+import { Settings } from "@/pages/Settings";
 import { ShiftPreferences } from "@/pages/ShiftPreferences";
 import { AlertCircle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -25,7 +26,7 @@ function App() {
               <Route path="/swap-requests" component={SwapRequestsDashboard} />
               <Route path="/time-off" component={TimeOffRequests} />
               <Route path="/time-off/admin" component={TimeOffAdmin} />
-              <Route path="/preferences" component={ShiftPreferences} />
+              <Route path="/preferences" component={Settings} />
               <Route component={NotFound} />
             </Switch>
           </main>

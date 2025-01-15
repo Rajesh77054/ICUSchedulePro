@@ -1,27 +1,15 @@
 import { useState, useRef, useMemo } from "react";
 import { Calendar as MiniCalendar } from "@/components/ui/calendar";
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useQueryClient, useMutation } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { PROVIDERS } from "@/lib/constants";
 import type { Shift } from "@/lib/types";
 import { ShiftDialog } from "./ShiftDialog";
-import { useToast } from "@/hooks/use-toast";
-// Import FullCalendar and required plugins
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import multiMonthPlugin from '@fullcalendar/multimonth';
@@ -39,38 +27,11 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
   const [view, setView] = useState<CalendarView>('dayGridMonth');
   const [viewTitle, setViewTitle] = useState<string>("");
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [clearDialogOpen, setClearDialogOpen] = useState(false);
   const [selectedDates, setSelectedDates] = useState<{ start: Date; end: Date }>();
   const [miniCalendarOpen, setMiniCalendarOpen] = useState(false);
 
   const calendarRef = useRef<FullCalendar>(null);
   const queryClient = useQueryClient();
-  const { toast } = useToast();
-
-  const { mutate: clearShifts } = useMutation({
-    mutationFn: async () => {
-      const res = await fetch("/api/shifts", {
-        method: "DELETE",
-      });
-      if (!res.ok) throw new Error("Failed to clear shifts");
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/shifts"] });
-      toast({
-        title: "Success",
-        description: "All shifts have been cleared",
-      });
-      setClearDialogOpen(false);
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
 
   const getProviderColor = (providerId: number) => {
     return PROVIDERS.find(p => p.id === providerId)?.color || "hsl(0, 0%, 50%)";
@@ -184,15 +145,6 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
           </Select>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            variant="destructive"
-            size="sm"
-            className="gap-2"
-            onClick={() => setClearDialogOpen(true)}
-          >
-            <Trash2 className="h-4 w-4" />
-            Clear Calendar
-          </Button>
           <Popover open={miniCalendarOpen} onOpenChange={setMiniCalendarOpen}>
             <PopoverTrigger asChild>
               <Button
@@ -277,23 +229,6 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
           endDate={selectedDates.end}
         />
       )}
-
-      <AlertDialog open={clearDialogOpen} onOpenChange={setClearDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Clear All Shifts</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action will remove all shifts from the calendar. This cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => clearShifts()}>
-              Clear All Shifts
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </Card>
   );
 }

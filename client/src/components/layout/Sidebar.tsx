@@ -23,28 +23,46 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface NavItemProps {
   href: string;
   icon: React.ReactNode;
   label: string;
+  tooltip?: string;
   active?: boolean;
 }
 
-function NavItem({ href, icon, label, active }: NavItemProps) {
+function NavItem({ href, icon, label, tooltip, active }: NavItemProps) {
   return (
-    <Link href={href}>
-      <Button
-        variant="ghost"
-        className={cn(
-          "w-full justify-start gap-2",
-          active && "bg-accent text-accent-foreground"
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Link href={href}>
+            <Button
+              variant="ghost"
+              className={cn(
+                "w-full justify-start gap-2 transition-colors",
+                active && "bg-accent text-accent-foreground hover:bg-accent/90"
+              )}
+            >
+              {icon}
+              {label}
+            </Button>
+          </Link>
+        </TooltipTrigger>
+        {tooltip && (
+          <TooltipContent side="right">
+            <p>{tooltip}</p>
+          </TooltipContent>
         )}
-      >
-        {icon}
-        {label}
-      </Button>
-    </Link>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
 
@@ -60,6 +78,7 @@ export function Sidebar() {
         href: "/",
         icon: <Calendar className="h-4 w-4" />,
         label: "Schedule",
+        tooltip: "View and manage the main schedule",
       },
     ],
     scheduling: [
@@ -67,11 +86,13 @@ export function Sidebar() {
         href: "/provider/1",
         icon: <CalendarDays className="h-4 w-4" />,
         label: "Personal Schedule",
+        tooltip: "View and manage your personal schedule",
       },
       {
         href: "/swap-requests",
         icon: <Repeat className="h-4 w-4" />,
         label: "Shift Swaps",
+        tooltip: "Request and manage shift swaps with other providers",
       },
     ],
     timeManagement: [
@@ -79,11 +100,13 @@ export function Sidebar() {
         href: "/time-off",
         icon: <TimerOff className="h-4 w-4" />,
         label: "Time Off",
+        tooltip: "Submit and track time-off requests",
       },
       {
         href: "/time-off/admin",
         icon: <Clock className="h-4 w-4" />,
         label: "Time Off Admin",
+        tooltip: "Review and manage time-off requests",
       },
     ],
   };
@@ -114,7 +137,10 @@ export function Sidebar() {
             <CollapsibleTrigger asChild>
               <Button
                 variant="ghost"
-                className="w-full justify-between"
+                className={cn(
+                  "w-full justify-between",
+                  schedulingOpen && "bg-accent/50"
+                )}
               >
                 <span className="flex items-center gap-2">
                   <Users className="h-4 w-4" />
@@ -146,7 +172,10 @@ export function Sidebar() {
             <CollapsibleTrigger asChild>
               <Button
                 variant="ghost"
-                className="w-full justify-between"
+                className={cn(
+                  "w-full justify-between",
+                  timeManagementOpen && "bg-accent/50"
+                )}
               >
                 <span className="flex items-center gap-2">
                   <Clock className="h-4 w-4" />
@@ -178,6 +207,7 @@ export function Sidebar() {
           href="/preferences"
           icon={<Settings className="h-4 w-4" />}
           label="Settings"
+          tooltip="Configure application settings and preferences"
           active={location === "/preferences"}
         />
       </div>
@@ -198,7 +228,7 @@ export function Sidebar() {
         <SheetTrigger asChild>
           <Button
             variant="ghost"
-            className="md:hidden"
+            className="md:hidden fixed top-4 left-4 z-40"
             size="icon"
           >
             <Menu className="h-6 w-6" />

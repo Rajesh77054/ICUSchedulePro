@@ -27,25 +27,25 @@ const routeMap: Record<string, { title: string; parent?: string; tooltip?: strin
 
 export function BreadcrumbNavigation() {
   const [location] = useLocation();
-  
+
   // Build breadcrumb path
   const buildPath = (route: string): Array<{ path: string; title: string; tooltip?: string }> => {
     const items = [];
     let currentRoute = route;
-    
+
     while (currentRoute) {
       const routeInfo = routeMap[currentRoute];
       if (!routeInfo) break;
-      
+
       items.unshift({
         path: currentRoute,
         title: routeInfo.title,
         tooltip: routeInfo.tooltip,
       });
-      
+
       currentRoute = routeInfo.parent || "";
     }
-    
+
     return items;
   };
 
@@ -75,7 +75,7 @@ export function BreadcrumbNavigation() {
             ) : (
               <>
                 <BreadcrumbLink href={item.path}>{item.title}</BreadcrumbLink>
-                <BreadcrumbSeparator />
+                {index < breadcrumbs.length - 1 && <BreadcrumbSeparator />}
               </>
             )}
           </BreadcrumbItem>

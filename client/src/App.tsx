@@ -21,7 +21,7 @@ function App() {
           <main className="container mx-auto py-6">
             <Switch>
               <Route path="/" component={Dashboard} />
-              <Route path="/user/:id" component={PersonalDashboard} />
+              <Route path="/provider/:id" component={PersonalDashboard} />
               <Route path="/swap-requests" component={SwapRequestsDashboard} />
               <Route path="/time-off" component={TimeOffRequests} />
               <Route path="/time-off/admin" component={TimeOffAdmin} />

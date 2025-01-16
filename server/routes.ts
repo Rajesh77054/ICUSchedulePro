@@ -19,6 +19,77 @@ export function registerRoutes(app: express.Application) {
     }
   });
 
+  // Create new user
+  app.post("/api/users", async (req, res) => {
+    try {
+      const { name, title, userType, targetDays, tolerance, maxConsecutiveWeeks, color } = req.body;
+
+      const [user] = await db.insert(users)
+        .values({
+          name,
+          title,
+          userType,
+          targetDays,
+          tolerance,
+          maxConsecutiveWeeks,
+          color
+        })
+        .returning();
+
+      res.json(user);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Update user
+  app.put("/api/users/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { name, title, userType, targetDays, tolerance, maxConsecutiveWeeks, color } = req.body;
+
+      const [user] = await db.update(users)
+        .set({
+          name,
+          title,
+          userType,
+          targetDays,
+          tolerance,
+          maxConsecutiveWeeks,
+          color
+        })
+        .where(eq(users.id, parseInt(id)))
+        .returning();
+
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      res.json(user);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Delete user
+  app.delete("/api/users/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      const [user] = await db.delete(users)
+        .where(eq(users.id, parseInt(id)))
+        .returning();
+
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      res.json({ message: "User deleted successfully" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // Get all shifts
   app.get("/api/shifts", async (_req, res) => {
     try {

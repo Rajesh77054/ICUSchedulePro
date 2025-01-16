@@ -44,6 +44,7 @@ export interface TimeOffRequest {
   startDate: string;
   endDate: string;
   status: 'pending' | 'approved' | 'rejected';
+  reason?: string;
   createdAt: string;
 }
 
@@ -61,11 +62,24 @@ export interface ProviderPreferences {
     notifyBeforeShift: number;
   };
   preferredShiftLength: number;
-  preferredDaysOfWeek: number[];
-  preferredCoworkers: number[];
-  avoidedDaysOfWeek: number[];
   maxShiftsPerWeek?: number;
   minDaysBetweenShifts?: number;
+  preferredDaysOfWeek: number[];
+  avoidedDaysOfWeek: number[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface User {
+  id: number;
+  firstName: string;
+  lastName: string;
+  title: string;
+  primaryEmail: string;
+  secondaryEmail?: string;
+  role: 'admin' | 'scheduler' | 'physician' | 'app';
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  provider?: Provider;
 }

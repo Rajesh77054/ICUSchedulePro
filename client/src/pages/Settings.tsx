@@ -22,14 +22,15 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
-import { Calendar, Download, Link, Trash2 } from "lucide-react";
+import { Calendar, Download, Link, Users, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/lib/auth";
 import { ShiftPreferences } from "@/components/scheduler/ShiftPreferences";
+import { ProviderList } from "@/components/scheduler/ProviderList";
 
 export function Settings() {
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
@@ -72,7 +73,12 @@ export function Settings() {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="mb-4">
           <TabsTrigger value="preferences">Preferences</TabsTrigger>
-          {isAdmin && <TabsTrigger value="admin">Admin</TabsTrigger>}
+          {isAdmin && (
+            <>
+              <TabsTrigger value="providers">Providers</TabsTrigger>
+              <TabsTrigger value="admin">Admin</TabsTrigger>
+            </>
+          )}
         </TabsList>
 
         <TabsContent value="preferences">
@@ -80,88 +86,104 @@ export function Settings() {
         </TabsContent>
 
         {isAdmin && (
-          <TabsContent value="admin">
-            <div className="space-y-6">
+          <>
+            <TabsContent value="providers">
               <Card>
                 <CardHeader>
-                  <CardTitle>Calendar Management</CardTitle>
+                  <CardTitle>Provider Management</CardTitle>
                   <CardDescription>
-                    Manage calendar data and perform administrative tasks
+                    Manage providers, their roles, and contact information
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-6">
-                    <div>
-                      <h3 className="text-lg font-medium mb-4">Clear Calendar</h3>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        className="gap-2"
-                        onClick={() => setClearDialogOpen(true)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        Clear Calendar
-                      </Button>
-                      <p className="text-sm text-muted-foreground mt-2">
-                        Remove all shifts from the calendar. This action cannot be undone.
-                      </p>
-                    </div>
+                  <ProviderList />
+                </CardContent>
+              </Card>
+            </TabsContent>
 
-                    <div className="border-t pt-6">
-                      <h3 className="text-lg font-medium mb-4">Calendar Export Options</h3>
-                      <div className="space-y-4">
-                        <div>
-                          <Label>Public Calendar URL (All Shifts)</Label>
-                          <div className="flex items-center gap-2 mt-2">
-                            <Input
-                              readOnly
-                              value={`${window.location.origin}/api/schedules/export/all`}
-                              className="font-mono text-sm"
-                            />
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              onClick={() => {
-                                navigator.clipboard.writeText(`${window.location.origin}/api/schedules/export/all`);
-                                toast({
-                                  title: "Copied!",
-                                  description: "Calendar URL copied to clipboard",
-                                });
-                              }}
-                            >
-                              <Link className="h-4 w-4" />
-                            </Button>
-                          </div>
-                          <p className="text-sm text-muted-foreground mt-2">
-                            Use this URL to subscribe to the complete calendar in external applications.
-                          </p>
-                        </div>
+            <TabsContent value="admin">
+              <div className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Calendar Management</CardTitle>
+                    <CardDescription>
+                      Manage calendar data and perform administrative tasks
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-6">
+                      <div>
+                        <h3 className="text-lg font-medium mb-4">Clear Calendar</h3>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          className="gap-2"
+                          onClick={() => setClearDialogOpen(true)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Clear Calendar
+                        </Button>
+                        <p className="text-sm text-muted-foreground mt-2">
+                          Remove all shifts from the calendar. This action cannot be undone.
+                        </p>
+                      </div>
 
-                        <div>
-                          <Label>Download Calendar File</Label>
-                          <div className="flex items-center gap-2 mt-2">
-                            <Button
-                              variant="outline"
-                              className="gap-2"
-                              onClick={() => {
-                                window.location.href = '/api/schedules/export/all';
-                              }}
-                            >
-                              <Download className="h-4 w-4" />
-                              Download ICS File
-                            </Button>
+                      <div className="border-t pt-6">
+                        <h3 className="text-lg font-medium mb-4">Calendar Export Options</h3>
+                        <div className="space-y-4">
+                          <div>
+                            <Label>Public Calendar URL (All Shifts)</Label>
+                            <div className="flex items-center gap-2 mt-2">
+                              <Input
+                                readOnly
+                                value={`${window.location.origin}/api/schedules/export/all`}
+                                className="font-mono text-sm"
+                              />
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(`${window.location.origin}/api/schedules/export/all`);
+                                  toast({
+                                    title: "Copied!",
+                                    description: "Calendar URL copied to clipboard",
+                                  });
+                                }}
+                              >
+                                <Link className="h-4 w-4" />
+                              </Button>
+                            </div>
+                            <p className="text-sm text-muted-foreground mt-2">
+                              Use this URL to subscribe to the complete calendar in external applications.
+                            </p>
                           </div>
-                          <p className="text-sm text-muted-foreground mt-2">
-                            Download the calendar as an ICS file for importing into your calendar application.
-                          </p>
+
+                          <div>
+                            <Label>Download Calendar File</Label>
+                            <div className="flex items-center gap-2 mt-2">
+                              <Button
+                                variant="outline"
+                                className="gap-2"
+                                onClick={() => {
+                                  window.location.href = '/api/schedules/export/all';
+                                }}
+                              >
+                                <Download className="h-4 w-4" />
+                                Download ICS File
+                              </Button>
+                            </div>
+                            <p className="text-sm text-muted-foreground mt-2">
+                              Download the calendar as an ICS file for importing into your calendar application.
+                            </p>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+          </>
         )}
       </Tabs>
 

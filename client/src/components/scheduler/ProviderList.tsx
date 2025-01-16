@@ -5,21 +5,21 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { USERS } from "@/lib/constants";
 import type { User } from "@/lib/types";
 
-interface ProviderListProps {
+interface UserListProps {
   onUserSelect?: (user: User) => void;
   selectedUserId?: number;
 }
 
-export function ProviderList({ onUserSelect, selectedUserId }: ProviderListProps) {
+export function ProviderList({ onUserSelect, selectedUserId }: UserListProps) {
   const [activeTab, setActiveTab] = useState<string>("all");
-  
+
   const physicians = USERS.filter(user => user.userType === "physician");
   const apps = USERS.filter(user => user.userType === "app");
 
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-lg font-semibold">Providers</CardTitle>
+        <CardTitle className="text-lg font-semibold">Healthcare Providers</CardTitle>
       </CardHeader>
       <CardContent className="p-0">
         <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab}>
@@ -60,9 +60,9 @@ export function ProviderList({ onUserSelect, selectedUserId }: ProviderListProps
 }
 
 function UserList({ users, selectedUserId, onSelect }: { 
-  users: User[],
-  selectedUserId?: number,
-  onSelect?: (user: User) => void 
+  users: User[];
+  selectedUserId?: number;
+  onSelect?: (user: User) => void;
 }) {
   return (
     <div className="space-y-1">

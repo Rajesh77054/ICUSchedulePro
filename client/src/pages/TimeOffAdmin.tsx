@@ -45,7 +45,7 @@ export function TimeOffAdmin() {
     },
   });
 
-  const { mutate: updateRequestStatus } = useMutation({
+  const { mutate: updateRequestStatus, isPending } = useMutation({
     mutationFn: async ({ id, status, reason }: { id: number; status: 'approved' | 'rejected'; reason?: string }) => {
       const res = await fetch(`/api/time-off-requests/${id}`, {
         method: "PATCH",
@@ -172,6 +172,7 @@ export function TimeOffAdmin() {
                           size="sm"
                           className="text-green-600 hover:text-green-700"
                           onClick={() => updateRequestStatus({ id: request.id, status: 'approved' })}
+                          disabled={isPending}
                         >
                           <Check className="h-4 w-4 mr-1" />
                           Approve
@@ -181,6 +182,7 @@ export function TimeOffAdmin() {
                           size="sm"
                           className="text-red-600 hover:text-red-700"
                           onClick={() => setSelectedRequest(request)}
+                          disabled={isPending}
                         >
                           <X className="h-4 w-4 mr-1" />
                           Reject
@@ -260,6 +262,7 @@ export function TimeOffAdmin() {
             <Button 
               variant="destructive"
               onClick={handleReject}
+              disabled={isPending}
             >
               Reject Request
             </Button>

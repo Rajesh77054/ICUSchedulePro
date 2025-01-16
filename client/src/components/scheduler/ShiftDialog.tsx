@@ -15,7 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { PROVIDERS } from "@/lib/constants";
+import { USERS } from "@/lib/constants";
 import type { Shift } from "@/lib/types";
 import { format } from "date-fns";
 
@@ -27,7 +27,7 @@ interface ShiftDialogProps {
 }
 
 export function ShiftDialog({ open, onOpenChange, startDate, endDate }: ShiftDialogProps) {
-  const [providerId, setProviderId] = useState<string>();
+  const [userId, setUserId] = useState<string>();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -59,9 +59,9 @@ export function ShiftDialog({ open, onOpenChange, startDate, endDate }: ShiftDia
   });
 
   const handleCreateShift = () => {
-    if (!providerId) return;
+    if (!userId) return;
     createShift({
-      providerId: parseInt(providerId),
+      userId: parseInt(userId),
       startDate: format(startDate, 'yyyy-MM-dd'),
       endDate: format(endDate, 'yyyy-MM-dd'),
     });
@@ -81,21 +81,21 @@ export function ShiftDialog({ open, onOpenChange, startDate, endDate }: ShiftDia
             </p>
           </div>
           <div className="grid gap-2">
-            <label className="text-sm font-medium">Provider</label>
-            <Select value={providerId} onValueChange={setProviderId}>
+            <label className="text-sm font-medium">Healthcare Provider</label>
+            <Select value={userId} onValueChange={setUserId}>
               <SelectTrigger>
-                <SelectValue placeholder="Select provider" />
+                <SelectValue placeholder="Select healthcare provider" />
               </SelectTrigger>
               <SelectContent>
-                {PROVIDERS.map(provider => (
-                  <SelectItem key={provider.id} value={provider.id.toString()}>
-                    {provider.name}, {provider.title}
+                {USERS.map(user => (
+                  <SelectItem key={user.id} value={user.id.toString()}>
+                    {user.name}, {user.title}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
-          <Button onClick={handleCreateShift} disabled={!providerId} className="w-full">
+          <Button onClick={handleCreateShift} disabled={!userId} className="w-full">
             Create Shift
           </Button>
         </div>

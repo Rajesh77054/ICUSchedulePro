@@ -5,7 +5,7 @@ import { Link } from "wouter";
 import { ListFilter } from "lucide-react";
 import { Loader } from "@/components/ui/loader";
 import { useQuery } from "@tanstack/react-query";
-import type { Shift, Provider } from "@/lib/types";
+import type { Shift, User } from "@/lib/types";
 
 export function Dashboard() {
   const { data: shifts, isLoading: isLoadingShifts, error: shiftsError } = useQuery<Shift[]>({
@@ -19,19 +19,19 @@ export function Dashboard() {
     }
   });
 
-  const { data: providers, isLoading: isLoadingProviders, error: providersError } = useQuery<Provider[]>({
-    queryKey: ["/api/providers"],
+  const { data: users, isLoading: isLoadingUsers, error: usersError } = useQuery<User[]>({
+    queryKey: ["/api/users"],
     queryFn: async () => {
-      const response = await fetch('/api/providers');
+      const response = await fetch('/api/users');
       if (!response.ok) {
-        throw new Error('Failed to fetch providers');
+        throw new Error('Failed to fetch users');
       }
       return response.json();
     }
   });
 
-  const isLoading = isLoadingShifts || isLoadingProviders;
-  const hasError = shiftsError || providersError;
+  const isLoading = isLoadingShifts || isLoadingUsers;
+  const hasError = shiftsError || usersError;
 
   if (isLoading) {
     return (
@@ -69,7 +69,7 @@ export function Dashboard() {
         </div>
 
         <div className="w-full lg:max-w-[300px]">
-          <ProviderList providers={providers} />
+          <ProviderList users={users} />
         </div>
       </div>
     </div>

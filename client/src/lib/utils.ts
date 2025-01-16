@@ -30,12 +30,15 @@ export function detectShiftConflicts(shift: Shift | null | undefined, allShifts:
 
   if (!user) return conflicts;
 
-  // Filter out invalid shifts from allShifts
-  const validShifts = allShifts.filter(s => 
-    s && s.startDate && s.endDate && s.userId && s.id !== shift.id
-  );
+  // Filter out invalid shifts from allShifts and only consider shifts for the same user type
+  const validShifts = allShifts.filter(s => {
+    const otherUser = USERS.find(u => u.id === s.userId);
+    return s && s.startDate && s.endDate && s.userId && 
+           s.id !== shift.id && 
+           otherUser?.userType === user.userType;
+  });
 
-  // Check for overlapping shifts
+  // Check for overlapping shifts for the same user type
   validShifts.forEach(existingShift => {
     const existingStart = new Date(existingShift.startDate);
     const existingEnd = new Date(existingShift.endDate);
@@ -46,22 +49,23 @@ export function detectShiftConflicts(shift: Shift | null | undefined, allShifts:
     ) {
       conflicts.push({
         type: 'overlap',
-        message: `Shift overlaps with another shift`,
+        message: `Shift overlaps with another ${user.userType} shift`,
         conflictingShift: existingShift,
       });
     }
   });
 
-  // Check for consecutive weeks
+  // Check for consecutive weeks within the same user type
   if (user.maxConsecutiveWeeks) {
-    const userShifts = validShifts.filter(s => 
-      s.userId === shift.userId
-    );
+    const userTypeShifts = validShifts.filter(s => {
+      const shiftUser = USERS.find(u => u.id === s.userId);
+      return shiftUser?.userType === user.userType;
+    });
 
     let consecutiveCount = 1; // Count current shift
     let lastWeekStart = startOfWeek(shiftStart);
 
-    const sortedShifts = [...userShifts]
+    const sortedShifts = [...userTypeShifts]
       .map(s => ({ ...s, startDate: new Date(s.startDate) }))
       .sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
 
@@ -79,7 +83,7 @@ export function detectShiftConflicts(shift: Shift | null | undefined, allShifts:
         if (consecutiveCount > user.maxConsecutiveWeeks) {
           conflicts.push({
             type: 'consecutive',
-            message: `Exceeds maximum ${user.maxConsecutiveWeeks} consecutive weeks`,
+            message: `Exceeds maximum ${user.maxConsecutiveWeeks} consecutive weeks for ${user.userType}s`,
           });
           break;
         }
@@ -91,8 +95,12 @@ export function detectShiftConflicts(shift: Shift | null | undefined, allShifts:
     }
   }
 
-  const userShifts = validShifts.filter(s => s.userId === shift.userId);
-  const totalDays = userShifts.reduce((acc, s) => {
+  // Check max days per user type
+  const userTypeShifts = validShifts.filter(s => 
+    s.userId === shift.userId
+  );
+
+  const totalDays = userTypeShifts.reduce((acc, s) => {
     const start = new Date(s.startDate);
     const end = new Date(s.endDate);
     return acc + Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
@@ -101,7 +109,7 @@ export function detectShiftConflicts(shift: Shift | null | undefined, allShifts:
   if (totalDays > user.targetDays + (user.tolerance || 0)) {
     conflicts.push({
       type: 'maxDays',
-      message: `Exceeds target days (${user.targetDays})`,
+      message: `Exceeds target days (${user.targetDays}) for ${user.userType}s`,
     });
   }
 
@@ -150,9 +158,12 @@ export function getSwapRecommendations(
 
   if (!currentUser) return recommendations;
 
-  USERS.forEach(user => {
-    if (user.id === shift.userId) return;
+  // Only consider users of the same type (Physician or APP)
+  const eligibleUsers = USERS.filter(user => 
+    user.id !== shift.userId && user.userType === currentUser.userType
+  );
 
+  eligibleUsers.forEach(user => {
     const factors: RecommendationFactors = {
       workloadBalance: 0,
       scheduleCompatibility: 0,
@@ -178,10 +189,10 @@ export function getSwapRecommendations(
 
     if (potentialDaysFromTarget < currentDaysFromTarget) {
       factors.workloadBalance = 1;
-      reasons.push("Improves workload balance");
+      reasons.push(`Improves ${user.userType} workload balance`);
     } else if (potentialDaysFromTarget <= (user.tolerance || 7)) {
       factors.workloadBalance = 0.5;
-      reasons.push("Within acceptable workload range");
+      reasons.push(`Within acceptable ${user.userType} workload range`);
     }
 
     // Factor 2: Schedule Compatibility (20%)

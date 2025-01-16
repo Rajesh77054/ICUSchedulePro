@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -12,9 +13,15 @@ interface UserListProps {
 
 export function ProviderList({ onUserSelect, selectedUserId }: UserListProps) {
   const [activeTab, setActiveTab] = useState<string>("all");
+  const [, navigate] = useLocation();
 
   const physicians = USERS.filter(user => user.userType === "physician");
   const apps = USERS.filter(user => user.userType === "app");
+
+  const handleUserSelect = (user: User) => {
+    onUserSelect?.(user);
+    navigate(`/provider/${user.id}`);
+  };
 
   return (
     <Card>
@@ -35,21 +42,21 @@ export function ProviderList({ onUserSelect, selectedUserId }: UserListProps) {
               <UserList 
                 users={USERS}
                 selectedUserId={selectedUserId}
-                onSelect={onUserSelect}
+                onSelect={handleUserSelect}
               />
             </TabsContent>
             <TabsContent value="physicians" className="m-0">
               <UserList 
                 users={physicians}
                 selectedUserId={selectedUserId}
-                onSelect={onUserSelect}
+                onSelect={handleUserSelect}
               />
             </TabsContent>
             <TabsContent value="apps" className="m-0">
               <UserList 
                 users={apps}
                 selectedUserId={selectedUserId}
-                onSelect={onUserSelect}
+                onSelect={handleUserSelect}
               />
             </TabsContent>
           </ScrollArea>

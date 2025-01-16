@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { PROVIDERS } from "@/lib/constants";
+import { USERS } from "@/lib/constants";
 import type { Shift } from "@/lib/types";
 import { ShiftDialog } from "./ShiftDialog";
 import FullCalendar from '@fullcalendar/react';
@@ -33,18 +33,18 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
   const calendarRef = useRef<FullCalendar>(null);
   const queryClient = useQueryClient();
 
-  const getProviderColor = (providerId: number) => {
-    return PROVIDERS.find(p => p.id === providerId)?.color || "hsl(0, 0%, 50%)";
+  const getUserColor = (userId: number) => {
+    return USERS.find(u => u.id === userId)?.color || "hsl(0, 0%, 50%)";
   };
 
   const calendarEvents = useMemo(() =>
     initialShifts.map(shift => ({
       id: shift.id.toString(),
-      title: PROVIDERS.find(p => p.id === shift.providerId)?.name || 'Unknown',
+      title: USERS.find(u => u.id === shift.userId)?.name || 'Unknown',
       start: shift.startDate,
       end: shift.endDate,
-      backgroundColor: getProviderColor(shift.providerId),
-      borderColor: getProviderColor(shift.providerId),
+      backgroundColor: getUserColor(shift.userId),
+      borderColor: getUserColor(shift.userId),
       textColor: 'white',
       extendedProps: { shift },
     })),

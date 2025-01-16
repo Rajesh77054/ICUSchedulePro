@@ -15,7 +15,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { PROVIDERS } from "@/lib/constants";
+import { USERS } from "@/lib/constants";
 import type { Shift } from "@/lib/types";
 
 interface OverlappingShiftsDialogProps {
@@ -64,18 +64,18 @@ export function OverlappingShiftsDialog({
         </DialogHeader>
         <div className="space-y-4">
           {shifts.map((shift) => {
-            const provider = PROVIDERS.find(p => p.id === shift.providerId);
+            const user = USERS.find(u => u.id === shift.userId);
             const isEditing = editingShift?.shift.id === shift.id;
 
             return (
               <div
                 key={shift.id}
                 className="p-4 border rounded-lg space-y-2"
-                style={{ borderColor: provider?.color }}
+                style={{ borderColor: user?.color }}
               >
                 <div className="flex justify-between items-center">
                   <span className="font-medium">
-                    {provider?.name}, {provider?.title}
+                    {user?.name}, {user?.title}
                   </span>
                   {!isEditing && (
                     <Button

@@ -20,7 +20,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { PROVIDERS } from "@/lib/constants";
+import { USERS } from "@/lib/constants";
 import { Loader2 } from "lucide-react";
 
 const DAYS_OF_WEEK = [
@@ -33,9 +33,9 @@ const DAYS_OF_WEEK = [
   { label: "Saturday", value: "6" },
 ];
 
-interface ProviderPreference {
+interface UserPreference {
   id: number;
-  providerId: number;
+  userId: number;
   preferredShiftLength: number;
   preferredDaysOfWeek: number[];
   preferredCoworkers: number[];
@@ -48,29 +48,29 @@ interface ProviderPreference {
 
 export function ShiftPreferences() {
   const [location] = useLocation();
-  const [selectedProvider, setSelectedProvider] = useState<string>();
+  const [selectedUser, setSelectedUser] = useState<string>();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Parse provider ID from URL query parameter
+  // Parse user ID from URL query parameter
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const providerId = params.get('provider');
-    if (providerId) {
-      setSelectedProvider(providerId);
+    const userId = params.get('user');
+    if (userId) {
+      setSelectedUser(userId);
     }
   }, []);
 
-  const { data: preferences, isLoading } = useQuery<ProviderPreference[]>({
-    queryKey: ["/api/provider-preferences", selectedProvider],
-    enabled: !!selectedProvider,
+  const { data: preferences, isLoading } = useQuery<UserPreference[]>({
+    queryKey: ["/api/user-preferences", selectedUser],
+    enabled: !!selectedUser,
   });
 
-  const currentPreferences = preferences?.find(p => p.providerId === parseInt(selectedProvider ?? "0"));
+  const currentPreferences = preferences?.find(p => p.userId === parseInt(selectedUser ?? "0"));
 
   const { mutate: updatePreferences, isLoading: isUpdating } = useMutation({
-    mutationFn: async (data: Partial<ProviderPreference>) => {
-      const res = await fetch(`/api/provider-preferences/${selectedProvider}`, {
+    mutationFn: async (data: Partial<UserPreference>) => {
+      const res = await fetch(`/api/user-preferences/${selectedUser}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
@@ -79,13 +79,13 @@ export function ShiftPreferences() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/provider-preferences"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/user-preferences"] });
       toast({
         title: "Success",
         description: "Shift preferences updated successfully",
       });
-      // Reset provider selection after successful update to return to selection screen
-      setSelectedProvider(undefined);
+      // Reset user selection after successful update to return to selection screen
+      setSelectedUser(undefined);
     },
     onError: (error: Error) => {
       toast({
@@ -109,9 +109,9 @@ export function ShiftPreferences() {
       .filter(day => formData.get(`avoided_${day.value}`))
       .map(day => parseInt(day.value));
 
-    const preferredCoworkers = PROVIDERS
-      .filter(provider => formData.get(`coworker_${provider.id}`))
-      .map(provider => provider.id);
+    const preferredCoworkers = USERS
+      .filter(user => formData.get(`coworker_${user.id}`))
+      .map(user => user.id);
 
     const data = {
       preferredShiftLength: parseInt(formData.get("preferredShiftLength") as string),
@@ -146,22 +146,22 @@ export function ShiftPreferences() {
           <CardContent>
             <div className="space-y-6">
               <div>
-                <Label>Select Provider</Label>
-                <Select value={selectedProvider} onValueChange={setSelectedProvider}>
+                <Label>Select User</Label>
+                <Select value={selectedUser} onValueChange={setSelectedUser}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select provider" />
+                    <SelectValue placeholder="Select user" />
                   </SelectTrigger>
                   <SelectContent>
-                    {PROVIDERS.map((provider) => (
-                      <SelectItem key={provider.id} value={provider.id.toString()}>
-                        {provider.name}, {provider.title}
+                    {USERS.map((user) => (
+                      <SelectItem key={user.id} value={user.id.toString()}>
+                        {user.name}, {user.title}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
 
-              {selectedProvider && currentPreferences && (
+              {selectedUser && currentPreferences && (
                 <form onSubmit={handleSubmit} className="space-y-6">
                   <div className="space-y-4">
                     <div>
@@ -236,15 +236,15 @@ export function ShiftPreferences() {
                     <div>
                       <Label className="mb-2 block">Preferred Coworkers</Label>
                       <div className="grid grid-cols-2 gap-4">
-                        {PROVIDERS.filter(p => p.id !== parseInt(selectedProvider)).map((provider) => (
-                          <div key={provider.id} className="flex items-center space-x-2">
+                        {USERS.filter(u => u.id !== parseInt(selectedUser)).map((user) => (
+                          <div key={user.id} className="flex items-center space-x-2">
                             <Checkbox
-                              id={`coworker_${provider.id}`}
-                              name={`coworker_${provider.id}`}
-                              defaultChecked={currentPreferences.preferredCoworkers.includes(provider.id)}
+                              id={`coworker_${user.id}`}
+                              name={`coworker_${user.id}`}
+                              defaultChecked={currentPreferences.preferredCoworkers.includes(user.id)}
                             />
-                            <Label htmlFor={`coworker_${provider.id}`}>
-                              {provider.name}, {provider.title}
+                            <Label htmlFor={`coworker_${user.id}`}>
+                              {user.name}, {user.title}
                             </Label>
                           </div>
                         ))}

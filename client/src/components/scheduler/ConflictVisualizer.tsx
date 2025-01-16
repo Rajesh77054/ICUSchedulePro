@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { AlertCircle } from "lucide-react";
 import { type Shift } from "@/lib/types";
-import { PROVIDERS } from "@/lib/constants";
+import { USERS } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 
 interface ConflictVisualizerProps {
@@ -18,6 +18,7 @@ export function ConflictVisualizer({ shift, conflicts, onResolve }: ConflictVisu
   if (!conflicts.length) return null;
 
   const hasOverlappingConflicts = conflicts.some(c => c.type === 'overlap' && c.conflictingShift);
+  const user = USERS.find(u => u.id === shift.userId);
 
   return (
     <AnimatePresence>

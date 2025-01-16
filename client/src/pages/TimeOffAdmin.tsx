@@ -21,23 +21,23 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { PROVIDERS } from "@/lib/constants";
+import { USERS } from "@/lib/constants";
 import type { TimeOffRequest } from "@/lib/types";
 
 export function TimeOffAdmin() {
-  const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
+  const [selectedUser, setSelectedUser] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
   const [selectedRequest, setSelectedRequest] = useState<TimeOffRequest | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const { data: requests = [], isLoading } = useQuery<TimeOffRequest[]>({
-    queryKey: ["/api/time-off-requests", selectedProvider],
+    queryKey: ["/api/time-off-requests", selectedUser],
     queryFn: async ({ queryKey }) => {
-      const [_, providerId] = queryKey;
+      const [_, userId] = queryKey;
       const url = new URL("/api/time-off-requests", window.location.origin);
-      if (providerId && providerId !== 'all') {
-        url.searchParams.append("providerId", providerId);
+      if (userId && userId !== 'all') {
+        url.searchParams.append("userId", userId);
       }
       const res = await fetch(url);
       if (!res.ok) throw new Error("Failed to fetch time-off requests");
@@ -119,15 +119,15 @@ export function TimeOffAdmin() {
       <div className="container mx-auto py-8 space-y-8">
         <div className="flex justify-between items-center">
           <h2 className="text-2xl font-semibold">Manage Time Off Requests</h2>
-          <Select value={selectedProvider ?? undefined} onValueChange={setSelectedProvider}>
+          <Select value={selectedUser ?? undefined} onValueChange={setSelectedUser}>
             <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="Filter by provider" />
+              <SelectValue placeholder="Filter by user" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Providers</SelectItem>
-              {PROVIDERS.map((provider) => (
-                <SelectItem key={provider.id} value={provider.id.toString()}>
-                  {provider.name}, {provider.title}
+              <SelectItem value="all">All Users</SelectItem>
+              {USERS.map((user) => (
+                <SelectItem key={user.id} value={user.id.toString()}>
+                  {user.name}, {user.title}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -145,14 +145,14 @@ export function TimeOffAdmin() {
             ) : (
               <div className="grid gap-4">
                 {pendingRequests.map((request) => {
-                  const provider = PROVIDERS.find((p) => p.id === request.providerId);
+                  const user = USERS.find((u) => u.id === request.userId);
                   return (
                     <div
                       key={request.id}
                       className="flex items-center justify-between p-4 rounded-lg border bg-card"
                     >
                       <div className="space-y-1">
-                        <p className="font-medium">{provider?.name}</p>
+                        <p className="font-medium">{user?.name}</p>
                         <p className="text-sm text-muted-foreground">
                           {format(new Date(request.startDate), "MMM d, yyyy")} -{" "}
                           {format(new Date(request.endDate), "MMM d, yyyy")}
@@ -203,14 +203,14 @@ export function TimeOffAdmin() {
             ) : (
               <div className="grid gap-4">
                 {otherRequests.map((request) => {
-                  const provider = PROVIDERS.find((p) => p.id === request.providerId);
+                  const user = USERS.find((u) => u.id === request.userId);
                   return (
                     <div
                       key={request.id}
                       className="flex items-center justify-between p-4 rounded-lg border bg-card"
                     >
                       <div className="space-y-1">
-                        <p className="font-medium">{provider?.name}</p>
+                        <p className="font-medium">{user?.name}</p>
                         <p className="text-sm text-muted-foreground">
                           {format(new Date(request.startDate), "MMM d, yyyy")} -{" "}
                           {format(new Date(request.endDate), "MMM d, yyyy")}

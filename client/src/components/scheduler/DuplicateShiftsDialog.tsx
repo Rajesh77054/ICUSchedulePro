@@ -11,24 +11,24 @@ import { useToast } from "@/hooks/use-toast";
 import type { Shift } from "@/lib/types";
 import { format } from "date-fns";
 import { Trash2 } from "lucide-react";
-import { PROVIDERS } from "@/lib/constants";
+import { USERS } from "@/lib/constants";
 
 interface DuplicateShiftsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  providerId: number;
+  userId: number;
 }
 
 export function DuplicateShiftsDialog({
   open,
   onOpenChange,
-  providerId,
+  userId,
 }: DuplicateShiftsDialogProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const { data: duplicates, isLoading } = useQuery<Shift[]>({
-    queryKey: [`/api/shifts/duplicates/${providerId}`],
+    queryKey: [`/api/shifts/duplicates/${userId}`],
     enabled: open,
   });
 
@@ -42,7 +42,7 @@ export function DuplicateShiftsDialog({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/shifts"] });
-      queryClient.invalidateQueries({ queryKey: [`/api/shifts/duplicates/${providerId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/shifts/duplicates/${userId}`] });
       toast({
         title: "Success",
         description: "Duplicate shift removed successfully",
@@ -61,13 +61,13 @@ export function DuplicateShiftsDialog({
     return null;
   }
 
-  const provider = PROVIDERS.find(p => p.id === providerId);
+  const user = USERS.find(u => u.id === userId);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Duplicate Shifts for {provider?.name}</DialogTitle>
+          <DialogTitle>Duplicate Shifts for {user?.name}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           {!duplicates?.length ? (
@@ -77,7 +77,7 @@ export function DuplicateShiftsDialog({
               <div
                 key={shift.id}
                 className="flex items-center justify-between p-4 border rounded-lg"
-                style={{ borderColor: provider?.color }}
+                style={{ borderColor: user?.color }}
               >
                 <div className="space-y-1">
                   <p className="font-medium">

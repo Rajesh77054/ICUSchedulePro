@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
-import { PROVIDERS } from "@/lib/constants";
+import { USERS } from "@/lib/constants";
 import type { Shift, SwapRequest } from "@/lib/types";
 import { format } from "date-fns";
 import { getSwapRecommendations } from "@/lib/utils";
@@ -54,7 +54,7 @@ export function ShiftSwap({ shift, onClose }: ShiftSwapProps) {
     queryKey: ["/api/holidays"],
   });
 
-  const { data: swapHistory = [] } = useQuery({
+  const { data: swapHistory = [] } = useQuery<SwapRequest[]>({
     queryKey: ["/api/swap-requests"],
   });
 
@@ -71,7 +71,7 @@ export function ShiftSwap({ shift, onClose }: ShiftSwapProps) {
     preferences
   );
 
-  const { mutate: requestSwap, isLoading } = useMutation({
+  const { mutate: requestSwap, isLoading: isSubmitting } = useMutation({
     mutationFn: async (data: Partial<SwapRequest>) => {
       const res = await fetch("/api/swap-requests", {
         method: "POST",
@@ -106,7 +106,7 @@ export function ShiftSwap({ shift, onClose }: ShiftSwapProps) {
     if (!recipientId) {
       toast({
         title: "Error",
-        description: "Please select a provider to swap with",
+        description: "Please select a user to swap with",
         variant: "destructive",
       });
       return;
@@ -114,13 +114,13 @@ export function ShiftSwap({ shift, onClose }: ShiftSwapProps) {
 
     requestSwap({
       shiftId: shift.id,
-      requestorId: shift.providerId,
+      requestorId: shift.userId,
       recipientId: parseInt(recipientId),
     });
   };
 
-  const getProviderRecommendation = (providerId: number) => {
-    return recommendations.find(r => r.providerId === providerId);
+  const getProviderRecommendation = (userId: number) => {
+    return recommendations?.find(r => r.userId === userId);
   };
 
   return (
@@ -129,7 +129,7 @@ export function ShiftSwap({ shift, onClose }: ShiftSwapProps) {
         <DialogHeader>
           <DialogTitle>Request Shift Swap</DialogTitle>
           <DialogDescription>
-            Select a provider to swap shifts with. Providers are ranked based on preferences, workload balance, and schedule compatibility.
+            Select a user to swap shifts with. Users are ranked based on preferences, workload balance, and schedule compatibility.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
@@ -142,32 +142,32 @@ export function ShiftSwap({ shift, onClose }: ShiftSwapProps) {
 
           <div className="grid gap-2">
             <div className="flex items-center gap-2">
-              <label className="text-sm font-medium">Swap with Provider</label>
+              <label className="text-sm font-medium">Swap with User</label>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Info className="h-4 w-4 text-muted-foreground" />
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p className="text-sm">Providers are ranked based on preferences, workload balance, schedule compatibility, and policy compliance</p>
+                  <p className="text-sm">Users are ranked based on preferences, workload balance, schedule compatibility, and policy compliance</p>
                 </TooltipContent>
               </Tooltip>
             </div>
 
             {isLoadingShifts ? (
-              <div className="text-sm text-muted-foreground">Loading providers...</div>
+              <div className="text-sm text-muted-foreground">Loading users...</div>
             ) : (
               <Select value={recipientId} onValueChange={setRecipientId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select provider" />
+                  <SelectValue placeholder="Select user" />
                 </SelectTrigger>
                 <SelectContent>
-                  {PROVIDERS.filter(p => p.id !== shift.providerId).map(provider => {
-                    const recommendation = getProviderRecommendation(provider.id);
+                  {USERS.filter(user => user.id !== shift.userId).map(user => {
+                    const recommendation = getProviderRecommendation(user.id);
                     return (
-                      <SelectItem key={provider.id} value={provider.id.toString()}>
+                      <SelectItem key={user.id} value={user.id.toString()}>
                         <div className="flex flex-col gap-1">
                           <div className="flex items-center justify-between">
-                            <span>{provider.name}, {provider.title}</span>
+                            <span>{user.name}, {user.title}</span>
                             <span className="text-xs text-muted-foreground">
                               Match Score: {recommendation?.score || 0}%
                             </span>
@@ -176,8 +176,8 @@ export function ShiftSwap({ shift, onClose }: ShiftSwapProps) {
                             value={recommendation?.score || 0} 
                             className="h-1"
                             style={{
-                              backgroundColor: `${provider.color}40`,
-                              "--progress-background": provider.color,
+                              backgroundColor: `${user.color}40`,
+                              "--progress-background": user.color,
                             } as any}
                           />
                           {recommendation?.reasons && (
@@ -202,10 +202,10 @@ export function ShiftSwap({ shift, onClose }: ShiftSwapProps) {
 
           <Button 
             onClick={handleSwapRequest} 
-            disabled={!recipientId || isLoading} 
+            disabled={!recipientId || isSubmitting} 
             className="w-full"
           >
-            {isLoading ? "Sending Request..." : "Send Request"}
+            {isSubmitting ? "Sending Request..." : "Send Request"}
           </Button>
         </div>
       </DialogContent>

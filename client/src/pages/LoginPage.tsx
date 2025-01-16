@@ -17,17 +17,14 @@ import { Loader2 } from "lucide-react";
 export function LoginPage() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const [formData, setFormData] = useState({
-    email: "",
-    password: "",
-  });
+  const [email, setEmail] = useState("");
 
   const { mutate: login, isPending } = useMutation({
-    mutationFn: async (data: typeof formData) => {
+    mutationFn: async (email: string) => {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify({ email }),
       });
 
       if (!res.ok) {
@@ -42,9 +39,9 @@ export function LoginPage() {
         title: "Success",
         description: "Logged in successfully",
       });
-      
+
       // Redirect based on user role
-      if (data.user.role === 'provider' && data.user.provider) {
+      if ((data.user.role === 'physician' || data.user.role === 'app') && data.user.provider) {
         setLocation(`/provider/${data.user.provider.id}`);
       } else {
         setLocation("/");
@@ -61,7 +58,7 @@ export function LoginPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    login(formData);
+    login(email);
   };
 
   return (
@@ -70,7 +67,7 @@ export function LoginPage() {
         <CardHeader>
           <CardTitle>Welcome Back</CardTitle>
           <CardDescription>
-            Sign in to your account to continue
+            Sign in with your email address
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -81,22 +78,9 @@ export function LoginPage() {
                 id="email"
                 type="email"
                 required
-                value={formData.email}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, email: e.target.value }))
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                required
-                value={formData.password}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, password: e.target.value }))
-                }
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="firstname.lastname@bswhealth.org"
               />
             </div>
             <Button className="w-full" disabled={isPending}>

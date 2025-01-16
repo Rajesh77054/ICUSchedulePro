@@ -6,7 +6,7 @@ import { relations } from "drizzle-orm";
 export const ShiftStatus = ['confirmed', 'pending_swap', 'swapped', 'inactive'] as const;
 export type ShiftStatus = typeof ShiftStatus[number];
 
-export const UserRole = ['admin', 'scheduler', 'provider'] as const;
+export const UserRole = ['admin', 'scheduler', 'physician', 'app'] as const;
 export type UserRole = typeof UserRole[number];
 
 export const ProviderType = ['physician', 'app'] as const;
@@ -15,9 +15,12 @@ export type ProviderType = typeof ProviderType[number];
 // Define tables
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
-  email: text("email").unique().notNull(),
-  password: text("password").notNull(),
-  role: text("role", { enum: UserRole }).notNull().default('provider'),
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name").notNull(),
+  title: text("title").notNull(), // M.D., D.O., APRN, RNP, PA, etc
+  primaryEmail: text("primary_email").unique().notNull(),
+  secondaryEmail: text("secondary_email"),
+  role: text("role", { enum: UserRole }).notNull(),
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -25,7 +28,7 @@ export const users = pgTable("users", {
 
 export const providers = pgTable("providers", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").references(() => users.id), // Made nullable initially
+  userId: integer("user_id").references(() => users.id).notNull(),
   name: text("name").notNull(),
   title: text("title").notNull(),
   providerType: text("provider_type", { enum: ProviderType }).notNull().default('physician'),

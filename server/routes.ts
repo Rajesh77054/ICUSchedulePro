@@ -4,11 +4,31 @@ import { db } from '../db';
 import { providers, shifts, users } from '@db/schema';
 import { and, eq, sql } from 'drizzle-orm';
 import { setupWebSocket, notify } from './websocket';
-import passport from 'passport';
 import session from 'express-session';
 import MemoryStore from 'memorystore';
-import { isAuthenticated, hasRole } from './auth';
-import bcrypt from 'bcryptjs';
+
+// Simple middleware to check if user is authenticated
+const isAuthenticated = (req: any, res: any, next: any) => {
+  if (req.session.user) {
+    return next();
+  }
+  res.status(401).json({ message: "Unauthorized" });
+};
+
+// Middleware to check user role
+const hasRole = (roles: string[]) => {
+  return (req: any, res: any, next: any) => {
+    if (!req.session.user) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    if (!roles.includes(req.session.user.role)) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+
+    next();
+  };
+};
 
 export function registerRoutes(app: express.Application) {
   const server = new Server(app);
@@ -29,59 +49,85 @@ export function registerRoutes(app: express.Application) {
     }
   }));
 
-  // Initialize Passport
-  app.use(passport.initialize());
-  app.use(passport.session());
 
   // Auth routes
-  app.post('/api/auth/login', passport.authenticate('local'), (req, res) => {
-    res.json({ user: req.user });
+  app.post('/api/auth/login', async (req, res) => {
+    try {
+      const { email } = req.body;
+
+      const user = await db.query.users.findFirst({
+        where: eq(users.primaryEmail, email),
+        with: {
+          provider: true,
+        },
+      });
+
+      if (!user || !user.isActive) {
+        return res.status(401).json({ message: "Invalid email or inactive user" });
+      }
+
+      req.session.user = user;
+      res.json({ user });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
   });
 
-  app.post('/api/auth/logout', (req, res, next) => {
-    req.logout((err) => {
-      if (err) return next(err);
+  app.post('/api/auth/logout', (req, res) => {
+    req.session.destroy((err) => {
+      if (err) {
+        return res.status(500).json({ message: "Failed to logout" });
+      }
       res.json({ message: 'Logged out successfully' });
     });
   });
 
-  app.post('/api/auth/register', async (req, res) => {
+  // User management routes (Admin only)
+  app.post('/api/users', hasRole(['admin']), async (req, res) => {
     try {
-      const { email, password, name, title, role = 'provider', providerType = 'physician' } = req.body;
+      const { 
+        firstName, 
+        lastName, 
+        title, 
+        primaryEmail, 
+        secondaryEmail, 
+        role, 
+        providerType 
+      } = req.body;
 
       // Check if user already exists
       const existingUser = await db.query.users.findFirst({
-        where: eq(users.email, email)
+        where: eq(users.primaryEmail, primaryEmail)
       });
 
       if (existingUser) {
         return res.status(400).json({ message: 'User already exists' });
       }
 
-      // Hash password
-      const hashedPassword = await bcrypt.hash(password, 12);
-
       // Create user
       const [user] = await db.insert(users)
         .values({
-          email,
-          password: hashedPassword,
+          firstName,
+          lastName,
+          title,
+          primaryEmail,
+          secondaryEmail,
           role,
         })
         .returning();
 
-      // If user is a provider, create provider record
-      if (role === 'provider') {
+      // If user is a provider (physician or app), create provider record
+      if (role === 'physician' || role === 'app') {
         await db.insert(providers)
           .values({
             userId: user.id,
-            name,
+            name: `${firstName} ${lastName}`,
             title,
-            providerType,
+            providerType: role === 'physician' ? 'physician' : 'app',
           });
       }
 
-      res.json({ message: 'Registration successful' });
+      res.json({ message: 'User created successfully', user });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
@@ -90,7 +136,7 @@ export function registerRoutes(app: express.Application) {
   app.get('/api/auth/me', isAuthenticated, async (req, res) => {
     try {
       const user = await db.query.users.findFirst({
-        where: eq(users.id, req.user.id),
+        where: eq(users.id, req.session.user.id),
         with: {
           provider: true,
         },

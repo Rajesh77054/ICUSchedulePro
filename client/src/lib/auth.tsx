@@ -1,10 +1,14 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 
 interface User {
   id: number;
-  email: string;
+  firstName: string;
+  lastName: string;
+  title: string;
+  primaryEmail: string;
+  secondaryEmail?: string;
   role: string;
   provider?: {
     id: number;

@@ -98,7 +98,7 @@ function UserList({ users, selectedUserId, onSelect, getUserStats }: {
   getUserStats: (userId: number) => number;
 }) {
   return (
-    <div className="space-y-1">
+    <div className="space-y-2">
       {users.map((user) => {
         const days = getUserStats(user.id);
         const progress = Math.min((days / user.targetDays) * 100, 100);
@@ -107,29 +107,29 @@ function UserList({ users, selectedUserId, onSelect, getUserStats }: {
           <button
             key={user.id}
             onClick={() => onSelect?.(user)}
-            className={`w-full flex flex-col gap-2 px-4 py-2 hover:bg-accent transition-colors ${
+            className={`w-full flex flex-col gap-3 px-4 py-3 hover:bg-accent transition-colors ${
               selectedUserId === user.id ? "bg-accent" : ""
             }`}
           >
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <div
-                className="w-3 h-3 rounded-full"
+                className="w-4 h-4 rounded-full"
                 style={{ backgroundColor: user.color }}
               />
               <div className="flex-1 text-left">
-                <div className="font-medium">{user.name}</div>
+                <div className="font-medium text-base">{user.name}</div>
                 <div className="text-sm text-muted-foreground">{user.title}</div>
               </div>
             </div>
-            <div className="space-y-1">
-              <div className="text-sm text-muted-foreground">
-                {days}/{user.targetDays} days
+            <div className="space-y-2">
+              <div className="text-sm font-medium">
+                {days}/{user.targetDays} days completed
               </div>
               <Progress
                 value={progress}
-                className="h-2"
+                className="h-3"
                 style={{
-                  backgroundColor: `${user.color}40`,
+                  backgroundColor: `${user.color}20`,
                   "--progress-background": user.color,
                 } as any}
               />

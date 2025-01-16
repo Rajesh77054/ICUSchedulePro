@@ -49,6 +49,69 @@ export function registerRoutes(app: express.Application) {
     }
   }));
 
+  // Initialize default providers
+  app.post('/api/initialize-providers', hasRole(['admin']), async (_req, res) => {
+    try {
+      const defaultProviders = [
+        {
+          firstName: "Ashley",
+          lastName: "Liou",
+          title: "M.D.",
+          primaryEmail: "ashley.liou@bswhealth.org",
+          role: "physician",
+          providerType: "physician",
+          targetDays: 180,
+        },
+        {
+          firstName: "Joseph",
+          lastName: "Brading",
+          title: "M.D.",
+          primaryEmail: "joseph.brading@bswhealth.org",
+          role: "physician",
+          providerType: "physician",
+          targetDays: 180,
+        },
+        // Add more providers here as needed
+      ];
+
+      const createdProviders = [];
+
+      for (const provider of defaultProviders) {
+        // Create user first
+        const [user] = await db.insert(users)
+          .values({
+            firstName: provider.firstName,
+            lastName: provider.lastName,
+            title: provider.title,
+            primaryEmail: provider.primaryEmail,
+            role: provider.role,
+            isActive: true,
+          })
+          .returning();
+
+        // Create provider record
+        const [providerRecord] = await db.insert(providers)
+          .values({
+            userId: user.id,
+            name: `${provider.firstName} ${provider.lastName}`,
+            title: provider.title,
+            providerType: provider.providerType,
+            targetDays: provider.targetDays,
+            color: '#6366f1', // Default color
+          })
+          .returning();
+
+        createdProviders.push({ user, provider: providerRecord });
+      }
+
+      res.json({ 
+        message: `Successfully created ${createdProviders.length} providers`,
+        providers: createdProviders
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
 
   // Auth routes
   app.post('/api/auth/login', async (req, res) => {

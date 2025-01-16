@@ -19,16 +19,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-} from "@/components/ui/form";
-import { Switch } from "@/components/ui/switch";
-import { Input } from "@/components/ui/input";
 
 export function PersonalDashboard() {
   const { id } = useParams<{ id: string }>();
@@ -47,7 +37,7 @@ export function PersonalDashboard() {
     queryKey: ["/api/time-off-requests", userId],
     queryFn: async () => {
       const url = new URL("/api/time-off-requests", window.location.origin);
-      url.searchParams.append("userId", userId.toString()); // Changed providerId to userId
+      url.searchParams.append("userId", userId.toString());
       const res = await fetch(url);
       if (!res.ok) throw new Error("Failed to fetch time-off requests");
       return res.json();
@@ -55,7 +45,7 @@ export function PersonalDashboard() {
   });
 
   const { data: preferences } = useQuery<UserPreferences>({
-    queryKey: ["/api/user-preferences", userId], // Changed API endpoint
+    queryKey: ["/api/user-preferences", userId],
   });
 
   if (!user) {
@@ -76,7 +66,7 @@ export function PersonalDashboard() {
     );
   }
 
-  const userShifts = shifts?.filter(s => s.userId === userId) || []; // Changed providerId to userId
+  const userShifts = shifts?.filter(s => s.userId === userId) || [];
   const activeShifts = userShifts.filter(s => s.status !== 'archived');
 
   const totalDays = activeShifts.reduce((acc, shift) => {
@@ -154,7 +144,7 @@ export function PersonalDashboard() {
           <DialogHeader>
             <DialogTitle>Preferences</DialogTitle>
           </DialogHeader>
-          <PreferencesForm userId={userId} /> {/* Changed providerId to userId */}
+          <PreferencesForm userId={userId} />
         </DialogContent>
       </Dialog>
 
@@ -176,7 +166,7 @@ export function PersonalDashboard() {
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({
                     subscriptionUrl: url,
-                    userId: userId, // Changed providerId to userId
+                    userId,
                   })
                 })
                   .then(res => {
@@ -349,13 +339,13 @@ export function PersonalDashboard() {
             {showTimeOffForm ? (
               <div className="mb-6">
                 <TimeOffRequestForm
-                  userId={userId}  {/* Changed providerId to userId */}
+                  userId={userId}
                   onSuccess={() => setShowTimeOffForm(false)}
                   onCancel={() => setShowTimeOffForm(false)}
                 />
               </div>
             ) : null}
-            <TimeOffRequestList userId={userId} /> {/* Changed providerId to userId */}
+            <TimeOffRequestList userId={userId} />
           </CardContent>
         </Card>
       </div>

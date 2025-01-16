@@ -1,7 +1,7 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
-import type { Shift, TimeOffRequest, Holiday } from "./types"
-import { PROVIDERS } from "./constants"
+import type { Shift, TimeOffRequest, Holiday, User } from "./types"
+import { USERS } from "./constants"
 import { isWithinInterval, addDays, startOfWeek, endOfWeek, isSameWeek, isBefore, isAfter, differenceInDays } from "date-fns"
 
 export function cn(...inputs: ClassValue[]) {
@@ -20,19 +20,19 @@ export function detectShiftConflicts(shift: Shift | null | undefined, allShifts:
   }[] = [];
 
   // Early return if shift is null/undefined or missing required properties
-  if (!shift?.startDate || !shift?.endDate || !shift?.providerId) {
+  if (!shift?.startDate || !shift?.endDate || !shift?.userId) {
     return conflicts;
   }
 
   const shiftStart = new Date(shift.startDate);
   const shiftEnd = new Date(shift.endDate);
-  const provider = PROVIDERS.find(p => p.id === shift.providerId);
+  const user = USERS.find(u => u.id === shift.userId);
 
-  if (!provider) return conflicts;
+  if (!user) return conflicts;
 
   // Filter out invalid shifts from allShifts
   const validShifts = allShifts.filter(s => 
-    s && s.startDate && s.endDate && s.providerId && s.id !== shift.id
+    s && s.startDate && s.endDate && s.userId && s.id !== shift.id
   );
 
   // Check for overlapping shifts
@@ -53,15 +53,15 @@ export function detectShiftConflicts(shift: Shift | null | undefined, allShifts:
   });
 
   // Check for consecutive weeks
-  if (provider.maxConsecutiveWeeks) {
-    const providerShifts = validShifts.filter(s => 
-      s.providerId === shift.providerId
+  if (user.maxConsecutiveWeeks) {
+    const userShifts = validShifts.filter(s => 
+      s.userId === shift.userId
     );
 
     let consecutiveCount = 1; // Count current shift
     let lastWeekStart = startOfWeek(shiftStart);
 
-    const sortedShifts = [...providerShifts]
+    const sortedShifts = [...userShifts]
       .map(s => ({ ...s, startDate: new Date(s.startDate) }))
       .sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
 
@@ -76,10 +76,10 @@ export function detectShiftConflicts(shift: Shift | null | undefined, allShifts:
 
       if (weekDiff === 1) {
         consecutiveCount++;
-        if (consecutiveCount > provider.maxConsecutiveWeeks) {
+        if (consecutiveCount > user.maxConsecutiveWeeks) {
           conflicts.push({
             type: 'consecutive',
-            message: `Exceeds maximum ${provider.maxConsecutiveWeeks} consecutive weeks`,
+            message: `Exceeds maximum ${user.maxConsecutiveWeeks} consecutive weeks`,
           });
           break;
         }
@@ -91,17 +91,17 @@ export function detectShiftConflicts(shift: Shift | null | undefined, allShifts:
     }
   }
 
-  const providerShifts = validShifts.filter(s => s.providerId === shift.providerId);
-  const totalDays = providerShifts.reduce((acc, s) => {
+  const userShifts = validShifts.filter(s => s.userId === shift.userId);
+  const totalDays = userShifts.reduce((acc, s) => {
     const start = new Date(s.startDate);
     const end = new Date(s.endDate);
     return acc + Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
   }, 0);
 
-  if (totalDays > provider.targetDays + (provider.tolerance || 0)) {
+  if (totalDays > user.targetDays + (user.tolerance || 0)) {
     conflicts.push({
       type: 'maxDays',
-      message: `Exceeds target days (${provider.targetDays})`,
+      message: `Exceeds target days (${user.targetDays})`,
     });
   }
 
@@ -109,7 +109,7 @@ export function detectShiftConflicts(shift: Shift | null | undefined, allShifts:
 }
 
 interface SwapRecommendation {
-  providerId: number;
+  userId: number;
   score: number;
   reasons: string[];
   warnings: string[];
@@ -144,14 +144,14 @@ export function getSwapRecommendations(
   const recommendations: SwapRecommendation[] = [];
   const shiftStart = new Date(shift.startDate);
   const shiftEnd = new Date(shift.endDate);
-  const currentProvider = PROVIDERS.find(p => p.id === shift.providerId);
+  const currentUser = USERS.find(u => u.id === shift.userId);
   const shiftDayOfWeek = shiftStart.getDay();
   const shiftLength = Math.ceil((shiftEnd.getTime() - shiftStart.getTime()) / (1000 * 60 * 60 * 24));
 
-  if (!currentProvider) return recommendations;
+  if (!currentUser) return recommendations;
 
-  PROVIDERS.forEach(provider => {
-    if (provider.id === shift.providerId) return;
+  USERS.forEach(user => {
+    if (user.id === shift.userId) return;
 
     const factors: RecommendationFactors = {
       workloadBalance: 0,
@@ -164,22 +164,22 @@ export function getSwapRecommendations(
 
     const reasons: string[] = [];
     const warnings: string[] = [];
-    const providerShifts = allShifts.filter(s => s.providerId === provider.id);
+    const userShifts = allShifts.filter(s => s.userId === user.id);
 
     // Factor 1: Workload Balance (25%)
-    const totalDays = providerShifts.reduce((acc, s) => {
+    const totalDays = userShifts.reduce((acc, s) => {
       const start = new Date(s.startDate);
       const end = new Date(s.endDate);
       return acc + Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
     }, 0);
 
-    const currentDaysFromTarget = Math.abs(totalDays - provider.targetDays);
-    const potentialDaysFromTarget = Math.abs((totalDays + shiftLength) - provider.targetDays);
+    const currentDaysFromTarget = Math.abs(totalDays - user.targetDays);
+    const potentialDaysFromTarget = Math.abs((totalDays + shiftLength) - user.targetDays);
 
     if (potentialDaysFromTarget < currentDaysFromTarget) {
       factors.workloadBalance = 1;
       reasons.push("Improves workload balance");
-    } else if (potentialDaysFromTarget <= (provider.tolerance || 7)) {
+    } else if (potentialDaysFromTarget <= (user.tolerance || 7)) {
       factors.workloadBalance = 0.5;
       reasons.push("Within acceptable workload range");
     }
@@ -187,7 +187,8 @@ export function getSwapRecommendations(
     // Factor 2: Schedule Compatibility (20%)
     let hasScheduleConflict = false;
     let nearbyShifts = 0;
-    providerShifts.forEach(existingShift => {
+
+    userShifts.forEach(existingShift => {
       const existingStart = new Date(existingShift.startDate);
       const existingEnd = new Date(existingShift.endDate);
 
@@ -214,7 +215,7 @@ export function getSwapRecommendations(
     let consecutiveCount = 1;
     let lastWeekStart = startOfWeek(shiftStart);
 
-    providerShifts.forEach(existingShift => {
+    userShifts.forEach(existingShift => {
       const existingStart = new Date(existingShift.startDate);
       const existingWeekStart = startOfWeek(existingStart);
 
@@ -226,10 +227,10 @@ export function getSwapRecommendations(
       }
     });
 
-    if (consecutiveCount > (provider.maxConsecutiveWeeks || 2)) {
+    if (consecutiveCount > user.maxConsecutiveWeeks) {
       policyScore = 0;
       warnings.push(`Exceeds maximum consecutive weeks`);
-    } else if (consecutiveCount === (provider.maxConsecutiveWeeks || 2)) {
+    } else if (consecutiveCount === user.maxConsecutiveWeeks) {
       policyScore = 0.3;
       warnings.push("Close to consecutive weeks limit");
     }
@@ -241,7 +242,7 @@ export function getSwapRecommendations(
 
     // Factor 4: Time Off Conflicts (15%)
     const relevantTimeOff = timeOffRequests.filter(request => 
-      request.providerId === provider.id &&
+      request.userId === user.id &&
       request.status === 'approved' &&
       (isWithinInterval(shiftStart, {
         start: new Date(request.startDate),
@@ -253,25 +254,17 @@ export function getSwapRecommendations(
       }))
     );
 
-    const relevantHolidays = holidays.filter(holiday =>
-      holiday.providerId === provider.id &&
-      isWithinInterval(new Date(holiday.date), {
-        start: shiftStart,
-        end: shiftEnd
-      })
-    );
-
-    if (relevantTimeOff.length === 0 && relevantHolidays.length === 0) {
+    if (relevantTimeOff.length === 0) {
       factors.timeOffConflicts = 1;
       reasons.push("No time-off conflicts");
     } else {
-      warnings.push("Conflicts with time-off or holidays");
+      warnings.push("Conflicts with time-off");
     }
 
     // Factor 5: Historical Patterns (10%)
     const recentSwaps = swapHistory.filter(swap => 
-      swap.requestorId === provider.id || 
-      swap.recipientId === provider.id
+      swap.requestorId === user.id || 
+      swap.recipientId === user.id
     ).length;
 
     factors.historicalPatterns = Math.max(0, 1 - (recentSwaps * 0.2));
@@ -282,24 +275,24 @@ export function getSwapRecommendations(
     }
 
     // Factor 6: Preference Match (15%)
-    const providerPrefs = preferences.find(p => p.providerId === provider.id);
-    if (providerPrefs) {
+    const userPrefs = preferences.find(p => p.userId === user.id);
+    if (userPrefs) {
       let prefScore = 0;
 
       // Check preferred shift length
-      if (shiftLength <= providerPrefs.preferredShiftLength) {
+      if (shiftLength <= userPrefs.preferredShiftLength) {
         prefScore += 0.3;
         reasons.push("Preferred shift length");
       }
 
       // Check preferred days
-      if (providerPrefs.preferredDaysOfWeek.includes(shiftDayOfWeek)) {
+      if (userPrefs.preferredDaysOfWeek.includes(shiftDayOfWeek)) {
         prefScore += 0.4;
         reasons.push("Preferred day of week");
       }
 
       // Check avoided days
-      if (providerPrefs.avoidedDaysOfWeek.includes(shiftDayOfWeek)) {
+      if (userPrefs.avoidedDaysOfWeek.includes(shiftDayOfWeek)) {
         warnings.push("Usually avoids this day");
       } else {
         prefScore += 0.3;
@@ -319,7 +312,7 @@ export function getSwapRecommendations(
     );
 
     recommendations.push({
-      providerId: provider.id,
+      userId: user.id,
       score,
       reasons,
       warnings

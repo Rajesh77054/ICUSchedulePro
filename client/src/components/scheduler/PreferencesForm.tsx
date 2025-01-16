@@ -39,21 +39,21 @@ const DAYS_OF_WEEK = [
 ];
 
 interface PreferencesFormProps {
-  providerId: number;
+  userId: number;
 }
 
-export function PreferencesForm({ providerId }: PreferencesFormProps) {
+export function PreferencesForm({ userId }: PreferencesFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("general");
 
   const { data: preferences, isLoading } = useQuery({
-    queryKey: ["/api/provider-preferences", providerId],
+    queryKey: ["/api/user-preferences", userId],
   });
 
   const { mutate: updatePreferences, isPending: isUpdating } = useMutation({
     mutationFn: async (data: any) => {
-      const res = await fetch(`/api/provider-preferences/${providerId}`, {
+      const res = await fetch(`/api/user-preferences/${userId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
@@ -62,7 +62,7 @@ export function PreferencesForm({ providerId }: PreferencesFormProps) {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/provider-preferences"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/user-preferences"] });
       toast({
         title: "Success",
         description: "Preferences updated successfully",
@@ -216,7 +216,6 @@ export function PreferencesForm({ providerId }: PreferencesFormProps) {
                       }))}
                     />
                   </div>
-
                   <div className="flex items-center justify-between">
                     <Label htmlFor="notifyOnSwapRequests">Notify on Swap Requests</Label>
                     <Switch
@@ -231,7 +230,6 @@ export function PreferencesForm({ providerId }: PreferencesFormProps) {
                       }))}
                     />
                   </div>
-
                   <div className="flex items-center justify-between">
                     <Label htmlFor="notifyOnTimeOffUpdates">Notify on Time Off Updates</Label>
                     <Switch

@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
-import { PROVIDERS } from "@/lib/constants";
+import { USERS } from "@/lib/constants";
 import { useState } from "react";
 import {
   ArrowLeft,
@@ -33,44 +33,21 @@ import {
 } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { useToast } from "@/hooks/use-toast"; 
-
-interface SwapRequest {
-  id: number;
-  requestorId: number;
-  recipientId: number;
-  shiftId: number;
-  status: string;
-  createdAt: string;
-  requestor: {
-    name: string;
-    title: string;
-    color: string;
-  };
-  recipient: {
-    name: string;
-    title: string;
-    color: string;
-  };
-  shift: {
-    startDate: string;
-    endDate: string;
-    status: string;
-  };
-}
+import { useToast } from "@/hooks/use-toast";
+import type { SwapRequest } from "@/lib/types";
 
 export function SwapRequestsDashboard() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [providerFilter, setProviderFilter] = useState<string>("all");
+  const [userFilter, setUserFilter] = useState<string>("all");
   const [error, setError] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const { data: requests, isLoading, refetch } = useQuery<SwapRequest[]>({
+  const { data: requests, isLoading } = useQuery<SwapRequest[]>({
     queryKey: ["/api/swap-requests"],
   });
 
-  const { mutate: cancelRequest, isLoading: isCancelling } = useMutation({
+  const { mutate: cancelRequest } = useMutation({
     mutationFn: async (requestId: number) => {
       const res = await fetch(`/api/swap-requests/${requestId}`, {
         method: "DELETE",
@@ -100,9 +77,9 @@ export function SwapRequestsDashboard() {
 
   const filteredRequests = requests?.filter(request => {
     if (statusFilter !== "all" && request.status !== statusFilter) return false;
-    if (providerFilter !== "all" &&
-        request.requestorId.toString() !== providerFilter &&
-        request.recipientId.toString() !== providerFilter) return false;
+    if (userFilter !== "all" &&
+        request.requestorId.toString() !== userFilter &&
+        request.recipientId.toString() !== userFilter) return false;
     return true;
   });
 
@@ -175,8 +152,8 @@ export function SwapRequestsDashboard() {
               size="icon"
               onClick={() => {
                 setStatusFilter("all");
-                setProviderFilter("all");
-                refetch();
+                setUserFilter("all");
+                queryClient.invalidateQueries({ queryKey: ["/api/swap-requests"] });
               }}
               title="Reset filters and refresh"
             >
@@ -201,16 +178,16 @@ export function SwapRequestsDashboard() {
               </Select>
             </div>
             <div className="w-64">
-              <label className="text-sm font-medium mb-2 block">Provider</label>
-              <Select value={providerFilter} onValueChange={setProviderFilter}>
+              <label className="text-sm font-medium mb-2 block">Staff Member</label>
+              <Select value={userFilter} onValueChange={setUserFilter}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Filter by provider" />
+                  <SelectValue placeholder="Filter by staff member" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Providers</SelectItem>
-                  {PROVIDERS.map(provider => (
-                    <SelectItem key={provider.id} value={provider.id.toString()}>
-                      {provider.name}, {provider.title}
+                  <SelectItem value="all">All Staff</SelectItem>
+                  {USERS.map(user => (
+                    <SelectItem key={user.id} value={user.id.toString()}>
+                      {user.name}, {user.title}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -283,10 +260,9 @@ export function SwapRequestsDashboard() {
                         variant="destructive"
                         size="sm"
                         onClick={() => handleCancelRequest(request.id)}
-                        disabled={isCancelling}
                       >
                         <X className="h-4 w-4 mr-1" />
-                        {isCancelling ? "Cancelling..." : "Cancel Request"}
+                        Cancel Request
                       </Button>
                     )}
                   </div>

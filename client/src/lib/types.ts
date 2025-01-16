@@ -29,13 +29,26 @@ export interface SwapRequest {
   status: 'pending' | 'accepted' | 'rejected';
   reason?: string;
   createdAt: string;
+  requestor: {
+    name: string;
+    title: string;
+    color: string;
+  };
+  recipient: {
+    name: string;
+    title: string;
+    color: string;
+  };
+  shift: {
+    startDate: string;
+    endDate: string;
+    status: 'confirmed' | 'pending_swap' | 'swapped' | 'archived';
+  };
 }
 
 export interface Holiday {
-  id: number;
   name: string;
   date: string;
-  userId: number;
 }
 
 export interface TimeOffRequest {
@@ -44,6 +57,7 @@ export interface TimeOffRequest {
   startDate: string;
   endDate: string;
   status: 'pending' | 'approved' | 'rejected';
+  reason?: string;
   createdAt: string;
 }
 
@@ -61,11 +75,10 @@ export interface UserPreferences {
     notifyBeforeShift: number;
   };
   preferredShiftLength: number;
+  maxShiftsPerWeek: number;
+  minDaysBetweenShifts: number;
   preferredDaysOfWeek: number[];
-  preferredCoworkers: number[];
   avoidedDaysOfWeek: number[];
-  maxShiftsPerWeek?: number;
-  minDaysBetweenShifts?: number;
-  createdAt: string;
-  updatedAt: string;
+  createdAt?: string;
+  updatedAt?: string;
 }

@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { PROVIDERS } from "@/lib/constants";
+import { USERS } from "@/lib/constants";
 import type { TimeOffRequest } from "@/lib/types";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
@@ -39,7 +39,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { DateRange } from "react-day-picker";
 
 const timeOffRequestSchema = z.object({
-  providerId: z.number(),
+  userId: z.number(),
   dateRange: z.object({
     from: z.date(),
     to: z.date(),
@@ -52,12 +52,12 @@ const timeOffRequestSchema = z.object({
 type TimeOffRequestFormData = z.infer<typeof timeOffRequestSchema>;
 
 interface TimeOffRequestFormProps {
-  providerId?: number;
+  userId?: number;
   onSuccess?: () => void;
   onCancel?: () => void;
 }
 
-export function TimeOffRequestForm({ providerId, onSuccess, onCancel }: TimeOffRequestFormProps) {
+export function TimeOffRequestForm({ userId, onSuccess, onCancel }: TimeOffRequestFormProps) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -65,7 +65,7 @@ export function TimeOffRequestForm({ providerId, onSuccess, onCancel }: TimeOffR
   const form = useForm<TimeOffRequestFormData>({
     resolver: zodResolver(timeOffRequestSchema),
     defaultValues: {
-      providerId: providerId,
+      userId: userId,
       dateRange: {
         from: undefined,
         to: undefined,
@@ -84,7 +84,7 @@ export function TimeOffRequestForm({ providerId, onSuccess, onCancel }: TimeOffR
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          providerId: data.providerId,
+          userId: data.userId,
           startDate: format(data.dateRange.from, "yyyy-MM-dd"),
           endDate: format(data.dateRange.to, "yyyy-MM-dd"),
           status: "pending",
@@ -203,7 +203,7 @@ export function TimeOffRequestForm({ providerId, onSuccess, onCancel }: TimeOffR
 }
 
 interface TimeOffRequestListProps {
-  providerId?: number;
+  userId?: number;
   showActions?: boolean;
 }
 
@@ -227,7 +227,7 @@ function TimeOffRequestSkeleton() {
   );
 }
 
-export function TimeOffRequestList({ providerId, showActions = true }: TimeOffRequestListProps) {
+export function TimeOffRequestList({ userId, showActions = true }: TimeOffRequestListProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [cancelRequestId, setCancelRequestId] = useState<number | null>(null);
@@ -279,12 +279,12 @@ export function TimeOffRequestList({ providerId, showActions = true }: TimeOffRe
   };
 
   const { data: requests = [], isLoading } = useQuery<TimeOffRequest[]>({
-    queryKey: ["/api/time-off-requests", providerId],
+    queryKey: ["/api/time-off-requests", userId],
     queryFn: async ({ queryKey }) => {
-      const [_, providerId] = queryKey;
+      const [_, userId] = queryKey;
       const url = new URL("/api/time-off-requests", window.location.origin);
-      if (providerId) {
-        url.searchParams.append("providerId", providerId.toString());
+      if (userId) {
+        url.searchParams.append("userId", userId.toString());
       }
       const res = await fetch(url);
       if (!res.ok) throw new Error("Failed to fetch time-off requests");
@@ -308,7 +308,7 @@ export function TimeOffRequestList({ providerId, showActions = true }: TimeOffRe
     <>
       <div className="space-y-4">
         {requests.map((request) => {
-          const provider = PROVIDERS.find((p) => p.id === request.providerId);
+          const user = USERS.find((p) => p.id === request.userId);
           const canCancel = showActions && (request.status === "pending" || request.status === "approved");
 
           return (
@@ -317,8 +317,8 @@ export function TimeOffRequestList({ providerId, showActions = true }: TimeOffRe
               className="flex items-center justify-between p-4 rounded-lg border bg-card"
             >
               <div className="space-y-1">
-                {!providerId && (
-                  <p className="font-medium">{provider?.name}</p>
+                {!userId && (
+                  <p className="font-medium">{user?.name}</p>
                 )}
                 <p className="text-sm text-muted-foreground">
                   {format(new Date(request.startDate), "MMM d, yyyy")} -{" "}
@@ -396,7 +396,7 @@ export function TimeOffRequestList({ providerId, showActions = true }: TimeOffRe
 
 export function TimeOffRequests() {
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [selectedProvider, setSelectedProvider] = useState<number | undefined>(undefined);
+  const [selectedUser, setSelectedUser] = useState<number | undefined>(undefined);
 
   return (
     <div className="min-h-screen bg-background">
@@ -405,17 +405,17 @@ export function TimeOffRequests() {
           <h2 className="text-2xl font-semibold">Time Off Requests</h2>
           <div className="flex items-center gap-4">
             <Select
-              value={selectedProvider}
-              onValueChange={(value: string | undefined) => setSelectedProvider(value ? parseInt(value, 10) : undefined)}
+              value={selectedUser?.toString()}
+              onValueChange={(value: string) => setSelectedUser(value === "all" ? undefined : parseInt(value, 10))}
             >
               <SelectTrigger className="w-[200px]">
-                <SelectValue placeholder="Filter by provider" />
+                <SelectValue placeholder="Filter by user" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Providers</SelectItem>
-                {PROVIDERS.map((provider) => (
-                  <SelectItem key={provider.id} value={provider.id.toString()}>
-                    {provider.name}, {provider.title}
+                <SelectItem value="all">All Users</SelectItem>
+                {USERS.map((user) => (
+                  <SelectItem key={user.id} value={user.id.toString()}>
+                    {user.name}, {user.title}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -442,7 +442,7 @@ export function TimeOffRequests() {
         </Dialog>
 
         <TimeOffRequestList
-          providerId={selectedProvider === "all" ? undefined : selectedProvider}
+          userId={selectedUser}
         />
       </div>
     </div>

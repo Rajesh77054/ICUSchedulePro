@@ -1,4 +1,4 @@
-import { User } from "./types";
+import { User, Holiday } from "./types";
 
 export const USERS: User[] = [
   // Physicians
@@ -51,7 +51,7 @@ export const USERS: User[] = [
   },
 ];
 
-export const HOLIDAYS_2024_2025 = [
+export const HOLIDAYS_2024_2025: Holiday[] = [
   { name: "New Year's Day", date: "2024-01-01" },
   { name: "Memorial Day", date: "2024-05-27" },
   { name: "Independence Day", date: "2024-07-04" },

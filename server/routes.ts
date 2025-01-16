@@ -1,230 +1,26 @@
 import express from 'express';
 import { Server } from 'http';
 import { db } from '../db';
-import { providers, shifts, users } from '@db/schema';
+import { providers, shifts } from '@db/schema';
 import { and, eq, sql } from 'drizzle-orm';
 import { setupWebSocket, notify } from './websocket';
-import session from 'express-session';
-import MemoryStore from 'memorystore';
-
-// Simple middleware to check if user is authenticated
-const isAuthenticated = (req: any, res: any, next: any) => {
-  if (req.session.user) {
-    return next();
-  }
-  res.status(401).json({ message: "Unauthorized" });
-};
-
-// Middleware to check user role
-const hasRole = (roles: string[]) => {
-  return (req: any, res: any, next: any) => {
-    if (!req.session.user) {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
-
-    if (!roles.includes(req.session.user.role)) {
-      return res.status(403).json({ message: "Forbidden" });
-    }
-
-    next();
-  };
-};
 
 export function registerRoutes(app: express.Application) {
   const server = new Server(app);
   const { broadcast } = setupWebSocket(server);
-  const MemoryStoreSession = MemoryStore(session);
 
-  // Session middleware
-  app.use(session({
-    store: new MemoryStoreSession({
-      checkPeriod: 86400000 // prune expired entries every 24h
-    }),
-    secret: 'your-secret-key',
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      secure: process.env.NODE_ENV === 'production',
-      maxAge: 24 * 60 * 60 * 1000 // 24 hours
-    }
-  }));
-
-  // Initialize default providers
-  app.post('/api/initialize-providers', hasRole(['admin']), async (_req, res) => {
+  // Get all providers
+  app.get("/api/providers", async (_req, res) => {
     try {
-      const defaultProviders = [
-        {
-          firstName: "Ashley",
-          lastName: "Liou",
-          title: "M.D.",
-          primaryEmail: "ashley.liou@bswhealth.org",
-          role: "physician",
-          providerType: "physician",
-          targetDays: 180,
-        },
-        {
-          firstName: "Joseph",
-          lastName: "Brading",
-          title: "M.D.",
-          primaryEmail: "joseph.brading@bswhealth.org",
-          role: "physician",
-          providerType: "physician",
-          targetDays: 180,
-        },
-        // Add more providers here as needed
-      ];
-
-      const createdProviders = [];
-
-      for (const provider of defaultProviders) {
-        // Create user first
-        const [user] = await db.insert(users)
-          .values({
-            firstName: provider.firstName,
-            lastName: provider.lastName,
-            title: provider.title,
-            primaryEmail: provider.primaryEmail,
-            role: provider.role,
-            isActive: true,
-          })
-          .returning();
-
-        // Create provider record
-        const [providerRecord] = await db.insert(providers)
-          .values({
-            userId: user.id,
-            name: `${provider.firstName} ${provider.lastName}`,
-            title: provider.title,
-            providerType: provider.providerType,
-            targetDays: provider.targetDays,
-            color: '#6366f1', // Default color
-          })
-          .returning();
-
-        createdProviders.push({ user, provider: providerRecord });
-      }
-
-      res.json({ 
-        message: `Successfully created ${createdProviders.length} providers`,
-        providers: createdProviders
-      });
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
-    }
-  });
-
-  // Auth routes
-  app.post('/api/auth/login', async (req, res) => {
-    try {
-      const { email } = req.body;
-
-      const user = await db.query.users.findFirst({
-        where: eq(users.primaryEmail, email),
-        with: {
-          provider: true,
-        },
-      });
-
-      if (!user || !user.isActive) {
-        return res.status(401).json({ message: "Invalid email or inactive user" });
-      }
-
-      req.session.user = user;
-      res.json({ user });
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
-    }
-  });
-
-  app.post('/api/auth/logout', (req, res) => {
-    req.session.destroy((err) => {
-      if (err) {
-        return res.status(500).json({ message: "Failed to logout" });
-      }
-      res.json({ message: 'Logged out successfully' });
-    });
-  });
-
-  // User management routes (Admin only)
-  app.post('/api/users', hasRole(['admin']), async (req, res) => {
-    try {
-      const { 
-        firstName, 
-        lastName, 
-        title, 
-        primaryEmail, 
-        secondaryEmail, 
-        role, 
-        providerType 
-      } = req.body;
-
-      // Check if user already exists
-      const existingUser = await db.query.users.findFirst({
-        where: eq(users.primaryEmail, primaryEmail)
-      });
-
-      if (existingUser) {
-        return res.status(400).json({ message: 'User already exists' });
-      }
-
-      // Create user
-      const [user] = await db.insert(users)
-        .values({
-          firstName,
-          lastName,
-          title,
-          primaryEmail,
-          secondaryEmail,
-          role,
-        })
-        .returning();
-
-      // If user is a provider (physician or app), create provider record
-      if (role === 'physician' || role === 'app') {
-        await db.insert(providers)
-          .values({
-            userId: user.id,
-            name: `${firstName} ${lastName}`,
-            title,
-            providerType: role === 'physician' ? 'physician' : 'app',
-          });
-      }
-
-      res.json({ message: 'User created successfully', user });
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
-    }
-  });
-
-  app.get('/api/auth/me', isAuthenticated, async (req, res) => {
-    try {
-      const user = await db.query.users.findFirst({
-        where: eq(users.id, req.session.user.id),
-        with: {
-          provider: true,
-        },
-      });
-      res.json(user);
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
-    }
-  });
-
-  // Protected routes
-  app.get("/api/providers", isAuthenticated, async (_req, res) => {
-    try {
-      const result = await db.query.providers.findMany({
-        with: {
-          user: true
-        }
-      });
+      const result = await db.query.providers.findMany();
       res.json(result);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
   });
 
-  app.get("/api/shifts", isAuthenticated, async (_req, res) => {
+  // Get all shifts
+  app.get("/api/shifts", async (_req, res) => {
     try {
       const result = await db.query.shifts.findMany({
         with: {
@@ -237,17 +33,20 @@ export function registerRoutes(app: express.Application) {
     }
   });
 
-  // Clear all shifts (admin only)
-  app.delete("/api/shifts", hasRole(['admin']), async (_req, res) => {
+  // Clear all shifts
+  app.delete("/api/shifts", async (_req, res) => {
     try {
+      // Get all shifts with their providers for notification
       const allShifts = await db.query.shifts.findMany({
         with: {
           provider: true
         }
       });
 
+      // Delete all shifts
       await db.delete(shifts);
 
+      // Notify about each deletion
       for (const shift of allShifts) {
         if (shift.provider) {
           broadcast(notify.shiftDeleted(shift, {
@@ -263,8 +62,9 @@ export function registerRoutes(app: express.Application) {
     }
   });
 
-  // Create new shift (scheduler and admin only)
-  app.post("/api/shifts", hasRole(['admin', 'scheduler']), async (req, res) => {
+
+  // Create new shift
+  app.post("/api/shifts", async (req, res) => {
     try {
       const { providerId, startDate, endDate } = req.body;
 
@@ -297,52 +97,5 @@ export function registerRoutes(app: express.Application) {
     }
   });
 
-  // Calendar export
-  app.get('/api/schedules/export/:providerId?', isAuthenticated, async (req, res) => {
-    try {
-      const { providerId } = req.params;
-      let query = db.select().from(shifts);
-
-      if (providerId && providerId !== 'all') {
-        query = query.where(eq(shifts.providerId, parseInt(providerId)));
-      }
-
-      const shifts = await query;
-
-      // Generate iCal format
-      const ical = generateICalendar(shifts);
-
-      res.setHeader('Content-Type', 'text/calendar');
-      res.setHeader('Content-Disposition', 'attachment; filename=schedule.ics');
-      res.send(ical);
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
-    }
-  });
-
   return server;
-}
-
-// Helper function to generate iCal format
-function generateICalendar(shifts: any[]) {
-  let ical = [
-    'BEGIN:VCALENDAR',
-    'VERSION:2.0',
-    'PRODID:-//ICU Scheduler//EN'
-  ];
-
-  shifts.forEach(shift => {
-    ical = ical.concat([
-      'BEGIN:VEVENT',
-      `UID:${shift.id}`,
-      `DTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').split('.')[0]}Z`,
-      `DTSTART:${new Date(shift.startDate).toISOString().replace(/[-:]/g, '').split('.')[0]}Z`,
-      `DTEND:${new Date(shift.endDate).toISOString().replace(/[-:]/g, '').split('.')[0]}Z`,
-      `SUMMARY:ICU Shift - ${shift.provider?.name || 'Unassigned'}`,
-      'END:VEVENT'
-    ]);
-  });
-
-  ical.push('END:VCALENDAR');
-  return ical.join('\r\n');
 }

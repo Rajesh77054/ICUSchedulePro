@@ -1,9 +1,9 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { USERS } from "@/lib/constants";
 import type { User } from "@/lib/types";
 
 interface UserListProps {
@@ -15,8 +15,12 @@ export function ProviderList({ onUserSelect, selectedUserId }: UserListProps) {
   const [activeTab, setActiveTab] = useState<string>("all");
   const [, navigate] = useLocation();
 
-  const physicians = USERS.filter(user => user.userType === "physician");
-  const apps = USERS.filter(user => user.userType === "app");
+  const { data: users = [] } = useQuery<User[]>({
+    queryKey: ["/api/users"],
+  });
+
+  const physicians = users.filter(user => user.userType === "physician");
+  const apps = users.filter(user => user.userType === "app");
 
   const handleUserSelect = (user: User) => {
     onUserSelect?.(user);
@@ -40,7 +44,7 @@ export function ProviderList({ onUserSelect, selectedUserId }: UserListProps) {
           <ScrollArea className="h-[400px] py-2">
             <TabsContent value="all" className="m-0">
               <UserList 
-                users={USERS}
+                users={users}
                 selectedUserId={selectedUserId}
                 onSelect={handleUserSelect}
               />

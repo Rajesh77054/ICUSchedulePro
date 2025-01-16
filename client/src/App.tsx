@@ -1,4 +1,5 @@
 import { Switch, Route } from "wouter";
+import { LoginPage } from "@/pages/LoginPage";
 import { Dashboard } from "@/pages/Dashboard";
 import { PersonalDashboard } from "@/pages/PersonalDashboard";
 import { SwapRequestsDashboard } from "@/pages/SwapRequestsDashboard";
@@ -10,28 +11,60 @@ import { Card, CardContent } from "@/components/ui/card";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { BreadcrumbNavigation } from "@/components/layout/BreadcrumbNavigation";
 import { Sidebar } from "@/components/layout/Sidebar";
+import { AuthProvider, ProtectedRoute } from "@/lib/auth";
 
 function App() {
   return (
-    <TooltipProvider>
-      <div className="min-h-screen bg-background">
-        <Sidebar />
-        <div className="md:pl-64">  {/* Add padding for sidebar */}
-          <BreadcrumbNavigation />
-          <main className="container mx-auto py-6">
-            <Switch>
-              <Route path="/" component={Dashboard} />
-              <Route path="/provider/:id" component={PersonalDashboard} />
-              <Route path="/swap-requests" component={SwapRequestsDashboard} />
-              <Route path="/time-off" component={TimeOffRequests} />
-              <Route path="/time-off/admin" component={TimeOffAdmin} />
-              <Route path="/preferences" component={Settings} />
-              <Route component={NotFound} />
-            </Switch>
-          </main>
-        </div>
-      </div>
-    </TooltipProvider>
+    <AuthProvider>
+      <TooltipProvider>
+        <Switch>
+          <Route path="/login" component={LoginPage} />
+          <Route>
+            <div className="min-h-screen bg-background">
+              <Sidebar />
+              <div className="md:pl-64">
+                <BreadcrumbNavigation />
+                <main className="container mx-auto py-6">
+                  <Switch>
+                    <Route path="/">
+                      <ProtectedRoute>
+                        <Dashboard />
+                      </ProtectedRoute>
+                    </Route>
+                    <Route path="/provider/:id">
+                      <ProtectedRoute>
+                        <PersonalDashboard />
+                      </ProtectedRoute>
+                    </Route>
+                    <Route path="/swap-requests">
+                      <ProtectedRoute>
+                        <SwapRequestsDashboard />
+                      </ProtectedRoute>
+                    </Route>
+                    <Route path="/time-off">
+                      <ProtectedRoute>
+                        <TimeOffRequests />
+                      </ProtectedRoute>
+                    </Route>
+                    <Route path="/time-off/admin">
+                      <ProtectedRoute roles={['admin', 'scheduler']}>
+                        <TimeOffAdmin />
+                      </ProtectedRoute>
+                    </Route>
+                    <Route path="/preferences">
+                      <ProtectedRoute>
+                        <Settings />
+                      </ProtectedRoute>
+                    </Route>
+                    <Route component={NotFound} />
+                  </Switch>
+                </main>
+              </div>
+            </div>
+          </Route>
+        </Switch>
+      </TooltipProvider>
+    </AuthProvider>
   );
 }
 

@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, timestamp, jsonb, date } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, timestamp, jsonb, date, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { relations } from "drizzle-orm";
 
@@ -6,15 +6,47 @@ import { relations } from "drizzle-orm";
 export const ShiftStatus = ['confirmed', 'pending_swap', 'swapped', 'inactive'] as const;
 export type ShiftStatus = typeof ShiftStatus[number];
 
+export const UserRole = ['admin', 'scheduler', 'provider'] as const;
+export type UserRole = typeof UserRole[number];
+
+export const ProviderType = ['physician', 'app'] as const;
+export type ProviderType = typeof ProviderType[number];
+
 // Define tables
+export const users = pgTable("users", {
+  id: serial("id").primaryKey(),
+  email: text("email").unique().notNull(),
+  password: text("password").notNull(),
+  role: text("role", { enum: UserRole }).notNull().default('provider'),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export const providers = pgTable("providers", {
   id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id), // Made nullable initially
   name: text("name").notNull(),
   title: text("title").notNull(),
-  targetDays: integer("target_days").notNull(),
+  providerType: text("provider_type", { enum: ProviderType }).notNull().default('physician'),
+  targetDays: integer("target_days").notNull().default(180),
   tolerance: integer("tolerance").default(0),
-  maxConsecutiveWeeks: integer("max_consecutive_weeks").notNull(),
-  color: text("color").notNull(),
+  maxConsecutiveWeeks: integer("max_consecutive_weeks").notNull().default(2),
+  color: text("color").notNull().default('#6366f1'),
+  preferences: jsonb("preferences").default({
+    defaultView: 'dayGridMonth',
+    defaultCalendarDuration: 'month',
+    notificationPreferences: {
+      emailNotifications: true,
+      inAppNotifications: true,
+      notifyOnNewShifts: true,
+      notifyOnSwapRequests: true,
+      notifyOnTimeOffUpdates: true,
+      notifyBeforeShift: 24,
+    },
+  }),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const shifts = pgTable("shifts", {
@@ -50,7 +82,18 @@ export const timeOffRequests = pgTable("time_off_requests", {
 });
 
 // Define relations
-export const providersRelations = relations(providers, ({ many }) => ({
+export const usersRelations = relations(users, ({ one }) => ({
+  provider: one(providers, {
+    fields: [users.id],
+    references: [providers.userId],
+  }),
+}));
+
+export const providersRelations = relations(providers, ({ one, many }) => ({
+  user: one(users, {
+    fields: [providers.userId],
+    references: [users.id],
+  }),
   shifts: many(shifts),
   requestedSwaps: many(swapRequests, { relationName: "requestor" }),
   receivedSwaps: many(swapRequests, { relationName: "recipient" }),
@@ -65,11 +108,14 @@ export const shiftsRelations = relations(shifts, ({ one }) => ({
 }));
 
 // Define schemas
-export const insertShiftSchema = createInsertSchema(shifts);
-export const selectShiftSchema = createSelectSchema(shifts);
+export const insertUserSchema = createInsertSchema(users);
+export const selectUserSchema = createSelectSchema(users);
 
 export const insertProviderSchema = createInsertSchema(providers);
 export const selectProviderSchema = createSelectSchema(providers);
+
+export const insertShiftSchema = createInsertSchema(shifts);
+export const selectShiftSchema = createSelectSchema(shifts);
 
 export const insertSwapRequestSchema = createInsertSchema(swapRequests);
 export const selectSwapRequestSchema = createSelectSchema(swapRequests);

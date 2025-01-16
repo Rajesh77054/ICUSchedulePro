@@ -19,8 +19,7 @@ const mockAdminUser = {
   lastName: "User",
   title: "Administrator",
   primaryEmail: "admin@example.com",
-  secondaryEmail: "",
-  role: "admin" as const,  // Explicitly type as 'admin'
+  role: "admin" as const,
   isActive: true,
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString()
@@ -36,24 +35,13 @@ function App() {
             <BreadcrumbNavigation />
             <main className="container mx-auto py-6">
               <Switch>
-                <Route path="/">
-                  <Dashboard />
-                </Route>
-                <Route path="/provider/:id">
-                  <PersonalDashboard />
-                </Route>
-                <Route path="/swap-requests">
-                  <SwapRequestsDashboard />
-                </Route>
-                <Route path="/time-off">
-                  <TimeOffRequests />
-                </Route>
-                <Route path="/time-off/admin">
-                  <TimeOffAdmin />
-                </Route>
-                <Route path="/preferences">
-                  <Settings />
-                </Route>
+                <Route path="/" component={Dashboard} />
+                <Route path="/providers" component={Dashboard} />
+                <Route path="/provider/:id" component={PersonalDashboard} />
+                <Route path="/swap-requests" component={SwapRequestsDashboard} />
+                <Route path="/time-off" component={TimeOffRequests} />
+                <Route path="/time-off/admin" component={TimeOffAdmin} />
+                <Route path="/settings" component={Settings} />
                 <Route component={NotFound} />
               </Switch>
             </main>

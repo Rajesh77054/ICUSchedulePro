@@ -5,8 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { ArrowLeft, Calendar, Clock, Settings } from "lucide-react";
 import { Link } from "wouter";
-import { PROVIDERS } from "@/lib/constants";
-import type { Shift, TimeOffRequest, ProviderPreferences } from "@/lib/types";
+import { USERS } from "@/lib/constants";
+import type { Shift, TimeOffRequest, UserPreferences } from "@/lib/types";
 import { format, isAfter, isBefore, startOfWeek, endOfWeek } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
@@ -32,8 +32,8 @@ import { Input } from "@/components/ui/input";
 
 export function PersonalDashboard() {
   const { id } = useParams<{ id: string }>();
-  const providerId = parseInt(id);
-  const provider = PROVIDERS.find(p => p.id === providerId);
+  const userId = parseInt(id);
+  const user = USERS.find(p => p.id === userId);
   const [showTimeOffForm, setShowTimeOffForm] = useState(false);
   const [showPreferences, setShowPreferences] = useState(false);
   const { toast } = useToast();
@@ -44,26 +44,26 @@ export function PersonalDashboard() {
   });
 
   const { data: timeOffRequests } = useQuery<TimeOffRequest[]>({
-    queryKey: ["/api/time-off-requests", providerId],
+    queryKey: ["/api/time-off-requests", userId],
     queryFn: async () => {
       const url = new URL("/api/time-off-requests", window.location.origin);
-      url.searchParams.append("providerId", providerId.toString());
+      url.searchParams.append("userId", userId.toString()); // Changed providerId to userId
       const res = await fetch(url);
       if (!res.ok) throw new Error("Failed to fetch time-off requests");
       return res.json();
     },
   });
 
-  const { data: preferences } = useQuery<ProviderPreferences>({
-    queryKey: ["/api/provider-preferences", providerId],
+  const { data: preferences } = useQuery<UserPreferences>({
+    queryKey: ["/api/user-preferences", userId], // Changed API endpoint
   });
 
-  if (!provider) {
+  if (!user) {
     return (
       <div className="container mx-auto py-6">
         <Card>
           <CardContent className="pt-6">
-            <p>Provider not found</p>
+            <p>User not found</p>
             <Link href="/">
               <Button className="mt-4">
                 <ArrowLeft className="mr-2 h-4 w-4" />
@@ -76,8 +76,8 @@ export function PersonalDashboard() {
     );
   }
 
-  const providerShifts = shifts?.filter(s => s.providerId === providerId) || [];
-  const activeShifts = providerShifts.filter(s => s.status !== 'archived');
+  const userShifts = shifts?.filter(s => s.userId === userId) || []; // Changed providerId to userId
+  const activeShifts = userShifts.filter(s => s.status !== 'archived');
 
   const totalDays = activeShifts.reduce((acc, shift) => {
     const start = new Date(shift.startDate);
@@ -86,7 +86,7 @@ export function PersonalDashboard() {
     return acc + days;
   }, 0);
 
-  const progress = Math.min((totalDays / provider.targetDays) * 100, 100);
+  const progress = Math.min((totalDays / user.targetDays) * 100, 100);
 
   const thisWeekStart = startOfWeek(new Date());
   const thisWeekEnd = endOfWeek(new Date());
@@ -131,7 +131,7 @@ export function PersonalDashboard() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold mb-2">
-            {provider.name}, {provider.title}
+            {user.name}, {user.title}
           </h1>
           <p className="text-muted-foreground">Personal Schedule Dashboard</p>
         </div>
@@ -154,7 +154,7 @@ export function PersonalDashboard() {
           <DialogHeader>
             <DialogTitle>Preferences</DialogTitle>
           </DialogHeader>
-          <PreferencesForm providerId={providerId} />
+          <PreferencesForm userId={userId} /> {/* Changed providerId to userId */}
         </DialogContent>
       </Dialog>
 
@@ -176,7 +176,7 @@ export function PersonalDashboard() {
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({
                     subscriptionUrl: url,
-                    providerId,
+                    userId: userId, // Changed providerId to userId
                   })
                 })
                   .then(res => {
@@ -227,7 +227,7 @@ export function PersonalDashboard() {
                 </p>
                 <Button
                   onClick={() => {
-                    window.location.href = `/api/schedules/export/${providerId}`;
+                    window.location.href = `/api/schedules/export/${userId}`;
                   }}
                   variant="outline"
                 >
@@ -250,20 +250,20 @@ export function PersonalDashboard() {
               <div className="flex justify-between text-sm">
                 <span>Total Days</span>
                 <span className="font-medium">
-                  {totalDays} / {provider.targetDays}
+                  {totalDays} / {user.targetDays}
                 </span>
               </div>
               <Progress
                 value={progress}
                 className="h-2"
                 style={{
-                  backgroundColor: `${provider.color}40`,
-                  "--progress-background": provider.color,
+                  backgroundColor: `${user.color}40`,
+                  "--progress-background": user.color,
                 } as any}
               />
-              {provider.tolerance && (
+              {user.tolerance && (
                 <p className="text-sm text-muted-foreground">
-                  Tolerance: ±{provider.tolerance} days
+                  Tolerance: ±{user.tolerance} days
                 </p>
               )}
             </div>
@@ -305,7 +305,7 @@ export function PersonalDashboard() {
                   <div
                     key={shift.id}
                     className="flex items-center justify-between p-3 rounded-lg border"
-                    style={{ borderColor: provider.color }}
+                    style={{ borderColor: user.color }}
                   >
                     <div>
                       <p className="font-medium">
@@ -349,13 +349,13 @@ export function PersonalDashboard() {
             {showTimeOffForm ? (
               <div className="mb-6">
                 <TimeOffRequestForm
-                  providerId={providerId}
+                  userId={userId}  {/* Changed providerId to userId */}
                   onSuccess={() => setShowTimeOffForm(false)}
                   onCancel={() => setShowTimeOffForm(false)}
                 />
               </div>
             ) : null}
-            <TimeOffRequestList providerId={providerId} />
+            <TimeOffRequestList userId={userId} /> {/* Changed providerId to userId */}
           </CardContent>
         </Card>
       </div>

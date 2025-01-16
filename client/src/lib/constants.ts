@@ -1,10 +1,12 @@
-import { Provider } from "./types";
+import { User } from "./types";
 
-export const PROVIDERS: Provider[] = [
+export const USERS: User[] = [
+  // Physicians
   {
     id: 1,
     name: "Ashley Liou",
     title: "MD",
+    userType: "physician",
     targetDays: 105,
     tolerance: 7,
     maxConsecutiveWeeks: 1,
@@ -13,7 +15,8 @@ export const PROVIDERS: Provider[] = [
   {
     id: 2,
     name: "Joseph Brading",
-    title: "MD", 
+    title: "MD",
+    userType: "physician",
     targetDays: 170,
     maxConsecutiveWeeks: 2,
     color: "hsl(160, 75%, 40%)",
@@ -22,17 +25,29 @@ export const PROVIDERS: Provider[] = [
     id: 3,
     name: "Rajesh Harrykissoon",
     title: "MD",
+    userType: "physician",
     targetDays: 62,
     maxConsecutiveWeeks: 1,
     color: "hsl(350, 75%, 50%)",
   },
+  // APPs
   {
-    id: 4, 
-    name: "Anthony Zachria",
-    title: "DO",
-    targetDays: 28,
-    maxConsecutiveWeeks: 1,
+    id: 4,
+    name: "Sarah Johnson",
+    title: "NP",
+    userType: "app",
+    targetDays: 180,
+    maxConsecutiveWeeks: 2,
     color: "hsl(45, 75%, 45%)",
+  },
+  {
+    id: 5,
+    name: "Michael Chen",
+    title: "PA",
+    userType: "app",
+    targetDays: 180,
+    maxConsecutiveWeeks: 2,
+    color: "hsl(290, 75%, 45%)",
   },
 ];
 

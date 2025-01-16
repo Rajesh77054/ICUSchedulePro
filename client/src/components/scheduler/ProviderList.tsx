@@ -8,21 +8,30 @@ import { Progress } from "@/components/ui/progress";
 import { Link } from "wouter";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { Provider, Shift } from "@/lib/types";
+import type { User, Shift } from "@/lib/types";
 import { useQuery } from "@tanstack/react-query";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useState } from "react";
 
-interface ProviderListProps {
-  providers?: Provider[];
+interface UserListProps {
+  users?: User[];
 }
 
-export function ProviderList({ providers = [] }: ProviderListProps) {
+export function UserList({ users = [] }: UserListProps) {
+  const [userTypeFilter, setUserTypeFilter] = useState<string>("all");
   const { data: shifts } = useQuery<Shift[]>({
     queryKey: ["/api/shifts"],
   });
 
-  const getProviderStats = (providerId: number) => {
-    const providerShifts = shifts?.filter(s => s.providerId === providerId) || [];
-    const totalDays = providerShifts.reduce((acc, shift) => {
+  const getUserStats = (userId: number) => {
+    const userShifts = shifts?.filter(s => s.userId === userId) || [];
+    const totalDays = userShifts.reduce((acc, shift) => {
       const start = new Date(shift.startDate);
       const end = new Date(shift.endDate);
       const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
@@ -32,26 +41,42 @@ export function ProviderList({ providers = [] }: ProviderListProps) {
     return totalDays;
   };
 
+  const filteredUsers = users.filter(user => 
+    userTypeFilter === "all" || user.userType === userTypeFilter
+  );
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Providers</CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle>Staff</CardTitle>
+          <Select value={userTypeFilter} onValueChange={setUserTypeFilter}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Filter by role" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Staff</SelectItem>
+              <SelectItem value="physician">Physicians</SelectItem>
+              <SelectItem value="app">APPs</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {providers.map(provider => {
-          const days = getProviderStats(provider.id);
-          const progress = Math.min((days / provider.targetDays) * 100, 100);
+        {filteredUsers.map(user => {
+          const days = getUserStats(user.id);
+          const progress = Math.min((days / user.targetDays) * 100, 100);
 
           return (
-            <Link key={provider.id} href={`/provider/${provider.id}`}>
+            <Link key={user.id} href={`/user/${user.id}`}>
               <div className="space-y-2 p-3 rounded-lg hover:bg-accent cursor-pointer transition-colors">
                 <div className="flex justify-between items-start">
                   <div>
                     <span className="font-medium block">
-                      {provider.name}, {provider.title}
+                      {user.name}, {user.title}
                     </span>
                     <span className="text-sm text-muted-foreground">
-                      {days}/{provider.targetDays} days
+                      {days}/{user.targetDays} days
                     </span>
                   </div>
                   <Button variant="ghost" size="icon">
@@ -62,8 +87,8 @@ export function ProviderList({ providers = [] }: ProviderListProps) {
                   value={progress}
                   className="h-2"
                   style={{
-                    backgroundColor: `${provider.color}40`,
-                    "--progress-background": provider.color,
+                    backgroundColor: `${user.color}40`,
+                    "--progress-background": user.color,
                   } as any}
                 />
               </div>

@@ -6,11 +6,15 @@ import { relations } from "drizzle-orm";
 export const ShiftStatus = ['confirmed', 'pending_swap', 'swapped', 'inactive'] as const;
 export type ShiftStatus = typeof ShiftStatus[number];
 
+export const UserType = ['physician', 'app'] as const;
+export type UserType = typeof UserType[number];
+
 // Define tables
-export const providers = pgTable("providers", {
+export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   title: text("title").notNull(),
+  userType: text("user_type", { enum: UserType }).notNull(),
   targetDays: integer("target_days").notNull(),
   tolerance: integer("tolerance").default(0),
   maxConsecutiveWeeks: integer("max_consecutive_weeks").notNull(),
@@ -19,7 +23,7 @@ export const providers = pgTable("providers", {
 
 export const shifts = pgTable("shifts", {
   id: serial("id").primaryKey(),
-  providerId: integer("provider_id").references(() => providers.id),
+  userId: integer("user_id").references(() => users.id),
   startDate: date("start_date").notNull(),
   endDate: date("end_date").notNull(),
   status: text("status", { enum: ShiftStatus }).notNull().default('confirmed'),
@@ -31,8 +35,8 @@ export const shifts = pgTable("shifts", {
 
 export const swapRequests = pgTable("swap_requests", {
   id: serial("id").primaryKey(),
-  requestorId: integer("requestor_id").references(() => providers.id),
-  recipientId: integer("recipient_id").references(() => providers.id),
+  requestorId: integer("requestor_id").references(() => users.id),
+  recipientId: integer("recipient_id").references(() => users.id),
   shiftId: integer("shift_id").references(() => shifts.id),
   status: text("status").notNull().default('pending'),
   reason: text("reason"),
@@ -41,7 +45,7 @@ export const swapRequests = pgTable("swap_requests", {
 
 export const timeOffRequests = pgTable("time_off_requests", {
   id: serial("id").primaryKey(),
-  providerId: integer("provider_id").references(() => providers.id),
+  userId: integer("user_id").references(() => users.id),
   startDate: date("start_date").notNull(),
   endDate: date("end_date").notNull(),
   status: text("status").notNull().default('pending'),
@@ -50,7 +54,7 @@ export const timeOffRequests = pgTable("time_off_requests", {
 });
 
 // Define relations
-export const providersRelations = relations(providers, ({ many }) => ({
+export const usersRelations = relations(users, ({ many }) => ({
   shifts: many(shifts),
   requestedSwaps: many(swapRequests, { relationName: "requestor" }),
   receivedSwaps: many(swapRequests, { relationName: "recipient" }),
@@ -58,9 +62,9 @@ export const providersRelations = relations(providers, ({ many }) => ({
 }));
 
 export const shiftsRelations = relations(shifts, ({ one }) => ({
-  provider: one(providers, {
-    fields: [shifts.providerId],
-    references: [providers.id],
+  user: one(users, {
+    fields: [shifts.userId],
+    references: [users.id],
   }),
 }));
 
@@ -68,8 +72,8 @@ export const shiftsRelations = relations(shifts, ({ one }) => ({
 export const insertShiftSchema = createInsertSchema(shifts);
 export const selectShiftSchema = createSelectSchema(shifts);
 
-export const insertProviderSchema = createInsertSchema(providers);
-export const selectProviderSchema = createSelectSchema(providers);
+export const insertUserSchema = createInsertSchema(users);
+export const selectUserSchema = createSelectSchema(users);
 
 export const insertSwapRequestSchema = createInsertSchema(swapRequests);
 export const selectSwapRequestSchema = createSelectSchema(swapRequests);

@@ -1,7 +1,8 @@
-export interface Provider {
+export interface User {
   id: number;
   name: string;
   title: string;
+  userType: 'physician' | 'app';
   targetDays: number;
   tolerance?: number;
   maxConsecutiveWeeks: number;
@@ -10,14 +11,13 @@ export interface Provider {
 
 export interface Shift {
   id: number;
-  providerId: number;
+  userId: number;
   startDate: string;
   endDate: string;
   status: 'confirmed' | 'pending_swap' | 'swapped' | 'archived';
   satisfactionScore?: number;
   schedulingNotes?: any;
   source?: 'manual';
-  // Keep external_id in type but don't use it
   externalId?: string;
 }
 
@@ -35,21 +35,21 @@ export interface Holiday {
   id: number;
   name: string;
   date: string;
-  providerId: number;
+  userId: number;
 }
 
 export interface TimeOffRequest {
   id: number;
-  providerId: number;
+  userId: number;
   startDate: string;
   endDate: string;
   status: 'pending' | 'approved' | 'rejected';
   createdAt: string;
 }
 
-export interface ProviderPreferences {
+export interface UserPreferences {
   id: number;
-  providerId: number;
+  userId: number;
   defaultView: string;
   defaultCalendarDuration: string;
   notificationPreferences: {

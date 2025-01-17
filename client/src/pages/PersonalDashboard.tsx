@@ -148,88 +148,6 @@ export function PersonalDashboard() {
         </DialogContent>
       </Dialog>
 
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>Schedule Integration</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-6">
-            <div>
-              <h3 className="text-lg font-medium mb-4">Import QGenda Schedule</h3>
-              <form onSubmit={(e) => {
-                e.preventDefault();
-                const form = e.target as HTMLFormElement;
-                const url = new FormData(form).get('qgendaUrl') as string;
-
-                fetch('/api/integrations/qgenda/import-ical', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    subscriptionUrl: url,
-                    userId,
-                  })
-                })
-                  .then(res => {
-                    if (!res.ok) throw new Error('Failed to import schedule');
-                    return res.json();
-                  })
-                  .then(data => {
-                    toast({
-                      title: 'Success',
-                      description: `Successfully imported ${data.shifts?.length || 0} shifts from QGenda.`,
-                    });
-                    form.reset();
-                    queryClient.invalidateQueries({ queryKey: ["/api/shifts"] });
-                  })
-                  .catch(error => {
-                    toast({
-                      title: 'Error',
-                      description: error.message,
-                      variant: 'destructive'
-                    });
-                  });
-              }}>
-                <div className="space-y-4">
-                  <div>
-                    <label htmlFor="qgendaUrl" className="block text-sm font-medium mb-2">
-                      QGenda Subscription URL
-                    </label>
-                    <input
-                      id="qgendaUrl"
-                      name="qgendaUrl"
-                      type="url"
-                      className="w-full p-2 border rounded-md"
-                      placeholder="Paste your QGenda subscription URL here"
-                      required
-                    />
-                    <p className="text-sm text-muted-foreground mt-2">
-                      Import your shifts directly from QGenda by pasting your iCal subscription URL here.
-                    </p>
-                  </div>
-                  <Button type="submit">Import Schedule</Button>
-                </div>
-              </form>
-
-              <div className="mt-8">
-                <h3 className="text-lg font-medium mb-4">Export Schedule</h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Download your schedule in iCal format to import into your preferred calendar application.
-                </p>
-                <Button
-                  onClick={() => {
-                    window.location.href = `/api/schedules/export/${userId}`;
-                  }}
-                  variant="outline"
-                >
-                  <Calendar className="mr-2 h-4 w-4" />
-                  Export as iCal
-                </Button>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
@@ -346,6 +264,87 @@ export function PersonalDashboard() {
               </div>
             ) : null}
             <TimeOffRequestList userId={userId} />
+          </CardContent>
+        </Card>
+        <Card className="md:col-span-2">
+          <CardHeader>
+            <CardTitle>Schedule Integration</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-medium mb-4">Import QGenda Schedule</h3>
+                <form onSubmit={(e) => {
+                  e.preventDefault();
+                  const form = e.target as HTMLFormElement;
+                  const url = new FormData(form).get('qgendaUrl') as string;
+
+                  fetch('/api/integrations/qgenda/import-ical', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      subscriptionUrl: url,
+                      userId,
+                    })
+                  })
+                    .then(res => {
+                      if (!res.ok) throw new Error('Failed to import schedule');
+                      return res.json();
+                    })
+                    .then(data => {
+                      toast({
+                        title: 'Success',
+                        description: `Successfully imported ${data.shifts?.length || 0} shifts from QGenda.`,
+                      });
+                      form.reset();
+                      queryClient.invalidateQueries({ queryKey: ["/api/shifts"] });
+                    })
+                    .catch(error => {
+                      toast({
+                        title: 'Error',
+                        description: error.message,
+                        variant: 'destructive'
+                      });
+                    });
+                }}>
+                  <div className="space-y-4">
+                    <div>
+                      <label htmlFor="qgendaUrl" className="block text-sm font-medium mb-2">
+                        QGenda Subscription URL
+                      </label>
+                      <input
+                        id="qgendaUrl"
+                        name="qgendaUrl"
+                        type="url"
+                        className="w-full p-2 border rounded-md"
+                        placeholder="Paste your QGenda subscription URL here"
+                        required
+                      />
+                      <p className="text-sm text-muted-foreground mt-2">
+                        Import your shifts directly from QGenda by pasting your iCal subscription URL here.
+                      </p>
+                    </div>
+                    <Button type="submit">Import Schedule</Button>
+                  </div>
+                </form>
+
+                <div className="mt-8">
+                  <h3 className="text-lg font-medium mb-4">Export Schedule</h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Download your schedule in iCal format to import into your preferred calendar application.
+                  </p>
+                  <Button
+                    onClick={() => {
+                      window.location.href = `/api/schedules/export/${userId}`;
+                    }}
+                    variant="outline"
+                  >
+                    <Calendar className="mr-2 h-4 w-4" />
+                    Export as iCal
+                  </Button>
+                </div>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>

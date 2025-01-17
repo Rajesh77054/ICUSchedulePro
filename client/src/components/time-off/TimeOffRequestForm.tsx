@@ -60,13 +60,16 @@ interface TimeOffRequestFormProps {
   userId?: number;
   onSuccess?: () => void;
   onCancel?: () => void;
-  showUserSelect?: boolean;
+  isAdmin?: boolean;
 }
 
-export function TimeOffRequestForm({ userId, onSuccess, onCancel, showUserSelect = false }: TimeOffRequestFormProps) {
+export function TimeOffRequestForm({ userId, onSuccess, onCancel, isAdmin = false }: TimeOffRequestFormProps) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Get user details for display
+  const selectedUser = userId ? USERS.find(u => u.id === userId) : undefined;
 
   const form = useForm<TimeOffRequestFormData>({
     resolver: zodResolver(timeOffRequestSchema),
@@ -121,13 +124,20 @@ export function TimeOffRequestForm({ userId, onSuccess, onCancel, showUserSelect
     setConfirmOpen(true);
   };
 
-  const selectedUser = USERS.find(u => u.id === form.getValues().userId);
+  // If not admin view and no userId provided, show error
+  if (!isAdmin && !userId) {
+    return (
+      <div className="p-4 text-red-600 bg-red-50 rounded-lg">
+        Error: User context not available. Please try again or contact support.
+      </div>
+    );
+  }
 
   return (
     <>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-          {showUserSelect ? (
+          {isAdmin ? (
             <FormField
               control={form.control}
               name="userId"
@@ -156,8 +166,14 @@ export function TimeOffRequestForm({ userId, onSuccess, onCancel, showUserSelect
               )}
             />
           ) : (
-            <input type="hidden" {...form.register("userId", { value: userId })} />
+            selectedUser && (
+              <div className="mb-4">
+                <p className="text-sm font-medium">Requesting Time Off for:</p>
+                <p className="text-sm text-muted-foreground">{selectedUser.name}, {selectedUser.title}</p>
+              </div>
+            )
           )}
+          <input type="hidden" {...form.register("userId", { value: userId })} />
           <FormField
             control={form.control}
             name="dateRange"
@@ -199,7 +215,7 @@ export function TimeOffRequestForm({ userId, onSuccess, onCancel, showUserSelect
           <DialogHeader>
             <DialogTitle>Confirm Time-off Request</DialogTitle>
             <DialogDescription>
-              {showUserSelect ? (
+              {isAdmin ? (
                 "Please review the time-off request details before submitting."
               ) : (
                 "Are you sure you want to submit this time-off request?"

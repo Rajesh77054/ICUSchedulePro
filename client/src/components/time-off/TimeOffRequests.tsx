@@ -1,18 +1,15 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Calendar as CalendarIcon, X, Settings, Loader2 } from "lucide-react";
+import { X, Settings, Loader2 } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
-import { DatePickerWithRange } from "@/components/ui/date-range-picker";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -20,9 +17,196 @@ import { USERS } from "@/lib/constants";
 import type { TimeOffRequest } from "@/lib/types";
 import { TimeOffRequestForm } from "./TimeOffRequestForm";
 
+interface TimeOffRequestListProps {
+  userId?: number;
+  showActions?: boolean;
+}
+
+function TimeOffRequestSkeleton() {
+  return (
+    <div className="space-y-4">
+      {[1, 2, 3].map((i) => (
+        <div
+          key={i}
+          className="flex items-center justify-between p-4 rounded-lg border bg-card"
+        >
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-4 w-48" />
+            <Skeleton className="h-6 w-20 rounded-full" />
+          </div>
+          <Skeleton className="h-9 w-[120px]" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function TimeOffRequestList({ userId, showActions = true }: TimeOffRequestListProps) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [cancelRequestId, setCancelRequestId] = useState<number | null>(null);
+
+  const { mutate: cancelRequest, isPending: isCancelling } = useMutation({
+    mutationFn: async (requestId: number) => {
+      const res = await fetch(`/api/time-off-requests/${requestId}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) {
+        const error = await res.text();
+        throw new Error(error || "Failed to cancel time-off request");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/time-off-requests"] });
+      toast({
+        title: "Success",
+        description: "Time-off request cancelled successfully",
+      });
+      setCancelRequestId(null);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "approved":
+        return "text-green-600 bg-green-50 border-green-200";
+      case "rejected":
+        return "text-red-600 bg-red-50 border-red-200";
+      default:
+        return "text-yellow-600 bg-yellow-50 border-yellow-200";
+    }
+  };
+
+  const { data: requests = [], isLoading } = useQuery<TimeOffRequest[]>({
+    queryKey: ["/api/time-off-requests", userId],
+    queryFn: async ({ queryKey }) => {
+      const [_, userId] = queryKey;
+      const url = new URL("/api/time-off-requests", window.location.origin);
+      if (userId) {
+        url.searchParams.append("userId", userId.toString());
+      }
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Failed to fetch time-off requests");
+      return res.json();
+    },
+  });
+
+  if (isLoading) {
+    return <TimeOffRequestSkeleton />;
+  }
+
+  if (requests.length === 0) {
+    return (
+      <div className="text-center py-8 bg-muted/20 rounded-lg">
+        <p className="text-muted-foreground">No time-off requests found</p>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="space-y-4">
+        {requests.map((request) => {
+          const user = USERS.find((u) => u.id === request.userId);
+          const canCancel = showActions && (request.status === "pending" || request.status === "approved");
+
+          return (
+            <div
+              key={request.id}
+              className="flex items-center justify-between p-4 rounded-lg border bg-card"
+            >
+              <div className="space-y-1">
+                {!userId && (
+                  <p className="font-medium">{user?.name}</p>
+                )}
+                <p className="text-sm text-muted-foreground">
+                  {format(new Date(request.startDate), "MMM d, yyyy")} -{" "}
+                  {format(new Date(request.endDate), "MMM d, yyyy")}
+                </p>
+                <span
+                  className={cn(
+                    "inline-flex items-center px-2 py-1 rounded-full text-xs font-medium",
+                    getStatusColor(request.status)
+                  )}
+                >
+                  {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+                </span>
+                {request.status === 'rejected' && request.reason && (
+                  <p className="text-sm text-red-600 mt-1">
+                    Reason: {request.reason}
+                  </p>
+                )}
+              </div>
+              {canCancel && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setCancelRequestId(request.id)}
+                  disabled={isCancelling}
+                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                >
+                  <X className="h-4 w-4 mr-1" />
+                  Cancel Request
+                </Button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <Dialog open={cancelRequestId !== null} onOpenChange={() => setCancelRequestId(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cancel Time-off Request</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Are you sure you want to cancel this time-off request? This action cannot be undone.
+          </p>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button
+              variant="outline"
+              onClick={() => setCancelRequestId(null)}
+              disabled={isCancelling}
+            >
+              Keep Request
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (cancelRequestId) cancelRequest(cancelRequestId);
+              }}
+              disabled={isCancelling}
+            >
+              {isCancelling ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Cancelling...
+                </>
+              ) : (
+                "Yes, Cancel Request"
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
 export function TimeOffRequests() {
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<number | undefined>(undefined);
+  // Use the first user as a temporary placeholder until auth is implemented
+  const defaultUserId = USERS[0]?.id;
 
   return (
     <div className="min-h-screen bg-background">
@@ -45,13 +229,14 @@ export function TimeOffRequests() {
               <DialogTitle>Request Time Off</DialogTitle>
             </DialogHeader>
             <TimeOffRequestForm
+              userId={defaultUserId}
               onSuccess={() => setDialogOpen(false)}
               onCancel={() => setDialogOpen(false)}
             />
           </DialogContent>
         </Dialog>
 
-        {/* Placeholder for the rest of the component */}
+        <TimeOffRequestList userId={defaultUserId} />
       </div>
     </div>
   );

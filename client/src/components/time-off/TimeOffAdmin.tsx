@@ -161,7 +161,7 @@ export function TimeOffAdmin() {
                 });
               }}
               onCancel={() => setCreateDialogOpen(false)}
-              showUserSelect
+              isAdmin={true}
             />
           </DialogContent>
         </Dialog>
@@ -291,7 +291,7 @@ export function TimeOffAdmin() {
             <Button variant="outline" onClick={() => setSelectedRequest(null)}>
               Cancel
             </Button>
-            <Button 
+            <Button
               variant="destructive"
               onClick={handleReject}
               disabled={isPending}

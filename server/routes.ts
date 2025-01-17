@@ -220,5 +220,91 @@ export function registerRoutes(app: express.Application) {
     }
   });
 
+  // Update shift
+  app.put("/api/shifts/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { startDate, endDate } = req.body;
+
+      // Get the shift and user for notification
+      const oldShift = await db.query.shifts.findFirst({
+        where: eq(shifts.id, parseInt(id)),
+        with: {
+          user: true
+        }
+      });
+
+      if (!oldShift) {
+        return res.status(404).json({ message: "Shift not found" });
+      }
+
+      const [updated] = await db.update(shifts)
+        .set({
+          startDate,
+          endDate,
+          updatedAt: new Date()
+        })
+        .where(eq(shifts.id, parseInt(id)))
+        .returning();
+
+      if (oldShift.user) {
+        broadcast(notify.shiftUpdated(updated, {
+          name: oldShift.user.name,
+          title: oldShift.user.title
+        }));
+      }
+
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Request shift swap
+  app.post("/api/shifts/:id/swap-request", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { targetUserId } = req.body;
+
+      const shift = await db.query.shifts.findFirst({
+        where: eq(shifts.id, parseInt(id)),
+        with: {
+          user: true
+        }
+      });
+
+      if (!shift) {
+        return res.status(404).json({ message: "Shift not found" });
+      }
+
+      const targetUser = await db.query.users.findFirst({
+        where: eq(users.id, targetUserId)
+      });
+
+      if (!targetUser) {
+        return res.status(404).json({ message: "Target user not found" });
+      }
+
+      // Here you would create a swap request record
+      // For now, we'll just broadcast the request
+      if (shift.user) {
+        broadcast(notify.swapRequested(shift, {
+          requestor: {
+            name: shift.user.name,
+            title: shift.user.title
+          },
+          target: {
+            name: targetUser.name,
+            title: targetUser.title
+          }
+        }));
+      }
+
+      res.json({ message: "Swap request sent" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   return server;
 }

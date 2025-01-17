@@ -5,16 +5,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
+import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { USERS } from "@/lib/constants";
-import type { Shift } from "@/lib/types";
+import type { Shift, User } from "@/lib/types";
 import { ShiftDialog } from "./ShiftDialog";
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import multiMonthPlugin from '@fullcalendar/multimonth';
-import interactionPlugin from '@fullcalendar/interaction';
+import interactionPlugin, { DateClickArg, EventResizeDoneArg, EventDropArg } from '@fullcalendar/interaction';
 import listPlugin from '@fullcalendar/list';
+import { useQuery } from "@tanstack/react-query";
 
 type CalendarView = 'dayGridWeek' | 'dayGridMonth' | 'multiMonth' | 'listWeek';
 
@@ -29,27 +30,101 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedDates, setSelectedDates] = useState<{ start: Date; end: Date }>();
   const [miniCalendarOpen, setMiniCalendarOpen] = useState(false);
-
-  const calendarRef = useRef<FullCalendar>(null);
+  const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  const calendarRef = useRef<FullCalendar>(null);
+
+  // Fetch users for shift assignment
+  const { data: users = [] } = useQuery<User[]>({
+    queryKey: ["/api/users"],
+  });
+
   const getUserColor = (userId: number) => {
-    return USERS.find(u => u.id === userId)?.color || "hsl(0, 0%, 50%)";
+    const user = users.find(u => u.id === userId);
+    return user?.color || "hsl(0, 0%, 50%)";
   };
+
+  // Update shift mutation
+  const updateShiftMutation = useMutation({
+    mutationFn: async (data: { id: number; startDate: string; endDate: string }) => {
+      const res = await fetch(`/api/shifts/${data.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error('Failed to update shift');
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/shifts'] });
+      toast({
+        title: 'Success',
+        description: 'Shift updated successfully',
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
 
   const calendarEvents = useMemo(() =>
     initialShifts.map(shift => ({
       id: shift.id.toString(),
-      title: USERS.find(u => u.id === shift.userId)?.name || 'Unknown',
+      title: users.find(u => u.id === shift.userId)?.name || 'Unknown',
       start: shift.startDate,
       end: shift.endDate,
       backgroundColor: getUserColor(shift.userId),
       borderColor: getUserColor(shift.userId),
       textColor: 'white',
       extendedProps: { shift },
+      editable: true,
+      durationEditable: true,
     })),
-    [initialShifts]
+    [initialShifts, users]
   );
+
+  const handleEventDrop = async (dropInfo: EventDropArg) => {
+    const shiftId = parseInt(dropInfo.event.id);
+    const startDate = dropInfo.event.startStr;
+    const endDate = dropInfo.event.endStr;
+
+    try {
+      await updateShiftMutation.mutateAsync({
+        id: shiftId,
+        startDate,
+        endDate,
+      });
+    } catch (error) {
+      dropInfo.revert();
+    }
+  };
+
+  const handleEventResize = async (resizeInfo: EventResizeDoneArg) => {
+    const shiftId = parseInt(resizeInfo.event.id);
+    const startDate = resizeInfo.event.startStr;
+    const endDate = resizeInfo.event.endStr;
+
+    try {
+      await updateShiftMutation.mutateAsync({
+        id: shiftId,
+        startDate,
+        endDate,
+      });
+    } catch (error) {
+      resizeInfo.revert();
+    }
+  };
+
+  const handleEventClick = (clickInfo: any) => {
+    const shift = clickInfo.event.extendedProps.shift;
+    // Open shift swap dialog or handle shift details
+    // This will be implemented in the next iteration
+  };
 
   const handleNext = () => {
     const calendar = calendarRef.current;
@@ -183,6 +258,13 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
             firstDay={0}
             dayMaxEvents={3}
             navLinks={true}
+            editable={true}
+            droppable={true}
+            eventDurationEditable={true}
+            eventResizableFromStart={true}
+            eventDrop={handleEventDrop}
+            eventResize={handleEventResize}
+            eventClick={handleEventClick}
             eventContent={(eventInfo) => (
               <div className="p-1 select-none truncate">
                 {eventInfo.event.title}

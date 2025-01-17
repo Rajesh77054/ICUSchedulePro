@@ -33,7 +33,88 @@ export function TimeOffAdmin() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Existing code for fetching and managing requests remains unchanged
+  const { data: requests = [], isLoading } = useQuery<TimeOffRequest[]>({
+    queryKey: ["/api/time-off-requests", selectedUser],
+    queryFn: async ({ queryKey }) => {
+      const [_, userId] = queryKey;
+      const url = new URL("/api/time-off-requests", window.location.origin);
+      if (userId && userId !== 'all') {
+        url.searchParams.append("userId", userId);
+      }
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Failed to fetch time-off requests");
+      return res.json();
+    },
+  });
+
+  const { mutate: updateRequestStatus, isPending } = useMutation({
+    mutationFn: async ({ id, status, reason }: { id: number; status: 'approved' | 'rejected'; reason?: string }) => {
+      const res = await fetch(`/api/time-off-requests/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status, reason }),
+      });
+      if (!res.ok) throw new Error("Failed to update request status");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/time-off-requests"] });
+      toast({
+        title: "Success",
+        description: "Request status updated successfully",
+      });
+      setSelectedRequest(null);
+      setRejectionReason("");
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleReject = () => {
+    if (!selectedRequest) return;
+
+    if (!rejectionReason.trim()) {
+      toast({
+        title: "Error",
+        description: "Please provide a reason for rejection",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    updateRequestStatus({
+      id: selectedRequest.id,
+      status: 'rejected',
+      reason: rejectionReason.trim(),
+    });
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "approved":
+        return "text-green-600 bg-green-50 border-green-200";
+      case "rejected":
+        return "text-red-600 bg-red-50 border-red-200";
+      default:
+        return "text-yellow-600 bg-yellow-50 border-yellow-200";
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  const pendingRequests = requests.filter(req => req.status === 'pending');
+  const otherRequests = requests.filter(req => req.status !== 'pending');
 
   return (
     <div className="min-h-screen bg-background">
@@ -85,8 +166,148 @@ export function TimeOffAdmin() {
           </DialogContent>
         </Dialog>
 
-        {/* Rest of the component remains unchanged */}
+        <div className="space-y-6">
+          {/* Pending Requests Section */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-medium">Pending Requests</h3>
+            {pendingRequests.length === 0 ? (
+              <div className="text-center py-8 bg-muted/20 rounded-lg">
+                <p className="text-muted-foreground">No pending requests</p>
+              </div>
+            ) : (
+              <div className="grid gap-4">
+                {pendingRequests.map((request) => {
+                  const user = USERS.find((u) => u.id === request.userId);
+                  return (
+                    <div
+                      key={request.id}
+                      className="flex items-center justify-between p-4 rounded-lg border bg-card"
+                    >
+                      <div className="space-y-1">
+                        <p className="font-medium">{user?.name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {format(new Date(request.startDate), "MMM d, yyyy")} -{" "}
+                          {format(new Date(request.endDate), "MMM d, yyyy")}
+                        </p>
+                        <span
+                          className={cn(
+                            "inline-flex items-center px-2 py-1 rounded-full text-xs font-medium",
+                            getStatusColor(request.status)
+                          )}
+                        >
+                          Pending
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-green-600 hover:text-green-700"
+                          onClick={() => updateRequestStatus({ id: request.id, status: 'approved' })}
+                          disabled={isPending}
+                        >
+                          <Check className="h-4 w-4 mr-1" />
+                          Approve
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-red-600 hover:text-red-700"
+                          onClick={() => setSelectedRequest(request)}
+                          disabled={isPending}
+                        >
+                          <X className="h-4 w-4 mr-1" />
+                          Reject
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Past Requests Section */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-medium">Past Requests</h3>
+            {otherRequests.length === 0 ? (
+              <div className="text-center py-8 bg-muted/20 rounded-lg">
+                <p className="text-muted-foreground">No past requests</p>
+              </div>
+            ) : (
+              <div className="grid gap-4">
+                {otherRequests.map((request) => {
+                  const user = USERS.find((u) => u.id === request.userId);
+                  return (
+                    <div
+                      key={request.id}
+                      className="flex items-center justify-between p-4 rounded-lg border bg-card"
+                    >
+                      <div className="space-y-1">
+                        <p className="font-medium">{user?.name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {format(new Date(request.startDate), "MMM d, yyyy")} -{" "}
+                          {format(new Date(request.endDate), "MMM d, yyyy")}
+                        </p>
+                        <span
+                          className={cn(
+                            "inline-flex items-center px-2 py-1 rounded-full text-xs font-medium",
+                            getStatusColor(request.status)
+                          )}
+                        >
+                          {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+                        </span>
+                        {request.status === 'rejected' && request.reason && (
+                          <p className="text-sm text-red-600 mt-1">
+                            Reason: {request.reason}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
+
+      {/* Rejection Reason Dialog */}
+      <Dialog open={!!selectedRequest} onOpenChange={() => setSelectedRequest(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reject Time Off Request</DialogTitle>
+            <DialogDescription>
+              Please provide a reason for rejecting this time off request.
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            placeholder="Enter rejection reason..."
+            value={rejectionReason}
+            onChange={(e) => setRejectionReason(e.target.value)}
+            className="min-h-[100px]"
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSelectedRequest(null)}>
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive"
+              onClick={handleReject}
+              disabled={isPending}
+            >
+              {isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Rejecting...
+                </>
+              ) : (
+                "Reject Request"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

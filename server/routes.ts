@@ -1,7 +1,7 @@
 import express from 'express';
 import { Server } from 'http';
 import { db } from '../db';
-import { users, shifts, userPreferences } from '@db/schema';
+import { users, shifts, userPreferences, timeOffRequests, swapRequests } from '@db/schema';
 import { and, eq, sql } from 'drizzle-orm';
 import { setupWebSocket, notify } from './websocket';
 
@@ -23,6 +23,17 @@ export function registerRoutes(app: express.Application) {
   app.get("/api/user-preferences/:userId", async (req, res) => {
     try {
       const { userId } = req.params;
+
+      // First check if the user exists
+      const user = await db.query.users.findFirst({
+        where: eq(users.id, parseInt(userId))
+      });
+
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Try to find existing preferences
       const preferences = await db.query.userPreferences.findFirst({
         where: eq(userPreferences.userId, parseInt(userId)),
       });
@@ -39,11 +50,38 @@ export function registerRoutes(app: express.Application) {
             avoidedDaysOfWeek: [],
           })
           .returning();
-        return res.json(newPreferences);
+
+        return res.json({
+          ...newPreferences,
+          defaultView: 'dayGridMonth',
+          defaultCalendarDuration: 'month',
+          notificationPreferences: {
+            emailNotifications: true,
+            inAppNotifications: true,
+            notifyOnNewShifts: true,
+            notifyOnSwapRequests: true,
+            notifyOnTimeOffUpdates: true,
+            notifyBeforeShift: 24,
+          }
+        });
       }
 
-      res.json(preferences);
+      // Return existing preferences with additional UI preferences
+      res.json({
+        ...preferences,
+        defaultView: 'dayGridMonth',
+        defaultCalendarDuration: 'month',
+        notificationPreferences: {
+          emailNotifications: true,
+          inAppNotifications: true,
+          notifyOnNewShifts: true,
+          notifyOnSwapRequests: true,
+          notifyOnTimeOffUpdates: true,
+          notifyBeforeShift: 24,
+        }
+      });
     } catch (error: any) {
+      console.error('Error fetching user preferences:', error);
       res.status(500).json({ message: error.message });
     }
   });
@@ -54,6 +92,16 @@ export function registerRoutes(app: express.Application) {
       const { userId } = req.params;
       const updates = req.body;
 
+      // First check if the user exists
+      const user = await db.query.users.findFirst({
+        where: eq(users.id, parseInt(userId))
+      });
+
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Try to update existing preferences
       const [updated] = await db.update(userPreferences)
         .set({
           ...updates,
@@ -63,11 +111,20 @@ export function registerRoutes(app: express.Application) {
         .returning();
 
       if (!updated) {
-        return res.status(404).json({ message: "Preferences not found" });
+        // If no preferences exist, create them
+        const [newPreferences] = await db.insert(userPreferences)
+          .values({
+            userId: parseInt(userId),
+            ...updates,
+          })
+          .returning();
+
+        return res.json(newPreferences);
       }
 
       res.json(updated);
     } catch (error: any) {
+      console.error('Error updating user preferences:', error);
       res.status(500).json({ message: error.message });
     }
   });

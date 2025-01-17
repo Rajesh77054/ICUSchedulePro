@@ -14,9 +14,12 @@ import { ShiftActionsDialog } from "./ShiftActionsDialog";
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import multiMonthPlugin from '@fullcalendar/multimonth';
-import interactionPlugin from '@fullcalendar/interaction';
+import interactionPlugin, { 
+  EventClickArg,
+  EventDropArg,
+  EventResizeDoneArg 
+} from '@fullcalendar/interaction';
 import listPlugin from '@fullcalendar/list';
-import type { EventClickArg, EventResizeDoneArg } from '@fullcalendar/interaction';
 import { useQuery } from "@tanstack/react-query";
 
 type CalendarView = 'dayGridWeek' | 'dayGridMonth' | 'multiMonth' | 'listWeek';

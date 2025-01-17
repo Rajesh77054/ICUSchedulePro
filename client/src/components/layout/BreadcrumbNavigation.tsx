@@ -17,12 +17,15 @@ import { Info } from "lucide-react";
 
 // Map routes to breadcrumb items with tooltips
 const routeMap: Record<string, { title: string; parent?: string; tooltip?: string }> = {
-  "/": { title: "Schedule" },
-  "/provider": { title: "Provider Schedule", parent: "/", tooltip: "View and manage your personal schedule" },
-  "/swap-requests": { title: "Shift Swaps", parent: "/", tooltip: "Request and manage shift swaps with other providers" },
+  "/": { title: "Dashboard", tooltip: "Overview of scheduling system" },
+  "/schedule": { title: "Schedule", parent: "/", tooltip: "View and manage the main schedule" },
+  "/my-schedule": { title: "My Schedule", parent: "/", tooltip: "View and manage your personal schedule" },
+  "/swap-requests": { title: "Shift Swaps", parent: "/", tooltip: "Request and manage shift swaps" },
   "/time-off": { title: "Time Off", parent: "/", tooltip: "Submit and track time-off requests" },
-  "/time-off/admin": { title: "Time Off Admin", parent: "/time-off", tooltip: "Review and manage time-off requests" },
-  "/preferences": { title: "Preferences", parent: "/", tooltip: "Set your scheduling preferences and notifications" },
+  "/admin": { title: "Administration", parent: "/", tooltip: "Administrative functions" },
+  "/admin/users": { title: "User Management", parent: "/admin", tooltip: "Manage users and roles" },
+  "/admin/time-off": { title: "Time Off Admin", parent: "/admin", tooltip: "Review and manage time-off requests" },
+  "/admin/settings": { title: "System Settings", parent: "/admin", tooltip: "Configure system-wide settings" },
 };
 
 export function BreadcrumbNavigation() {
@@ -75,7 +78,7 @@ export function BreadcrumbNavigation() {
             ) : (
               <>
                 <BreadcrumbLink href={item.path}>{item.title}</BreadcrumbLink>
-                {index < breadcrumbs.length - 1 && <BreadcrumbSeparator />}
+                <BreadcrumbSeparator />
               </>
             )}
           </BreadcrumbItem>

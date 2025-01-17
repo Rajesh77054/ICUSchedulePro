@@ -11,6 +11,9 @@ import {
   CalendarDays,
   TimerOff,
   Repeat,
+  Shield,
+  LayoutDashboard,
+  UserCog,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -69,13 +72,19 @@ function NavItem({ href, icon, label, tooltip, active }: NavItemProps) {
 export function Sidebar() {
   const [location] = useLocation();
   const [open, setOpen] = useState(false);
+  const [adminOpen, setAdminOpen] = useState(true);
   const [schedulingOpen, setSchedulingOpen] = useState(true);
-  const [timeManagementOpen, setTimeManagementOpen] = useState(true);
 
   const navigation = {
     main: [
       {
         href: "/",
+        icon: <LayoutDashboard className="h-4 w-4" />,
+        label: "Dashboard",
+        tooltip: "View overall scheduling dashboard",
+      },
+      {
+        href: "/schedule",
         icon: <Calendar className="h-4 w-4" />,
         label: "Schedule",
         tooltip: "View and manage the main schedule",
@@ -83,30 +92,42 @@ export function Sidebar() {
     ],
     scheduling: [
       {
-        href: "/provider/1",
+        href: "/my-schedule",
         icon: <CalendarDays className="h-4 w-4" />,
-        label: "Personal Schedule",
+        label: "My Schedule",
         tooltip: "View and manage your personal schedule",
       },
       {
         href: "/swap-requests",
         icon: <Repeat className="h-4 w-4" />,
         label: "Shift Swaps",
-        tooltip: "Request and manage shift swaps with other providers",
+        tooltip: "Request and manage shift swaps",
       },
-    ],
-    timeManagement: [
       {
         href: "/time-off",
         icon: <TimerOff className="h-4 w-4" />,
         label: "Time Off",
         tooltip: "Submit and track time-off requests",
       },
+    ],
+    admin: [
       {
-        href: "/time-off/admin",
+        href: "/admin/users",
+        icon: <UserCog className="h-4 w-4" />,
+        label: "User Management",
+        tooltip: "Manage users and roles",
+      },
+      {
+        href: "/admin/time-off",
         icon: <Clock className="h-4 w-4" />,
         label: "Time Off Admin",
-        tooltip: "Review and manage time-off requests",
+        tooltip: "Review time-off requests",
+      },
+      {
+        href: "/admin/settings",
+        icon: <Settings className="h-4 w-4" />,
+        label: "System Settings",
+        tooltip: "Configure system-wide settings",
       },
     ],
   };
@@ -144,7 +165,7 @@ export function Sidebar() {
               >
                 <span className="flex items-center gap-2">
                   <Users className="h-4 w-4" />
-                  Scheduling
+                  Personal
                 </span>
                 <ChevronDown
                   className={cn(
@@ -166,31 +187,31 @@ export function Sidebar() {
           </Collapsible>
 
           <Collapsible
-            open={timeManagementOpen}
-            onOpenChange={setTimeManagementOpen}
+            open={adminOpen}
+            onOpenChange={setAdminOpen}
           >
             <CollapsibleTrigger asChild>
               <Button
                 variant="ghost"
                 className={cn(
                   "w-full justify-between",
-                  timeManagementOpen && "bg-accent/50"
+                  adminOpen && "bg-accent/50"
                 )}
               >
                 <span className="flex items-center gap-2">
-                  <Clock className="h-4 w-4" />
-                  Time Management
+                  <Shield className="h-4 w-4" />
+                  Administration
                 </span>
                 <ChevronDown
                   className={cn(
                     "h-4 w-4 transition-transform duration-200",
-                    timeManagementOpen && "rotate-180"
+                    adminOpen && "rotate-180"
                   )}
                 />
               </Button>
             </CollapsibleTrigger>
             <CollapsibleContent className="space-y-1">
-              {navigation.timeManagement.map((item) => (
+              {navigation.admin.map((item) => (
                 <NavItem
                   key={item.href}
                   {...item}
@@ -200,16 +221,6 @@ export function Sidebar() {
             </CollapsibleContent>
           </Collapsible>
         </div>
-      </div>
-
-      <div className="mt-auto px-2 py-2">
-        <NavItem
-          href="/preferences"
-          icon={<Settings className="h-4 w-4" />}
-          label="Settings"
-          tooltip="Configure application settings and preferences"
-          active={location === "/preferences"}
-        />
       </div>
     </div>
   );

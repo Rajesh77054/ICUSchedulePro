@@ -25,11 +25,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { UserPlus, Trash2, Edit } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -37,11 +38,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { UserPlus, Trash2, Edit } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { PreferencesForm } from "@/components/scheduler/PreferencesForm";
 
 export function UserManagement() {
   const [selectedUser, setSelectedUser] = useState<number | null>(null);
   const [userDialogOpen, setUserDialogOpen] = useState(false);
   const [deleteUserDialogOpen, setDeleteUserDialogOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState("details");
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -142,11 +150,12 @@ export function UserManagement() {
             <div>
               <CardTitle>User Management</CardTitle>
               <CardDescription>
-                Manage healthcare providers and their roles
+                Manage healthcare providers, their roles, and preferences
               </CardDescription>
             </div>
             <Button onClick={() => {
               setSelectedUser(null);
+              setActiveTab("details");
               setUserDialogOpen(true);
             }}>
               <UserPlus className="h-4 w-4 mr-2" />
@@ -179,6 +188,7 @@ export function UserManagement() {
                     size="icon"
                     onClick={() => {
                       setSelectedUser(user.id);
+                      setActiveTab("details");
                       setUserDialogOpen(true);
                     }}
                   >
@@ -204,111 +214,130 @@ export function UserManagement() {
 
       {/* Add/Edit User Dialog */}
       <Dialog open={userDialogOpen} onOpenChange={setUserDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>{selectedUser ? "Edit" : "Add"} User</DialogTitle>
             <DialogDescription>
-              {selectedUser ? "Edit user information" : "Add a new healthcare provider"}
+              {selectedUser ? "Edit user information and preferences" : "Add a new healthcare provider"}
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleSubmit}>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="name">Name</Label>
-                <Input
-                  id="name"
-                  name="name"
-                  defaultValue={currentUser?.name}
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="title">Title</Label>
-                <Input
-                  id="title"
-                  name="title"
-                  defaultValue={currentUser?.title}
-                  placeholder="e.g., MD, DO, NP, PA"
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="userType">User Type</Label>
-                <Select
-                  name="userType"
-                  defaultValue={currentUser?.userType}
-                  required
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select user type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="physician">Physician</SelectItem>
-                    <SelectItem value="app">APP</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="targetDays">Target Days</Label>
-                <Input
-                  id="targetDays"
-                  name="targetDays"
-                  type="number"
-                  min={1}
-                  defaultValue={currentUser?.targetDays}
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="tolerance">Tolerance (days)</Label>
-                <Input
-                  id="tolerance"
-                  name="tolerance"
-                  type="number"
-                  min={0}
-                  defaultValue={currentUser?.tolerance}
-                />
-              </div>
-              <div>
-                <Label htmlFor="maxConsecutiveWeeks">Max Consecutive Weeks</Label>
-                <Input
-                  id="maxConsecutiveWeeks"
-                  name="maxConsecutiveWeeks"
-                  type="number"
-                  min={1}
-                  defaultValue={currentUser?.maxConsecutiveWeeks}
-                />
-              </div>
-              <div>
-                <Label htmlFor="color">Color</Label>
-                <Input
-                  id="color"
-                  name="color"
-                  type="color"
-                  defaultValue={currentUser?.color}
-                  required
-                />
-              </div>
-            </div>
-            <DialogFooter className="mt-6">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setUserDialogOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isSavingUser}>
-                {isSavingUser ? (
-                  <>Saving...</>
-                ) : selectedUser ? (
-                  "Save Changes"
-                ) : (
-                  "Add User"
-                )}
-              </Button>
-            </DialogFooter>
-          </form>
+
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="details">User Details</TabsTrigger>
+              <TabsTrigger value="preferences" disabled={!selectedUser}>
+                Shift Preferences
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="details">
+              <form id="userForm" onSubmit={handleSubmit}>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="name">Name</Label>
+                    <Input
+                      id="name"
+                      name="name"
+                      defaultValue={currentUser?.name}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="title">Title</Label>
+                    <Input
+                      id="title"
+                      name="title"
+                      defaultValue={currentUser?.title}
+                      placeholder="e.g., MD, DO, NP, PA"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="userType">User Type</Label>
+                    <Select
+                      name="userType"
+                      defaultValue={currentUser?.userType}
+                      required
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select user type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="physician">Physician</SelectItem>
+                        <SelectItem value="app">APP</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="targetDays">Target Days</Label>
+                    <Input
+                      id="targetDays"
+                      name="targetDays"
+                      type="number"
+                      min={1}
+                      defaultValue={currentUser?.targetDays}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="tolerance">Tolerance (days)</Label>
+                    <Input
+                      id="tolerance"
+                      name="tolerance"
+                      type="number"
+                      min={0}
+                      defaultValue={currentUser?.tolerance}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="maxConsecutiveWeeks">Max Consecutive Weeks</Label>
+                    <Input
+                      id="maxConsecutiveWeeks"
+                      name="maxConsecutiveWeeks"
+                      type="number"
+                      min={1}
+                      defaultValue={currentUser?.maxConsecutiveWeeks}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="color">Color</Label>
+                    <Input
+                      id="color"
+                      name="color"
+                      type="color"
+                      defaultValue={currentUser?.color}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <DialogFooter className="mt-6">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setUserDialogOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={isSavingUser}>
+                    {isSavingUser ? (
+                      <>Saving...</>
+                    ) : selectedUser ? (
+                      "Save Changes"
+                    ) : (
+                      "Add User"
+                    )}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </TabsContent>
+
+            <TabsContent value="preferences">
+              {selectedUser && (
+                <PreferencesForm userId={selectedUser} />
+              )}
+            </TabsContent>
+          </Tabs>
         </DialogContent>
       </Dialog>
 

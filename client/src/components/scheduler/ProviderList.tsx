@@ -52,7 +52,7 @@ export function ProviderList({ onUserSelect, selectedUserId }: UserListProps) {
       </CardHeader>
       <CardContent className="p-0">
         <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab}>
-          <div className="px-4">
+          <div className="px-4 py-2">
             <TabsList className="w-full">
               <TabsTrigger value="all" className="flex-1">All</TabsTrigger>
               <TabsTrigger value="physicians" className="flex-1">Physicians</TabsTrigger>
@@ -98,7 +98,7 @@ function UserList({ users, selectedUserId, onSelect, getUserStats }: {
   getUserStats: (userId: number) => number;
 }) {
   return (
-    <div className="space-y-2 p-4">
+    <div className="divide-y divide-border">
       {users.map((user) => {
         const days = getUserStats(user.id);
         const progress = Math.min((days / user.targetDays) * 100, 100);
@@ -107,32 +107,38 @@ function UserList({ users, selectedUserId, onSelect, getUserStats }: {
           <button
             key={user.id}
             onClick={() => onSelect?.(user)}
-            className={`w-full flex flex-col gap-3 p-4 rounded-lg hover:bg-accent transition-colors ${
+            className={`w-full p-4 hover:bg-accent transition-colors ${
               selectedUserId === user.id ? "bg-accent" : ""
             }`}
           >
-            <div className="flex items-center gap-3">
-              <div
-                className="w-4 h-4 rounded-full flex-shrink-0"
-                style={{ backgroundColor: user.color }}
-              />
-              <div className="flex-1 text-left">
-                <div className="font-medium text-base">{user.name}</div>
-                <div className="text-sm text-muted-foreground">{user.title}</div>
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center gap-3">
+                <div
+                  className="w-4 h-4 rounded-full flex-shrink-0"
+                  style={{ backgroundColor: user.color }}
+                />
+                <div className="flex-1 text-left">
+                  <div className="font-medium text-base">{user.name}</div>
+                  <div className="text-sm text-muted-foreground">{user.title}</div>
+                </div>
               </div>
-            </div>
-            <div className="w-full space-y-2">
-              <div className="text-sm font-medium">
-                {days}/{user.targetDays} days completed
+
+              <div className="space-y-2 w-full">
+                <div className="flex justify-between text-sm">
+                  <span className="font-medium">Progress</span>
+                  <span className="text-muted-foreground">
+                    {days}/{user.targetDays} days
+                  </span>
+                </div>
+                <Progress
+                  value={progress}
+                  className="h-2 w-full"
+                  style={{
+                    backgroundColor: `${user.color}20`,
+                    "--progress-background": user.color,
+                  } as any}
+                />
               </div>
-              <Progress
-                value={progress}
-                className="h-3 w-full"
-                style={{
-                  backgroundColor: `${user.color}20`,
-                  "--progress-background": user.color,
-                } as any}
-              />
             </div>
           </button>
         );

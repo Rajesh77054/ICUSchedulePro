@@ -397,5 +397,138 @@ export function registerRoutes(app: express.Application) {
     }
   });
 
+  // Time Off Request Routes
+  app.get("/api/time-off-requests", async (req, res) => {
+    try {
+      const { userId } = req.query;
+      let query = db.query.timeOffRequests.findMany({
+        with: {
+          user: true
+        },
+        orderBy: (timeOffRequests, { desc }) => [desc(timeOffRequests.createdAt)]
+      });
+
+      if (userId) {
+        query = db.query.timeOffRequests.findMany({
+          where: eq(timeOffRequests.userId, parseInt(userId as string)),
+          with: {
+            user: true
+          },
+          orderBy: (timeOffRequests, { desc }) => [desc(timeOffRequests.createdAt)]
+        });
+      }
+
+      const results = await query;
+      res.json(results);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/time-off-requests", async (req, res) => {
+    try {
+      const { userId, startDate, endDate } = req.body;
+
+      // Validate user exists
+      const user = await db.query.users.findFirst({
+        where: eq(users.id, userId)
+      });
+
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const [request] = await db.insert(timeOffRequests)
+        .values({
+          userId,
+          startDate,
+          endDate,
+          status: 'pending'
+        })
+        .returning();
+
+      // Send notification
+      broadcast(notify.timeOffRequested(request, {
+        name: user.name,
+        title: user.title
+      }));
+
+      res.json(request);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/time-off-requests/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { status, reason } = req.body;
+
+      // Validate request exists
+      const existingRequest = await db.query.timeOffRequests.findFirst({
+        where: eq(timeOffRequests.id, parseInt(id)),
+        with: {
+          user: true
+        }
+      });
+
+      if (!existingRequest) {
+        return res.status(404).json({ message: "Time off request not found" });
+      }
+
+      const [updated] = await db.update(timeOffRequests)
+        .set({
+          status,
+          reason: reason || null
+        })
+        .where(eq(timeOffRequests.id, parseInt(id)))
+        .returning();
+
+      if (existingRequest.user) {
+        broadcast(notify.timeOffResponded(updated, {
+          name: existingRequest.user.name,
+          title: existingRequest.user.title
+        }, status as 'approved' | 'rejected'));
+      }
+
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/time-off-requests/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      // Validate request exists
+      const existingRequest = await db.query.timeOffRequests.findFirst({
+        where: eq(timeOffRequests.id, parseInt(id)),
+        with: {
+          user: true
+        }
+      });
+
+      if (!existingRequest) {
+        return res.status(404).json({ message: "Time off request not found" });
+      }
+
+      const [deleted] = await db.delete(timeOffRequests)
+        .where(eq(timeOffRequests.id, parseInt(id)))
+        .returning();
+
+      if (existingRequest.user) {
+        broadcast(notify.timeOffCancelled(deleted, {
+          name: existingRequest.user.name,
+          title: existingRequest.user.title
+        }));
+      }
+
+      res.json({ message: "Time off request cancelled successfully" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   return server;
 }

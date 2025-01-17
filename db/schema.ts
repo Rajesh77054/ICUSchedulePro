@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, timestamp, jsonb, date } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, timestamp, jsonb, date, integer as int } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { relations } from "drizzle-orm";
 
@@ -53,12 +53,35 @@ export const timeOffRequests = pgTable("time_off_requests", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const userPreferences = pgTable("user_preferences", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  preferredShiftLength: integer("preferred_shift_length").notNull().default(7),
+  maxShiftsPerWeek: integer("max_shifts_per_week").notNull().default(1),
+  minDaysBetweenShifts: integer("min_days_between_shifts").notNull().default(0),
+  preferredDaysOfWeek: int("preferred_days_of_week").array().notNull().default([]),
+  avoidedDaysOfWeek: int("avoided_days_of_week").array().notNull().default([]),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Define relations
-export const usersRelations = relations(users, ({ many }) => ({
+export const usersRelations = relations(users, ({ many, one }) => ({
   shifts: many(shifts),
   requestedSwaps: many(swapRequests, { relationName: "requestor" }),
   receivedSwaps: many(swapRequests, { relationName: "recipient" }),
   timeOffRequests: many(timeOffRequests),
+  preferences: one(userPreferences, {
+    fields: [users.id],
+    references: [userPreferences.userId],
+  }),
+}));
+
+export const userPreferencesRelations = relations(userPreferences, ({ one }) => ({
+  user: one(users, {
+    fields: [userPreferences.userId],
+    references: [users.id],
+  }),
 }));
 
 export const shiftsRelations = relations(shifts, ({ one }) => ({
@@ -80,3 +103,6 @@ export const selectSwapRequestSchema = createSelectSchema(swapRequests);
 
 export const insertTimeOffRequestSchema = createInsertSchema(timeOffRequests);
 export const selectTimeOffRequestSchema = createSelectSchema(timeOffRequests);
+
+export const insertUserPreferencesSchema = createInsertSchema(userPreferences);
+export const selectUserPreferencesSchema = createSelectSchema(userPreferences);

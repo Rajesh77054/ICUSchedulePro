@@ -1,7 +1,7 @@
 import express from 'express';
 import { Server } from 'http';
 import { db } from '../db';
-import { users, shifts } from '@db/schema';
+import { users, shifts, userPreferences } from '@db/schema';
 import { and, eq, sql } from 'drizzle-orm';
 import { setupWebSocket, notify } from './websocket';
 
@@ -14,6 +14,59 @@ export function registerRoutes(app: express.Application) {
     try {
       const result = await db.query.users.findMany();
       res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Get user preferences
+  app.get("/api/user-preferences/:userId", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const preferences = await db.query.userPreferences.findFirst({
+        where: eq(userPreferences.userId, parseInt(userId)),
+      });
+
+      if (!preferences) {
+        // Create default preferences if none exist
+        const [newPreferences] = await db.insert(userPreferences)
+          .values({
+            userId: parseInt(userId),
+            preferredShiftLength: 7,
+            maxShiftsPerWeek: 1,
+            minDaysBetweenShifts: 0,
+            preferredDaysOfWeek: [],
+            avoidedDaysOfWeek: [],
+          })
+          .returning();
+        return res.json(newPreferences);
+      }
+
+      res.json(preferences);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Update user preferences
+  app.patch("/api/user-preferences/:userId", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const updates = req.body;
+
+      const [updated] = await db.update(userPreferences)
+        .set({
+          ...updates,
+          updatedAt: new Date(),
+        })
+        .where(eq(userPreferences.userId, parseInt(userId)))
+        .returning();
+
+      if (!updated) {
+        return res.status(404).json({ message: "Preferences not found" });
+      }
+
+      res.json(updated);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }

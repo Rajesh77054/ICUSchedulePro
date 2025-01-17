@@ -10,11 +10,13 @@ import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { format } from "date-fns";
 import type { Shift, User } from "@/lib/types";
 import { ShiftDialog } from "./ShiftDialog";
+import { ShiftActionsDialog } from "./ShiftActionsDialog";
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import multiMonthPlugin from '@fullcalendar/multimonth';
-import interactionPlugin, { DateClickArg, EventResizeDoneArg, EventDropArg } from '@fullcalendar/interaction';
+import interactionPlugin from '@fullcalendar/interaction';
 import listPlugin from '@fullcalendar/list';
+import type { EventClickArg, EventResizeDoneArg } from '@fullcalendar/interaction';
 import { useQuery } from "@tanstack/react-query";
 
 type CalendarView = 'dayGridWeek' | 'dayGridMonth' | 'multiMonth' | 'listWeek';
@@ -30,6 +32,8 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedDates, setSelectedDates] = useState<{ start: Date; end: Date }>();
   const [miniCalendarOpen, setMiniCalendarOpen] = useState(false);
+  const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
+  const [shiftActionsOpen, setShiftActionsOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -120,10 +124,10 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
     }
   };
 
-  const handleEventClick = (clickInfo: any) => {
+  const handleEventClick = (clickInfo: EventClickArg) => {
     const shift = clickInfo.event.extendedProps.shift;
-    // Open shift swap dialog or handle shift details
-    // This will be implemented in the next iteration
+    setSelectedShift(shift);
+    setShiftActionsOpen(true);
   };
 
   const handleNext = () => {
@@ -311,6 +315,11 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
           endDate={selectedDates.end}
         />
       )}
+      <ShiftActionsDialog
+        shift={selectedShift}
+        open={shiftActionsOpen}
+        onOpenChange={setShiftActionsOpen}
+      />
     </Card>
   );
 }

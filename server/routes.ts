@@ -306,5 +306,39 @@ export function registerRoutes(app: express.Application) {
     }
   });
 
+  // Delete shift
+  app.delete("/api/shifts/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      // Get the shift and user for notification
+      const shift = await db.query.shifts.findFirst({
+        where: eq(shifts.id, parseInt(id)),
+        with: {
+          user: true
+        }
+      });
+
+      if (!shift) {
+        return res.status(404).json({ message: "Shift not found" });
+      }
+
+      const [deleted] = await db.delete(shifts)
+        .where(eq(shifts.id, parseInt(id)))
+        .returning();
+
+      if (shift.user) {
+        broadcast(notify.shiftDeleted(deleted, {
+          name: shift.user.name,
+          title: shift.user.title
+        }));
+      }
+
+      res.json({ message: "Shift deleted successfully" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   return server;
 }

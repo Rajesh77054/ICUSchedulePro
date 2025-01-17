@@ -226,7 +226,7 @@ export function UserManagement() {
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="details">User Details</TabsTrigger>
               <TabsTrigger value="preferences" disabled={!selectedUser}>
-                Shift Preferences
+                User Preferences
               </TabsTrigger>
             </TabsList>
 

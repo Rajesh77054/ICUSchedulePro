@@ -7,6 +7,7 @@ import { TimeOffAdmin } from "@/pages/TimeOffAdmin";
 import { Settings } from "@/pages/Settings";
 import { UserManagement } from "@/pages/admin/UserManagement";
 import { ScheduleManagement } from "@/pages/admin/ScheduleManagement";
+import { AdminLayout } from "@/pages/admin/Layout";
 import { AlertCircle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -22,14 +23,27 @@ function App() {
           <BreadcrumbNavigation />
           <main className="container mx-auto py-6">
             <Switch>
+              {/* Main routes */}
               <Route path="/" component={Dashboard} />
               <Route path="/provider/:id" component={PersonalDashboard} />
               <Route path="/swap-requests" component={SwapRequestsDashboard} />
               <Route path="/time-off" component={TimeOffRequests} />
-              <Route path="/admin/time-off" component={TimeOffAdmin} />
-              <Route path="/preferences" component={Settings} />
-              <Route path="/admin/users" component={UserManagement} />
-              <Route path="/admin/schedule" component={ScheduleManagement} />
+              <Route path="/settings/:userId" component={Settings} />
+
+              {/* Admin routes */}
+              <Route path="/admin">
+                {(params) => (
+                  <AdminLayout>
+                    <Switch>
+                      <Route path="/admin/users" component={UserManagement} />
+                      <Route path="/admin/schedule" component={ScheduleManagement} />
+                      <Route path="/admin/time-off" component={TimeOffAdmin} />
+                      <Route component={NotFound} />
+                    </Switch>
+                  </AdminLayout>
+                )}
+              </Route>
+
               <Route component={NotFound} />
             </Switch>
           </main>

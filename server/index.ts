@@ -53,29 +53,38 @@ app.use((req, res, next) => {
       serveStatic(app);
     }
 
-    const tryPort = (port: number): Promise<void> => {
-      return new Promise((resolve, reject) => {
-        server.listen(port, "0.0.0.0")
-          .once('listening', () => {
-            log(`Server started on port ${port}`);
-            resolve();
-          })
-          .once('error', (err: any) => {
-            if (err.code === 'EADDRINUSE') {
-              log(`Port ${port} is in use, trying next port...`);
-              tryPort(port + 1).then(resolve).catch(reject);
-            } else {
-              reject(err);
-            }
-          });
-      });
-    };
+    // Try ports starting from 5000
+    let port = 5000;
+    const maxRetries = 10;
 
-    try {
-      await tryPort(5000);
-    } catch (error: any) {
-      console.error('Failed to start server:', error);
-      process.exit(1);
+    for (let i = 0; i < maxRetries; i++) {
+      try {
+        await new Promise<void>((resolve, reject) => {
+          server.listen(port, "0.0.0.0")
+            .once('listening', () => {
+              log(`Server started on port ${port}`);
+              resolve();
+            })
+            .once('error', (err: any) => {
+              if (err.code === 'EADDRINUSE') {
+                port++;
+                server.close();
+                reject(new Error('Port in use'));
+              } else {
+                reject(err);
+              }
+            });
+        });
+        break; // If successful, exit the loop
+      } catch (err: any) {
+        if (i === maxRetries - 1) {
+          console.error('Failed to find an available port after', maxRetries, 'attempts');
+          process.exit(1);
+        }
+        if (err.message !== 'Port in use') {
+          throw err;
+        }
+      }
     }
   } catch (error: any) {
     console.error('Server initialization error:', error);

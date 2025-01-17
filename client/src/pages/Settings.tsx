@@ -45,6 +45,8 @@ import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { ShiftPreferences } from "./ShiftPreferences";
 import { USERS } from "@/lib/constants";
+import { useLocation } from "wouter";
+
 
 type UserFormData = {
   name: string;
@@ -66,7 +68,7 @@ export function Settings() {
   const { toast } = useToast();
 
   // Query users
-  const { data: users } = useQuery({
+  const { data: users = [] } = useQuery({
     queryKey: ["/api/users"],
   });
 
@@ -234,7 +236,44 @@ export function Settings() {
         </TabsContent>
 
         <TabsContent value="preferences">
-          <ShiftPreferences />
+          <Card>
+            <CardHeader>
+              <CardTitle>Shift Preferences</CardTitle>
+              <CardDescription>
+                Configure scheduling preferences for healthcare providers
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                <div>
+                  <Label>Select User</Label>
+                  <Select
+                    value={selectedUser?.toString()}
+                    onValueChange={(value) => setSelectedUser(value ? parseInt(value) : null)}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select a user to view preferences" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {users?.map((user) => (
+                        <SelectItem key={user.id} value={user.id.toString()}>
+                          {user.name}, {user.title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {selectedUser ? (
+                  <ShiftPreferences userId={selectedUser} />
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    Select a user to view and edit their preferences
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="admin">
@@ -454,4 +493,8 @@ export function Settings() {
       </AlertDialog>
     </div>
   );
+}
+
+function clearShifts() {
+  //Implementation to clear shifts would go here.  This is a placeholder.
 }

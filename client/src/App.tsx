@@ -5,6 +5,8 @@ import { SwapRequestsDashboard } from "@/pages/SwapRequestsDashboard";
 import { TimeOffRequests } from "@/components/scheduler/TimeOffRequests";
 import { TimeOffAdmin } from "@/pages/TimeOffAdmin";
 import { Settings } from "@/pages/Settings";
+import { UserManagement } from "@/pages/admin/UserManagement";
+import { ScheduleManagement } from "@/pages/admin/ScheduleManagement";
 import { AlertCircle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -26,6 +28,8 @@ function App() {
               <Route path="/time-off" component={TimeOffRequests} />
               <Route path="/time-off/admin" component={TimeOffAdmin} />
               <Route path="/preferences" component={Settings} />
+              <Route path="/admin/users" component={UserManagement} />
+              <Route path="/admin/schedule" component={ScheduleManagement} />
               <Route component={NotFound} />
             </Switch>
           </main>
@@ -35,6 +39,7 @@ function App() {
   );
 }
 
+// fallback 404 not found page
 function NotFound() {
   return (
     <div className="min-h-[calc(100vh-4rem)] w-full flex items-center justify-center">

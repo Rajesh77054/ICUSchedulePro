@@ -11,6 +11,9 @@ import {
   CalendarDays,
   TimerOff,
   Repeat,
+  ShieldCheck,
+  UserCog,
+  Database,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -71,6 +74,7 @@ export function Sidebar() {
   const [open, setOpen] = useState(false);
   const [schedulingOpen, setSchedulingOpen] = useState(true);
   const [timeManagementOpen, setTimeManagementOpen] = useState(true);
+  const [adminOpen, setAdminOpen] = useState(true);
 
   const navigation = {
     main: [
@@ -107,6 +111,20 @@ export function Sidebar() {
         icon: <Clock className="h-4 w-4" />,
         label: "Time Off Admin",
         tooltip: "Review and manage time-off requests",
+      },
+    ],
+    admin: [
+      {
+        href: "/admin/users",
+        icon: <UserCog className="h-4 w-4" />,
+        label: "User Management",
+        tooltip: "Manage healthcare providers and their roles",
+      },
+      {
+        href: "/admin/schedule",
+        icon: <Database className="h-4 w-4" />,
+        label: "Schedule Management",
+        tooltip: "Manage calendar data and scheduling rules",
       },
     ],
   };
@@ -199,6 +217,41 @@ export function Sidebar() {
               ))}
             </CollapsibleContent>
           </Collapsible>
+
+          <Collapsible
+            open={adminOpen}
+            onOpenChange={setAdminOpen}
+          >
+            <CollapsibleTrigger asChild>
+              <Button
+                variant="ghost"
+                className={cn(
+                  "w-full justify-between",
+                  adminOpen && "bg-accent/50"
+                )}
+              >
+                <span className="flex items-center gap-2">
+                  <ShieldCheck className="h-4 w-4" />
+                  Administration
+                </span>
+                <ChevronDown
+                  className={cn(
+                    "h-4 w-4 transition-transform duration-200",
+                    adminOpen && "rotate-180"
+                  )}
+                />
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="space-y-1">
+              {navigation.admin.map((item) => (
+                <NavItem
+                  key={item.href}
+                  {...item}
+                  active={location === item.href}
+                />
+              ))}
+            </CollapsibleContent>
+          </Collapsible>
         </div>
       </div>
 
@@ -207,7 +260,7 @@ export function Sidebar() {
           href="/preferences"
           icon={<Settings className="h-4 w-4" />}
           label="Settings"
-          tooltip="Configure application settings and preferences"
+          tooltip="Configure personal settings and preferences"
           active={location === "/preferences"}
         />
       </div>

@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { useQuery } from "@tanstack/react-query";
-import { ShiftPreferences } from "./ShiftPreferences";
+import { PreferencesForm } from "@/components/scheduler/PreferencesForm";
 import { useState } from "react";
 
 export function Settings() {
@@ -46,7 +46,7 @@ export function Settings() {
             </div>
 
             {selectedUser ? (
-              <ShiftPreferences userId={selectedUser} />
+              <PreferencesForm userId={selectedUser} />
             ) : (
               <div className="text-center py-8 text-muted-foreground">
                 Select a user to view and edit their preferences

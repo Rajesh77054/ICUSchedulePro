@@ -6,12 +6,11 @@ import { Progress } from "@/components/ui/progress";
 import { ArrowLeft, Calendar, Clock, Settings } from "lucide-react";
 import { Link } from "wouter";
 import { USERS } from "@/lib/constants";
-import type { Shift, TimeOffRequest, UserPreferences } from "@/lib/types";
+import type { Shift, TimeOffRequest } from "@/lib/types";
 import { format, isAfter, isBefore, startOfWeek, endOfWeek } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
-import { TimeOffRequestForm, TimeOffRequestList } from "@/components/scheduler/TimeOffRequests";
-import { PreferencesForm } from "@/components/scheduler/PreferencesForm";
+import { TimeOffRequestForm } from "@/components/time-off/TimeOffRequestForm";
 import {
   Dialog,
   DialogContent,
@@ -29,10 +28,7 @@ export function PersonalDashboard() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: shifts } = useQuery<Shift[]>({
-    queryKey: ["/api/shifts"],
-  });
-
+  // Query time off requests for this user
   const { data: timeOffRequests } = useQuery<TimeOffRequest[]>({
     queryKey: ["/api/time-off-requests", userId],
     queryFn: async () => {
@@ -44,8 +40,16 @@ export function PersonalDashboard() {
     },
   });
 
-  const { data: preferences } = useQuery<UserPreferences>({
-    queryKey: ["/api/user-preferences", userId],
+  // Get shifts for this user
+  const { data: shifts } = useQuery<Shift[]>({
+    queryKey: ["/api/shifts", userId],
+    queryFn: async () => {
+      const url = new URL("/api/shifts", window.location.origin);
+      url.searchParams.append("userId", userId.toString());
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Failed to fetch shifts");
+      return res.json();
+    },
   });
 
   if (!user) {
@@ -66,10 +70,11 @@ export function PersonalDashboard() {
     );
   }
 
-  const userShifts = shifts?.filter(s => s.userId === userId) || [];
-  const activeShifts = userShifts.filter(s => s.status !== 'archived');
+  const userShifts = shifts || [];
+  const activeTimeOffRequests = timeOffRequests?.filter(req => req.status === 'pending') || [];
+  const pastTimeOffRequests = timeOffRequests?.filter(req => req.status !== 'pending') || [];
 
-  const totalDays = activeShifts.reduce((acc, shift) => {
+  const totalDays = userShifts.reduce((acc, shift) => {
     const start = new Date(shift.startDate);
     const end = new Date(shift.endDate);
     const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
@@ -77,44 +82,6 @@ export function PersonalDashboard() {
   }, 0);
 
   const progress = Math.min((totalDays / user.targetDays) * 100, 100);
-
-  const thisWeekStart = startOfWeek(new Date());
-  const thisWeekEnd = endOfWeek(new Date());
-  const thisWeekShifts = activeShifts.filter(shift =>
-    isAfter(new Date(shift.endDate), thisWeekStart) &&
-    isBefore(new Date(shift.startDate), thisWeekEnd)
-  );
-
-  const upcomingShifts = activeShifts
-    .filter(shift => isAfter(new Date(shift.endDate), new Date()))
-    .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
-    .slice(0, 5);
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'pending':
-        return (
-          <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
-            <Clock className="w-3 h-3 mr-1" />
-            Pending
-          </Badge>
-        );
-      case 'approved':
-        return (
-          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-            Approved
-          </Badge>
-        );
-      case 'rejected':
-        return (
-          <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
-            Rejected
-          </Badge>
-        );
-      default:
-        return null;
-    }
-  };
 
   return (
     <div className="container mx-auto py-6 space-y-6">
@@ -126,9 +93,8 @@ export function PersonalDashboard() {
           <p className="text-muted-foreground">Personal Schedule Dashboard</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => setShowPreferences(true)}>
-            <Settings className="mr-2 h-4 w-4" />
-            Preferences
+          <Button onClick={() => setShowTimeOffForm(true)}>
+            Request Time Off
           </Button>
           <Link href="/">
             <Button variant="outline">
@@ -139,17 +105,108 @@ export function PersonalDashboard() {
         </div>
       </div>
 
-      <Dialog open={showPreferences} onOpenChange={setShowPreferences}>
-        <DialogContent className="max-w-2xl">
+      {/* Time Off Request Dialog */}
+      <Dialog open={showTimeOffForm} onOpenChange={setShowTimeOffForm}>
+        <DialogContent>
           <DialogHeader>
-            <DialogTitle>Preferences</DialogTitle>
+            <DialogTitle>Request Time Off</DialogTitle>
           </DialogHeader>
-          <PreferencesForm userId={userId} />
+          <TimeOffRequestForm
+            userId={userId}
+            onSuccess={() => {
+              setShowTimeOffForm(false);
+              queryClient.invalidateQueries({ queryKey: ["/api/time-off-requests"] });
+              toast({
+                title: "Success",
+                description: "Time off request submitted successfully",
+              });
+            }}
+            onCancel={() => setShowTimeOffForm(false)}
+          />
         </DialogContent>
       </Dialog>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Active Time Off Requests */}
         <Card>
+          <CardHeader>
+            <CardTitle>Pending Time Off Requests</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {activeTimeOffRequests.length === 0 ? (
+              <p className="text-muted-foreground">No pending time off requests</p>
+            ) : (
+              <div className="space-y-4">
+                {activeTimeOffRequests.map((request) => (
+                  <div
+                    key={request.id}
+                    className="p-4 rounded-lg border bg-card"
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="font-medium">
+                          {format(new Date(request.startDate), "MMM d, yyyy")} -{" "}
+                          {format(new Date(request.endDate), "MMM d, yyyy")}
+                        </p>
+                        <Badge variant="outline" className="mt-2">
+                          <Clock className="w-3 h-3 mr-1" />
+                          Pending
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Past Time Off Requests */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Past Time Off Requests</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {pastTimeOffRequests.length === 0 ? (
+              <p className="text-muted-foreground">No past time off requests</p>
+            ) : (
+              <div className="space-y-4">
+                {pastTimeOffRequests.map((request) => (
+                  <div
+                    key={request.id}
+                    className="p-4 rounded-lg border bg-card"
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="font-medium">
+                          {format(new Date(request.startDate), "MMM d, yyyy")} -{" "}
+                          {format(new Date(request.endDate), "MMM d, yyyy")}
+                        </p>
+                        <Badge 
+                          variant="outline" 
+                          className={
+                            request.status === 'approved' 
+                              ? "bg-green-50 text-green-700 border-green-200"
+                              : "bg-red-50 text-red-700 border-red-200"
+                          }
+                        >
+                          {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+                        </Badge>
+                        {request.reason && (
+                          <p className="text-sm text-muted-foreground mt-2">
+                            {request.reason}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+      <Card className="md:col-span-2">
           <CardHeader>
             <CardTitle>Progress</CardTitle>
           </CardHeader>
@@ -178,18 +235,18 @@ export function PersonalDashboard() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="md:col-span-2">
           <CardHeader>
             <CardTitle>This Week</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               <p className="text-4xl font-bold">
-                {thisWeekShifts.length} <span className="text-base font-normal text-muted-foreground">shifts</span>
+                {userShifts.length} <span className="text-base font-normal text-muted-foreground">shifts</span>
               </p>
-              {thisWeekShifts.length > 0 ? (
+              {userShifts.length > 0 ? (
                 <div className="space-y-2">
-                  {thisWeekShifts.map(shift => (
+                  {userShifts.map(shift => (
                     <div key={shift.id} className="text-sm">
                       {format(new Date(shift.startDate), 'MMM d')} - {format(new Date(shift.endDate), 'MMM d')}
                     </div>
@@ -201,15 +258,14 @@ export function PersonalDashboard() {
             </div>
           </CardContent>
         </Card>
-
         <Card className="md:col-span-2">
           <CardHeader>
             <CardTitle>Upcoming Shifts</CardTitle>
           </CardHeader>
           <CardContent>
-            {upcomingShifts.length > 0 ? (
+            {userShifts.length > 0 ? (
               <div className="space-y-4">
-                {upcomingShifts.map(shift => (
+                {userShifts.map(shift => (
                   <div
                     key={shift.id}
                     className="flex items-center justify-between p-3 rounded-lg border"
@@ -238,32 +294,6 @@ export function PersonalDashboard() {
             ) : (
               <p className="text-muted-foreground">No upcoming shifts</p>
             )}
-          </CardContent>
-        </Card>
-
-        <Card className="md:col-span-2">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Time Off</CardTitle>
-              <Button
-                variant="outline"
-                onClick={() => setShowTimeOffForm(!showTimeOffForm)}
-              >
-                {showTimeOffForm ? "Cancel" : "Request Time Off"}
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {showTimeOffForm ? (
-              <div className="mb-6">
-                <TimeOffRequestForm
-                  userId={userId}
-                  onSuccess={() => setShowTimeOffForm(false)}
-                  onCancel={() => setShowTimeOffForm(false)}
-                />
-              </div>
-            ) : null}
-            <TimeOffRequestList userId={userId} />
           </CardContent>
         </Card>
         <Card className="md:col-span-2">
@@ -347,7 +377,6 @@ export function PersonalDashboard() {
             </div>
           </CardContent>
         </Card>
-      </div>
     </div>
   );
 }

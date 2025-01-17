@@ -127,6 +127,102 @@ export function PersonalDashboard() {
       </Dialog>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Progress Card */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Progress</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex justify-between text-sm">
+                <span>Total Days</span>
+                <span className="font-medium">
+                  {totalDays} / {user.targetDays}
+                </span>
+              </div>
+              <Progress
+                value={progress}
+                className="h-2"
+                style={{
+                  backgroundColor: `${user.color}40`,
+                  "--progress-background": user.color,
+                } as any}
+              />
+              {user.tolerance && (
+                <p className="text-sm text-muted-foreground">
+                  Tolerance: ±{user.tolerance} days
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* This Week's Shifts */}
+        <Card>
+          <CardHeader>
+            <CardTitle>This Week</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <p className="text-4xl font-bold">
+                {userShifts.length} <span className="text-base font-normal text-muted-foreground">shifts</span>
+              </p>
+              {userShifts.length > 0 ? (
+                <div className="space-y-2">
+                  {userShifts.map(shift => (
+                    <div key={shift.id} className="text-sm">
+                      {format(new Date(shift.startDate), 'MMM d')} - {format(new Date(shift.endDate), 'MMM d')}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No shifts this week</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Upcoming Shifts - Full Width */}
+        <Card className="md:col-span-2">
+          <CardHeader>
+            <CardTitle>Upcoming Shifts</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {userShifts.length > 0 ? (
+              <div className="space-y-4">
+                {userShifts.map(shift => (
+                  <div
+                    key={shift.id}
+                    className="flex items-center justify-between p-3 rounded-lg border"
+                    style={{ borderColor: user.color }}
+                  >
+                    <div>
+                      <p className="font-medium">
+                        {format(new Date(shift.startDate), 'MMM d, yyyy')} - {format(new Date(shift.endDate), 'MMM d, yyyy')}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {Math.ceil((new Date(shift.endDate).getTime() - new Date(shift.startDate).getTime()) / (1000 * 60 * 60 * 24))} days
+                      </p>
+                    </div>
+                    <div className="text-sm">
+                      {shift.status === 'confirmed' ? (
+                        <span className="text-green-600 font-medium">Confirmed</span>
+                      ) : shift.status === 'pending_swap' ? (
+                        <span className="text-yellow-600 font-medium">Pending Swap</span>
+                      ) : (
+                        <span className="text-blue-600 font-medium">Swapped</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-muted-foreground">No upcoming shifts</p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Time Off Requests Section */}
         {/* Active Time Off Requests */}
         <Card>
           <CardHeader>
@@ -205,97 +301,8 @@ export function PersonalDashboard() {
             )}
           </CardContent>
         </Card>
-      </div>
-      <Card className="md:col-span-2">
-          <CardHeader>
-            <CardTitle>Progress</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex justify-between text-sm">
-                <span>Total Days</span>
-                <span className="font-medium">
-                  {totalDays} / {user.targetDays}
-                </span>
-              </div>
-              <Progress
-                value={progress}
-                className="h-2"
-                style={{
-                  backgroundColor: `${user.color}40`,
-                  "--progress-background": user.color,
-                } as any}
-              />
-              {user.tolerance && (
-                <p className="text-sm text-muted-foreground">
-                  Tolerance: ±{user.tolerance} days
-                </p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
 
-        <Card className="md:col-span-2">
-          <CardHeader>
-            <CardTitle>This Week</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <p className="text-4xl font-bold">
-                {userShifts.length} <span className="text-base font-normal text-muted-foreground">shifts</span>
-              </p>
-              {userShifts.length > 0 ? (
-                <div className="space-y-2">
-                  {userShifts.map(shift => (
-                    <div key={shift.id} className="text-sm">
-                      {format(new Date(shift.startDate), 'MMM d')} - {format(new Date(shift.endDate), 'MMM d')}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">No shifts this week</p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="md:col-span-2">
-          <CardHeader>
-            <CardTitle>Upcoming Shifts</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {userShifts.length > 0 ? (
-              <div className="space-y-4">
-                {userShifts.map(shift => (
-                  <div
-                    key={shift.id}
-                    className="flex items-center justify-between p-3 rounded-lg border"
-                    style={{ borderColor: user.color }}
-                  >
-                    <div>
-                      <p className="font-medium">
-                        {format(new Date(shift.startDate), 'MMM d, yyyy')} - {format(new Date(shift.endDate), 'MMM d, yyyy')}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {Math.ceil((new Date(shift.endDate).getTime() - new Date(shift.startDate).getTime()) / (1000 * 60 * 60 * 24))} days
-                      </p>
-                    </div>
-                    <div className="text-sm">
-                      {shift.status === 'confirmed' ? (
-                        <span className="text-green-600 font-medium">Confirmed</span>
-                      ) : shift.status === 'pending_swap' ? (
-                        <span className="text-yellow-600 font-medium">Pending Swap</span>
-                      ) : (
-                        <span className="text-blue-600 font-medium">Swapped</span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-muted-foreground">No upcoming shifts</p>
-            )}
-          </CardContent>
-        </Card>
+        {/* Schedule Integration - Full Width */}
         <Card className="md:col-span-2">
           <CardHeader>
             <CardTitle>Schedule Integration</CardTitle>
@@ -377,6 +384,7 @@ export function PersonalDashboard() {
             </div>
           </CardContent>
         </Card>
+      </div>
     </div>
   );
 }

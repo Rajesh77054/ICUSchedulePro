@@ -106,12 +106,6 @@ export function Sidebar() {
         label: "Time Off",
         tooltip: "Submit and track time-off requests",
       },
-      {
-        href: "/time-off/admin",
-        icon: <Clock className="h-4 w-4" />,
-        label: "Time Off Admin",
-        tooltip: "Review and manage time-off requests",
-      },
     ],
     admin: [
       {
@@ -125,6 +119,12 @@ export function Sidebar() {
         icon: <Database className="h-4 w-4" />,
         label: "Schedule Management",
         tooltip: "Manage calendar data and scheduling rules",
+      },
+      {
+        href: "/admin/time-off",
+        icon: <Clock className="h-4 w-4" />,
+        label: "Time Off Admin",
+        tooltip: "Review and manage time-off requests",
       },
     ],
   };

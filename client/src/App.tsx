@@ -26,7 +26,7 @@ function App() {
               <Route path="/provider/:id" component={PersonalDashboard} />
               <Route path="/swap-requests" component={SwapRequestsDashboard} />
               <Route path="/time-off" component={TimeOffRequests} />
-              <Route path="/time-off/admin" component={TimeOffAdmin} />
+              <Route path="/admin/time-off" component={TimeOffAdmin} />
               <Route path="/preferences" component={Settings} />
               <Route path="/admin/users" component={UserManagement} />
               <Route path="/admin/schedule" component={ScheduleManagement} />

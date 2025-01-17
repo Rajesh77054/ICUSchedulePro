@@ -21,7 +21,10 @@ const routeMap: Record<string, { title: string; parent?: string; tooltip?: strin
   "/provider": { title: "Provider Schedule", parent: "/", tooltip: "View and manage your personal schedule" },
   "/swap-requests": { title: "Shift Swaps", parent: "/", tooltip: "Request and manage shift swaps with other providers" },
   "/time-off": { title: "Time Off", parent: "/", tooltip: "Submit and track time-off requests" },
-  "/time-off/admin": { title: "Time Off Admin", parent: "/time-off", tooltip: "Review and manage time-off requests" },
+  "/admin": { title: "Administration", parent: "/", tooltip: "Access administrative functions" },
+  "/admin/time-off": { title: "Time Off Admin", parent: "/admin", tooltip: "Review and manage time-off requests" },
+  "/admin/users": { title: "User Management", parent: "/admin", tooltip: "Manage healthcare providers and their roles" },
+  "/admin/schedule": { title: "Schedule Management", parent: "/admin", tooltip: "Manage calendar data and scheduling rules" },
   "/preferences": { title: "Preferences", parent: "/", tooltip: "Set your scheduling preferences and notifications" },
 };
 
@@ -75,7 +78,7 @@ export function BreadcrumbNavigation() {
             ) : (
               <>
                 <BreadcrumbLink href={item.path}>{item.title}</BreadcrumbLink>
-                {index < breadcrumbs.length - 1 && <BreadcrumbSeparator />}
+                <BreadcrumbSeparator />
               </>
             )}
           </BreadcrumbItem>

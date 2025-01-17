@@ -83,14 +83,16 @@ export function UserList({ users = [] }: UserListProps) {
                     <ArrowRight className="h-4 w-4" />
                   </Button>
                 </div>
-                <Progress
-                  value={progress}
-                  className="h-2"
-                  style={{
-                    backgroundColor: `${user.color}40`,
-                    "--progress-background": user.color,
-                  } as any}
-                />
+                <div className="w-full">
+                  <Progress
+                    value={progress}
+                    className="h-2 w-full"
+                    style={{
+                      backgroundColor: `${user.color}40`,
+                      "--progress-background": user.color,
+                    } as any}
+                  />
+                </div>
               </div>
             </Link>
           );

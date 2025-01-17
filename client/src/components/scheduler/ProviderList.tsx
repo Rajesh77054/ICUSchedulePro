@@ -130,14 +130,16 @@ function UserList({ users, selectedUserId, onSelect, getUserStats }: {
                     {days}/{user.targetDays} days
                   </span>
                 </div>
-                <Progress
-                  value={progress}
-                  className="h-2 w-full"
-                  style={{
-                    backgroundColor: `${user.color}20`,
-                    "--progress-background": user.color,
-                  } as any}
-                />
+                <div className="w-full">
+                  <Progress
+                    value={progress}
+                    className="h-2 w-full"
+                    style={{
+                      backgroundColor: `${user.color}20`,
+                      "--progress-background": user.color,
+                    } as any}
+                  />
+                </div>
               </div>
             </div>
           </button>

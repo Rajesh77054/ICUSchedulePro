@@ -47,7 +47,7 @@ export function ProviderList({ onUserSelect, selectedUserId }: UserListProps) {
 
   return (
     <Card>
-      <CardHeader className="pb-2">
+      <CardHeader>
         <CardTitle className="text-lg font-semibold">Healthcare Providers</CardTitle>
       </CardHeader>
       <CardContent className="p-0">
@@ -59,7 +59,7 @@ export function ProviderList({ onUserSelect, selectedUserId }: UserListProps) {
               <TabsTrigger value="apps" className="flex-1">APPs</TabsTrigger>
             </TabsList>
           </div>
-          <ScrollArea className="h-[400px] py-2">
+          <ScrollArea className="h-[400px]">
             <TabsContent value="all" className="m-0">
               <UserList 
                 users={users}
@@ -98,7 +98,7 @@ function UserList({ users, selectedUserId, onSelect, getUserStats }: {
   getUserStats: (userId: number) => number;
 }) {
   return (
-    <div className="space-y-2">
+    <div className="space-y-2 p-4">
       {users.map((user) => {
         const days = getUserStats(user.id);
         const progress = Math.min((days / user.targetDays) * 100, 100);
@@ -107,13 +107,13 @@ function UserList({ users, selectedUserId, onSelect, getUserStats }: {
           <button
             key={user.id}
             onClick={() => onSelect?.(user)}
-            className={`w-full flex flex-col gap-3 px-4 py-3 hover:bg-accent transition-colors ${
+            className={`w-full flex flex-col gap-3 p-4 rounded-lg hover:bg-accent transition-colors ${
               selectedUserId === user.id ? "bg-accent" : ""
             }`}
           >
             <div className="flex items-center gap-3">
               <div
-                className="w-4 h-4 rounded-full"
+                className="w-4 h-4 rounded-full flex-shrink-0"
                 style={{ backgroundColor: user.color }}
               />
               <div className="flex-1 text-left">
@@ -121,13 +121,13 @@ function UserList({ users, selectedUserId, onSelect, getUserStats }: {
                 <div className="text-sm text-muted-foreground">{user.title}</div>
               </div>
             </div>
-            <div className="space-y-2">
+            <div className="w-full space-y-2">
               <div className="text-sm font-medium">
                 {days}/{user.targetDays} days completed
               </div>
               <Progress
                 value={progress}
-                className="h-3"
+                className="h-3 w-full"
                 style={{
                   backgroundColor: `${user.color}20`,
                   "--progress-background": user.color,

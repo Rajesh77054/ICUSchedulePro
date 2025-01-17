@@ -397,30 +397,24 @@ export function registerRoutes(app: express.Application) {
     }
   });
 
-  // Time Off Request Routes
+  // Get all time off requests with optional user filter
   app.get("/api/time-off-requests", async (req, res) => {
     try {
       const { userId } = req.query;
-      let query = db.query.timeOffRequests.findMany({
-        with: {
-          user: true
-        },
-        orderBy: (timeOffRequests, { desc }) => [desc(timeOffRequests.createdAt)]
-      });
 
-      if (userId) {
-        query = db.query.timeOffRequests.findMany({
-          where: eq(timeOffRequests.userId, parseInt(userId as string)),
-          with: {
-            user: true
-          },
-          orderBy: (timeOffRequests, { desc }) => [desc(timeOffRequests.createdAt)]
-        });
-      }
+      const query = userId 
+        ? db.query.timeOffRequests.findMany({
+            where: eq(timeOffRequests.userId, parseInt(userId as string)),
+            orderBy: (timeOffRequests, { desc }) => [desc(timeOffRequests.createdAt)]
+          })
+        : db.query.timeOffRequests.findMany({
+            orderBy: (timeOffRequests, { desc }) => [desc(timeOffRequests.createdAt)]
+          });
 
       const results = await query;
       res.json(results);
     } catch (error: any) {
+      console.error('Error fetching time-off requests:', error);
       res.status(500).json({ message: error.message });
     }
   });

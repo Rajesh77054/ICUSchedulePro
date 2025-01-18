@@ -220,7 +220,7 @@ export function registerRoutes(app: Express): Server {
               recipient: {
                 columns: {
                   name: true,
-                  title: true, 
+                  title: true,
                   color: true,
                 }
               }
@@ -1414,6 +1414,70 @@ export function registerRoutes(app: Express): Server {
       res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
       res.send(calendar.toString());
     } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Cancel/Delete swap request
+  app.delete("/api/swap-requests/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      // Get the swap request with related info for notification
+      const request = await db.query.swapRequests.findFirst({
+        where: eq(swapRequests.id, parseInt(id)),
+        with: {
+          shift: true,
+          requestor: true,
+          recipient: true
+        }
+      });
+
+      if (!request) {
+        return res.status(404).json({ message: "Swap request not found" });
+      }
+
+      // Start a transaction to handle both swap request deletion and shift status update
+      const [deletedRequest, updatedShift] = await db.transaction(async (tx) => {
+        // First update the shift status back to confirmed
+        const [updatedShift] = await tx.update(shifts)
+          .set({
+            status: 'confirmed',
+            updatedAt: new Date()
+          })
+          .where(eq(shifts.id, request.shiftId))
+          .returning();
+
+        // Then delete the swap request
+        const [deletedRequest] = await tx.delete(swapRequests)
+          .where(eq(swapRequests.id, parseInt(id)))
+          .returning();
+
+        return [deletedRequest, updatedShift];
+      });
+
+      // Send notification about the cancellation
+      broadcast(notify.shiftSwapCancelled(
+        updatedShift,
+        {
+          name: request.requestor.name,
+          title: request.requestor.title,
+          userType: request.requestor.userType
+        },
+        {
+          name: request.recipient.name,
+          title: request.recipient.title,
+          userType: request.recipient.userType
+        }
+      ));
+
+      res.json({ 
+        message: "Swap request cancelled successfully",
+        request: deletedRequest,
+        shift: updatedShift
+      });
+    } catch (error: any) {
+      console.error('Error canceling swap request:', error);
       res.status(500).json({ message: error.message });
     }
   });

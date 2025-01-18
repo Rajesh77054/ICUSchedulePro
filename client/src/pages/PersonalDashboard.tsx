@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, Calendar, Clock, Settings } from "lucide-react";
+import { ArrowLeft, Calendar, Clock, Settings, Share2 } from "lucide-react";
 import { Link } from "wouter";
 import { USERS } from "@/lib/constants";
 import type { Shift, TimeOffRequest } from "@/lib/types";
@@ -14,9 +14,18 @@ import { TimeOffRequestForm } from "@/components/time-off/TimeOffRequestForm";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 
 export function PersonalDashboard() {
@@ -278,10 +287,10 @@ export function PersonalDashboard() {
                           {format(new Date(request.startDate), "MMM d, yyyy")} -{" "}
                           {format(new Date(request.endDate), "MMM d, yyyy")}
                         </p>
-                        <Badge 
-                          variant="outline" 
+                        <Badge
+                          variant="outline"
                           className={
-                            request.status === 'approved' 
+                            request.status === 'approved'
                               ? "bg-green-50 text-green-700 border-green-200"
                               : "bg-red-50 text-red-700 border-red-200"
                           }
@@ -302,7 +311,7 @@ export function PersonalDashboard() {
           </CardContent>
         </Card>
 
-        {/* Schedule Integration - Full Width */}
+        {/* Calendar Integration - Full Width */}
         <Card className="md:col-span-2">
           <CardHeader>
             <CardTitle>Schedule Integration</CardTitle>
@@ -310,7 +319,7 @@ export function PersonalDashboard() {
           <CardContent>
             <div className="space-y-6">
               <div>
-                <h3 className="text-lg font-medium mb-4">Import QGenda Schedule</h3>
+                <h3 className="text-lg font-medium mb-4">Import External Calendar</h3>
                 <form onSubmit={(e) => {
                   e.preventDefault();
                   const form = e.target as HTMLFormElement;
@@ -331,7 +340,7 @@ export function PersonalDashboard() {
                     .then(data => {
                       toast({
                         title: 'Success',
-                        description: `Successfully imported ${data.shifts?.length || 0} shifts from QGenda.`,
+                        description: `Successfully imported ${data.shifts?.length || 0} shifts.`,
                       });
                       form.reset();
                       queryClient.invalidateQueries({ queryKey: ["/api/shifts"] });
@@ -347,18 +356,18 @@ export function PersonalDashboard() {
                   <div className="space-y-4">
                     <div>
                       <label htmlFor="qgendaUrl" className="block text-sm font-medium mb-2">
-                        QGenda Subscription URL
+                        Calendar Subscription URL
                       </label>
                       <input
                         id="qgendaUrl"
                         name="qgendaUrl"
                         type="url"
                         className="w-full p-2 border rounded-md"
-                        placeholder="Paste your QGenda subscription URL here"
+                        placeholder="Paste your calendar subscription URL here"
                         required
                       />
                       <p className="text-sm text-muted-foreground mt-2">
-                        Import your shifts directly from QGenda by pasting your iCal subscription URL here.
+                        Import your shifts from external calendar systems.
                       </p>
                     </div>
                     <Button type="submit">Import Schedule</Button>
@@ -368,17 +377,101 @@ export function PersonalDashboard() {
                 <div className="mt-8">
                   <h3 className="text-lg font-medium mb-4">Export Schedule</h3>
                   <p className="text-sm text-muted-foreground mb-4">
-                    Download your schedule in iCal format to import into your preferred calendar application.
+                    Export your schedule to your preferred calendar application.
                   </p>
-                  <Button
-                    onClick={() => {
-                      window.location.href = `/api/schedules/export/${userId}`;
-                    }}
-                    variant="outline"
-                  >
-                    <Calendar className="mr-2 h-4 w-4" />
-                    Export as iCal
-                  </Button>
+
+                  <div className="flex flex-col gap-4">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" className="w-full justify-start">
+                          <Share2 className="mr-2 h-4 w-4" />
+                          Export Calendar
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-56">
+                        <DropdownMenuItem
+                          onClick={() => {
+                            window.open(`/api/schedules/${userId}/google`, '_blank');
+                          }}
+                        >
+                          <img
+                            src="https://www.google.com/calendar/images/ext/gc_button1.gif"
+                            alt="Add to Google Calendar"
+                            className="mr-2 h-4"
+                          />
+                          Add to Google Calendar
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => {
+                            window.location.href = `/api/schedules/${userId}/outlook`;
+                          }}
+                        >
+                          <img
+                            src="https://outlook.office.com/owa/favicon.ico"
+                            alt="Add to Outlook"
+                            className="mr-2 h-4"
+                          />
+                          Add to Outlook
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => {
+                            window.location.href = `/api/schedules/${userId}/ical`;
+                          }}
+                        >
+                          <Calendar className="mr-2 h-4 w-4" />
+                          Export as iCal
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button variant="outline" className="w-full justify-start">
+                          <Clock className="mr-2 h-4 w-4" />
+                          Subscribe to Updates
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Calendar Subscription</DialogTitle>
+                          <DialogDescription>
+                            Use this URL to automatically sync schedule changes with your calendar app.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4">
+                          <div className="flex items-center gap-2">
+                            <Input
+                              readOnly
+                              value={`${window.location.origin}/api/schedules/${userId}/feed`}
+                              className="font-mono text-sm"
+                            />
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              onClick={() => {
+                                navigator.clipboard.writeText(`${window.location.origin}/api/schedules/${userId}/feed`);
+                                toast({
+                                  title: "Copied!",
+                                  description: "Calendar subscription URL copied to clipboard",
+                                });
+                              }}
+                            >
+                              <Share2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          <div className="space-y-2">
+                            <h4 className="font-medium">How to Subscribe:</h4>
+                            <ul className="list-disc pl-4 space-y-1 text-sm text-muted-foreground">
+                              <li>Copy the URL above</li>
+                              <li>In your calendar app, look for "Add Calendar" or "Subscribe"</li>
+                              <li>Paste the URL when prompted</li>
+                              <li>Your calendar will now automatically sync with schedule updates</li>
+                            </ul>
+                          </div>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
                 </div>
               </div>
             </div>

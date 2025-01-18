@@ -5,6 +5,7 @@ import { users, shifts, userPreferences, timeOffRequests, swapRequests, chatRoom
 import { and, eq, sql } from 'drizzle-orm';
 import { setupWebSocket, notify } from './websocket';
 import { setupAuth } from './auth';
+import ical from 'ical-generator';
 
 export function registerRoutes(app: Express): Server {
   // Initialize auth system
@@ -817,6 +818,166 @@ export function registerRoutes(app: Express): Server {
       }
 
       res.json(message);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Calendar Export Routes
+  app.get("/api/schedules/:userId/google", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const user = await db.query.users.findFirst({
+        where: eq(users.id, parseInt(userId))
+      });
+
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const userShifts = await db.query.shifts.findMany({
+        where: eq(shifts.userId, parseInt(userId)),
+        orderBy: (shifts, { asc }) => [asc(shifts.startDate)]
+      });
+
+      // Generate Google Calendar URL
+      const calendar = ical({ name: `${user.name}'s Schedule` });
+
+      userShifts.forEach(shift => {
+        calendar.createEvent({
+          start: new Date(shift.startDate),
+          end: new Date(shift.endDate),
+          summary: `${user.name} - ICU Shift`,
+          description: `Status: ${shift.status}\nSource: ${shift.source}`,
+          location: 'ICU Department'
+        });
+      });
+
+      // Google Calendar requires specific parameters
+      const googleUrl = `https://www.google.com/calendar/render?cid=${encodeURIComponent(
+        `${req.protocol}://${req.get('host')}/api/schedules/${userId}/feed`
+      )}`;
+
+      res.redirect(googleUrl);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/schedules/:userId/outlook", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const user = await db.query.users.findFirst({
+        where: eq(users.id, parseInt(userId))
+      });
+
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const userShifts = await db.query.shifts.findMany({
+        where: eq(shifts.userId, parseInt(userId)),
+        orderBy: (shifts, { asc }) => [asc(shifts.startDate)]
+      });
+
+      // Generate iCal data
+      const calendar = ical({ name: `${user.name}'s Schedule` });
+
+      userShifts.forEach(shift => {
+        calendar.createEvent({
+          start: new Date(shift.startDate),
+          end: new Date(shift.endDate),
+          summary: `${user.name} - ICU Shift`,
+          description: `Status: ${shift.status}\nSource: ${shift.source}`,
+          location: 'ICU Department'
+        });
+      });
+
+      // Set headers for Outlook webcal subscription
+      res.set('Content-Type', 'text/calendar; charset=utf-8');
+      res.set('Content-Disposition', `attachment; filename="${user.name}-schedule.ics"`);
+      res.send(calendar.toString());
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/schedules/:userId/ical", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const user = await db.query.users.findFirst({
+        where: eq(users.id, parseInt(userId))
+      });
+
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const userShifts = await db.query.shifts.findMany({
+        where: eq(shifts.userId, parseInt(userId)),
+        orderBy: (shifts, { asc }) => [asc(shifts.startDate)]
+      });
+
+      // Generate iCal data
+      const calendar = ical({ name: `${user.name}'s Schedule` });
+
+      userShifts.forEach(shift => {
+        calendar.createEvent({
+          start: new Date(shift.startDate),
+          end: new Date(shift.endDate),
+          summary: `${user.name} - ICU Shift`,
+          description: `Status: ${shift.status}\nSource: ${shift.source}`,
+          location: 'ICU Department'
+        });
+      });
+
+      // Set headers for iCal download
+      res.set('Content-Type', 'text/calendar; charset=utf-8');
+      res.set('Content-Disposition', `attachment; filename="${user.name}-schedule.ics"`);
+      res.send(calendar.toString());
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/schedules/:userId/feed", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const user = await db.query.users.findFirst({
+        where: eq(users.id, parseInt(userId))
+      });
+
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const userShifts = await db.query.shifts.findMany({
+        where: eq(shifts.userId, parseInt(userId)),
+        orderBy: (shifts, { asc }) => [asc(shifts.startDate)]
+      });
+
+      // Generate calendar feed
+      const calendar = ical({
+        name: `${user.name}'s Schedule`,
+        timezone: 'America/Los_Angeles',
+        ttl: 60 // Update every hour
+      });
+
+      userShifts.forEach(shift => {
+        calendar.createEvent({
+          start: new Date(shift.startDate),
+          end: new Date(shift.endDate),
+          summary: `${user.name} - ICU Shift`,
+          description: `Status: ${shift.status}\nSource: ${shift.source}`,
+          location: 'ICU Department',
+          url: `${req.protocol}://${req.get('host')}/provider/${userId}`
+        });
+      });
+
+      // Set headers for calendar feed
+      res.set('Content-Type', 'text/calendar; charset=utf-8');
+      res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.send(calendar.toString());
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }

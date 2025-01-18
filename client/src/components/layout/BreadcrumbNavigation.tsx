@@ -59,16 +59,16 @@ export function BreadcrumbNavigation() {
     <Breadcrumb className="px-4 py-2 bg-background border-b">
       <BreadcrumbList>
         {breadcrumbs.map((item, index) => (
-          <li key={item.path} className="inline-flex items-center">
+          <BreadcrumbItem key={item.path}>
             {isLastItem(index) ? (
-              <div className="flex items-center gap-2">
+              <>
                 <BreadcrumbPage>{item.title}</BreadcrumbPage>
                 {item.tooltip && (
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Info 
-                          className="h-4 w-4 text-muted-foreground cursor-help" 
+                          className="h-4 w-4 ml-2 text-muted-foreground cursor-help" 
                           aria-label={`More information about ${item.title}`}
                         />
                       </TooltipTrigger>
@@ -78,14 +78,14 @@ export function BreadcrumbNavigation() {
                     </Tooltip>
                   </TooltipProvider>
                 )}
-              </div>
+              </>
             ) : (
               <>
                 <BreadcrumbLink href={item.path}>{item.title}</BreadcrumbLink>
-                {!isLastItem(index) && <BreadcrumbSeparator aria-hidden="true" />}
+                <BreadcrumbSeparator />
               </>
             )}
-          </li>
+          </BreadcrumbItem>
         ))}
       </BreadcrumbList>
     </Breadcrumb>

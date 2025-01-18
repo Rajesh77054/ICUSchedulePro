@@ -18,6 +18,8 @@ export type MessageType = typeof MessageType[number];
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
+  username: text("username").unique().notNull(),
+  password: text("password").notNull(),
   name: text("name").notNull(),
   title: text("title").notNull(),
   userType: text("user_type").notNull(),

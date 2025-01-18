@@ -4,8 +4,12 @@ import { db } from '../db';
 import { users, shifts, userPreferences, timeOffRequests, swapRequests, chatRooms, messages, roomMembers } from '@db/schema';
 import { and, eq, sql } from 'drizzle-orm';
 import { setupWebSocket, notify } from './websocket';
+import { setupAuth } from './auth';
 
 export function registerRoutes(app: Express): Server {
+  // Initialize auth system
+  setupAuth(app);
+
   const server = new Server(app);
   const { broadcast, broadcastToRoom } = setupWebSocket(server);
 
@@ -782,7 +786,12 @@ export function registerRoutes(app: Express): Server {
   app.post("/api/chat/rooms/:id/messages", async (req, res) => {
     try {
       const { id } = req.params;
-      const { content, messageType = 'text', metadata = {}, senderId = 1 } = req.body; // Default to first user for now
+      const { content, messageType = 'text', metadata = {} } = req.body;
+      const senderId = req.user?.id; // Get user ID from authenticated session
+
+      if (!senderId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
 
       const [message] = await db.insert(messages)
         .values({

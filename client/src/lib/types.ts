@@ -21,7 +21,7 @@ export interface Shift {
   schedulingNotes?: any;
   source?: 'manual';
   externalId?: string;
-  swapRequest?: SwapRequest; // Add the swapRequest property
+  swapRequest?: SwapRequest; 
 }
 
 export interface SwapRequest {

@@ -16,10 +16,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 
 interface Notification {
-  type: 'shift_created' | 'shift_updated' | 'shift_deleted' | 'shift_swap_requested' | 'shift_swap_responded' | 'shift_swap_cancelled' | 'qgenda_sync_completed' | 'qgenda_sync_failed';
+  type: 'shift_created' | 'shift_updated' | 'shift_deleted' | 'shift_swap_requested' | 'shift_swap_responded' | 'shift_swap_cancelled' | 'time_off_requested' | 'time_off_responded' | 'time_off_cancelled' | 'chat_message' | 'urgent_coverage';
   data: any;
   timestamp: string;
-  provider?: {
+  user?: {
     name: string;
     title: string;
   };
@@ -117,7 +117,7 @@ export function Notifications() {
       const notification = JSON.parse(event.data);
       if (notification.type === 'connected') return;
 
-      // Remove duplicate notifications based on type and data
+      // Add new notifications but avoid duplicates
       setNotifications(prev => {
         const isDuplicate = prev.some(n => 
           n.type === notification.type && 
@@ -129,21 +129,11 @@ export function Notifications() {
 
       if (!open) setHasNew(true);
 
-      // Show toast for QGenda sync notifications
-      if (notification.type === 'qgenda_sync_completed') {
+      // Show toast for important notifications
+      if (notification.type === 'shift_swap_requested') {
         toast({
-          title: 'QGenda Sync Completed',
-          description: `Imported ${notification.data.shiftsImported} shifts. ${
-            notification.data.conflicts.length > 0 
-              ? `${notification.data.conflicts.length} conflicts were resolved.` 
-              : ''
-          }`,
-        });
-      } else if (notification.type === 'qgenda_sync_failed') {
-        toast({
-          title: 'QGenda Sync Failed',
-          description: notification.data.error,
-          variant: 'destructive',
+          title: 'New Shift Swap Request',
+          description: `${notification.data.requestor.name} has requested to swap shifts with you.`,
         });
       }
     };
@@ -156,23 +146,25 @@ export function Notifications() {
   const getMessage = (notification: Notification) => {
     switch (notification.type) {
       case 'shift_created':
-        return `${notification.provider?.name} created a new shift from ${format(new Date(notification.data.startDate), 'MMM d, yyyy')} to ${format(new Date(notification.data.endDate), 'MMM d, yyyy')}`;
+        return `${notification.user?.name} created a new shift from ${format(new Date(notification.data.startDate), 'MMM d, yyyy')} to ${format(new Date(notification.data.endDate), 'MMM d, yyyy')}`;
       case 'shift_updated':
-        return `${notification.provider?.name} updated their shift to ${format(new Date(notification.data.startDate), 'MMM d, yyyy')} - ${format(new Date(notification.data.endDate), 'MMM d, yyyy')}`;
+        return `${notification.user?.name} updated their shift to ${format(new Date(notification.data.startDate), 'MMM d, yyyy')} - ${format(new Date(notification.data.endDate), 'MMM d, yyyy')}`;
       case 'shift_swap_requested':
         return `${notification.data.requestor.name} requested to swap shift with ${notification.data.recipient.name} (${format(new Date(notification.data.shift.startDate), 'MMM d')} - ${format(new Date(notification.data.shift.endDate), 'MMM d')})`;
       case 'shift_swap_responded':
         return `${notification.data.recipient.name} ${notification.data.status} your shift swap request`;
       case 'shift_swap_cancelled':
         return `${notification.data.requestor.name} cancelled the shift swap request with ${notification.data.recipient.name}`;
-      case 'qgenda_sync_completed':
-        return `QGenda sync completed: ${notification.data.shiftsImported} shifts imported${
-          notification.data.conflicts.length > 0 
-            ? `, ${notification.data.conflicts.length} conflicts resolved` 
-            : ''
-        }`;
-      case 'qgenda_sync_failed':
-        return `QGenda sync failed: ${notification.data.error}`;
+      case 'time_off_requested':
+        return `${notification.user?.name} requested time off from ${format(new Date(notification.data.startDate), 'MMM d')} to ${format(new Date(notification.data.endDate), 'MMM d')}`;
+      case 'time_off_responded':
+        return `Your time off request has been ${notification.data.status}`;
+      case 'time_off_cancelled':
+        return `${notification.user?.name} cancelled their time off request`;
+      case 'chat_message':
+        return `${notification.user?.name}: ${notification.data.message.content}`;
+      case 'urgent_coverage':
+        return `${notification.data.requester.name} needs urgent coverage for ${format(new Date(notification.data.shift.startDate), 'MMM d')}`;
       default:
         return 'Unknown notification';
     }
@@ -208,20 +200,6 @@ export function Notifications() {
             <X className="h-4 w-4 mr-1" />
             {isResponding ? 'Processing...' : 'Decline'}
           </Button>
-        </div>
-      );
-    }
-
-    if (notification.type === 'qgenda_sync_completed' && notification.data.conflicts.length > 0) {
-      return (
-        <div className="mt-2 space-y-2">
-          <p className="text-sm font-medium">Resolved Conflicts:</p>
-          {notification.data.conflicts.map((conflict: any, index: number) => (
-            <div key={index} className="text-sm text-muted-foreground">
-              <Calendar className="h-4 w-4 inline-block mr-1" />
-              Replaced shift on {format(new Date(conflict.original.startDate), 'MMM d')}
-            </div>
-          ))}
         </div>
       );
     }

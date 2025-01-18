@@ -1145,300 +1145,6 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Chat Routes
-  app.get("/api/chat/rooms", async (req, res) => {
-    try {
-      const result = await db.query.chatRooms.findMany({
-        with: {
-          members: {
-            with: {
-              user: true
-            }
-          }
-        }
-      });
-
-      res.json(result);
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
-    }
-  });
-
-  app.post("/api/chat/rooms", async (req, res) => {
-    try {
-      const { name, type, memberIds } = req.body;
-      const createdBy = req.user?.id; // Assuming authentication is set up
-
-      if (!createdBy) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
-
-      const [room] = await db.insert(chatRooms)
-        .values({
-          name,
-          type,
-          createdBy
-        })
-        .returning();
-
-      // Add members to the room
-      await db.insert(roomMembers)
-        .values(
-          memberIds.map((userId: number) => ({
-            roomId: room.id,
-            userId,
-            role: userId === createdBy ? 'admin' : 'member'
-          }))
-        );
-
-      res.json(room);
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
-    }
-  });
-
-  app.get("/api/chat/rooms/:id", async (req, res) => {
-    try {
-      const { id } = req.params;
-
-      const room = await db.query.chatRooms.findFirst({
-        where: eq(chatRooms.id, parseInt(id)),
-        with: {
-          members: {
-            with: {
-              user: true
-            }
-          }
-        }
-      });
-
-      if (!room) {
-        return res.status(404).json({ message: "Room not found" });
-      }
-
-      res.json(room);
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
-    }
-  });
-
-  app.get("/api/chat/rooms/:id/messages", async (req, res) => {
-    try {
-      const { id } = req.params;
-
-      const result = await db.query.messages.findMany({
-        where: eq(messages.roomId, parseInt(id)),
-        with: {
-          sender: true
-        },
-        orderBy: (messages, { asc }) => [asc(messages.createdAt)]
-      });
-
-      res.json(result);
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
-    }
-  });
-
-  app.post("/api/chat/rooms/:id/messages", async (req, res) => {
-    try {
-      const { id } = req.params;
-      const { content, messageType = 'text', metadata = {} } = req.body;
-      const senderId = req.user?.id; // Get user ID from authenticated session
-
-      if (!senderId) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
-
-      const [message] = await db.insert(messages)
-        .values({
-          roomId: parseInt(id),
-          senderId,
-          content,
-          messageType,
-          metadata
-        })
-        .returning();
-
-      // Get the sender information
-      const sender = await db.query.users.findFirst({
-        where: eq(users.id, senderId)
-      });
-
-      if (sender) {
-        // Broadcast the message to all room members
-        broadcastToRoom(parseInt(id), notify.chatMessage(message, { id: parseInt(id) }, {
-          name: sender.name,
-          title: sender.title
-        }));
-      }
-
-      res.json(message);
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
-    }
-  });
-
-  // Calendar Export Routes
-  app.get("/api/schedules/:userId/google", async (req, res) => {
-    try {
-      const { userId } = req.params;
-      const user = await db.query.users.findFirst({
-        where: eq(users.id, parseInt(userId))
-      });
-
-      if (!user) {
-        return res.status(404).json({ message: "User not found" });
-      }
-
-      const userShifts = await db.query.shifts.findMany({
-        where: eq(shifts.userId, parseInt(userId)),
-        orderBy: (shifts, { asc }) => [asc(shifts.startDate)]
-      });
-
-      // Generate Google Calendar URL
-      const calendar = ical({ name: `${user.name}'s Schedule` });
-
-      userShifts.forEach(shift => {
-        calendar.createEvent({
-          start: new Date(shift.startDate),
-          end: new Date(shift.endDate),
-          summary: `${user.name} - ICU Shift`,
-          description: `Status: ${shift.status}\nSource: ${shift.source}`,
-          location: 'ICU Department'
-        });
-      });
-
-      // Google Calendar requires specific parameters
-      const googleUrl = `https://www.google.com/calendar/render?cid=${encodeURIComponent(
-        `${req.protocol}://${req.get('host')}/api/schedules/${userId}/feed`
-      )}`;
-
-      res.redirect(googleUrl);
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
-    }
-  });
-
-  app.get("/api/schedules/:userId/outlook", async (req, res) => {
-    try {
-      const { userId } = req.params;
-      const user = await db.query.users.findFirst({
-        where: eq(users.id, parseInt(userId))
-      });
-
-      if (!user) {
-        return res.status(404).json({ message: "User not found" });
-      }
-
-      const userShifts = await db.query.shifts.findMany({
-        where: eq(shifts.userId, parseInt(userId)),
-        orderBy: (shifts, { asc }) => [asc(shifts.startDate)]
-      });
-
-      // Generate iCal data
-      const calendar = ical({ name: `${user.name}'s Schedule` });
-
-      userShifts.forEach(shift => {
-        calendar.createEvent({
-          start: new Date(shift.startDate),
-          end: new Date(shift.endDate),
-          summary: `${user.name} - ICU Shift`,
-          description: `Status: ${shift.status}\nSource: ${shift.source}`,
-          location: 'ICU Department'
-        });
-      });
-
-      // Set headers for Outlook webcal subscription
-      res.set('Content-Type', 'text/calendar; charset=utf-8');
-      res.set('Content-Disposition', `attachment; filename="${user.name}-schedule.ics"`);
-      res.send(calendar.toString());
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
-    }
-  });
-
-  app.get("/api/schedules/:userId/ical", async (req, res) => {
-    try {
-      const { userId } = req.params;
-      const user = await db.query.users.findFirst({
-        where: eq(users.id, parseInt(userId))
-      });
-
-      if (!user) {
-        return res.status(404).json({ message: "User not found" });
-      }
-
-      const userShifts = await db.query.shifts.findMany({
-        where: eq(shifts.userId, parseInt(userId)),
-        orderBy: (shifts, { asc }) => [asc(shifts.startDate)]
-      });
-
-      // Generate iCal data
-      const calendar = ical({ name: `${user.name}'s Schedule` });
-
-      userShifts.forEach(shift => {
-        calendar.createEvent({
-          start: new Date(shift.startDate),
-          end: new Date(shift.endDate),
-          summary: `${user.name} - ICU Shift`,
-          description: `Status: ${shift.status}\nSource: ${shift.source}`,
-          location: 'ICU Department'
-        });
-      });
-
-      // Set headers for iCal download
-      res.set('Content-Type', 'text/calendar; charset=utf-8');
-      res.set('Content-Disposition', `attachment; filename="${user.name}-schedule.ics"`);
-      res.send(calendar.toString());
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
-    }
-  });
-
-  app.get("/api/schedules/:userId/feed", async (req, res) => {
-    try {
-      const { userId } = req.params;
-      const user = await db.query.users.findFirst({
-        where: eq(users.id, parseInt(userId))
-      });
-
-      if (!user) {
-        return res.status(404).json({ message: "User not found" });
-      }
-
-      const userShifts = await db.query.shifts.findMany({
-        where: eq(shifts.userId, parseInt(userId)),
-        orderBy: (shifts, { asc }) => [asc(shifts.startDate)]
-      });
-
-      // Generate calendar feed
-      const calendar = ical({
-        name: `${user.name}'s Schedule`,
-        timezone: 'America/Los_Angeles',
-        ttl: 60 // Update every hour
-      });
-
-      userShifts.forEach(shift => {
-        calendar.createEvent({
-          start: new Date(shift.startDate),
-          end: new Date(shift.endDate),
-          summary: `${user.name} - ICU Shift`,
-          description: `Status: ${shift.status}\nSource: ${shift.source}`,
-          location: 'ICU Department',
-          url: `${req.protocol}://${req.get('host')}/provider/${userId}`
-        });
-      });
-
-      // Set headers for calendar feed
-      res.set('Content-Type', 'text/calendar; charset=utf-8');
-      res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
-      res.send(calendar.toString());
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
-    }
-  });
-
   // Cancel/Delete swap request
   app.delete("/api/swap-requests/:id", async (req, res) => {
     try {
@@ -1499,6 +1205,116 @@ export function registerRoutes(app: Express): Server {
       });
     } catch (error: any) {
       console.error('Error canceling swap request:', error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Get all swap requests
+  app.get("/api/swap-requests", async (req, res) => {
+    try {
+      const { userId } = req.query;
+
+      const baseQuery = {
+        where: userId ?
+          sql`(${swapRequests.requestorId} = ${parseInt(userId as string)} OR ${swapRequests.recipientId} = ${parseInt(userId as string)})` :
+          undefined,
+        with: {
+          shift: {
+            columns: {
+              startDate: true,
+              endDate: true,
+              status: true
+            }
+          },
+          requestor: {
+            columns: {
+              name: true,
+              title: true,
+              color: true
+            }
+          },
+          recipient: {
+            columns: {
+              name: true,
+              title: true,
+              color: true
+            }
+          }
+        },
+        orderBy: (swapRequests, { desc }) => [desc(swapRequests.createdAt)]
+      };
+
+      const requests = await db.query.swapRequests.findMany(baseQuery);
+
+      // Filter to only include active requests (pending status)
+      const activeRequests = requests.filter(req => req.status === 'pending');
+
+      res.json(activeRequests);
+    } catch (error: any) {
+      console.error('Error fetching swap requests:', error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/swap-requests/:id/cancel", async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      // Start a transaction
+      const [request, updatedShift] = await db.transaction(async (tx) => {
+        // Get the swap request with related info
+        const request = await tx.query.swapRequests.findFirst({
+          where: eq(swapRequests.id, parseInt(id)),
+          with: {
+            shift: true,
+            requestor: true,
+            recipient: true
+          }
+        });
+
+        if (!request) {
+          throw new Error("Swap request not found");
+        }
+
+        // Update swap request status to cancelled
+        const [updatedRequest] = await tx.update(swapRequests)
+          .set({
+            status: 'cancelled',
+            updatedAt: new Date()
+          })
+          .where(eq(swapRequests.id, parseInt(id)))
+          .returning();
+
+        // Update shift status back to confirmed
+        const [updatedShift] = await tx.update(shifts)
+          .set({
+            status: 'confirmed',
+            updatedAt: new Date()
+          })
+          .where(eq(shifts.id, request.shiftId))
+          .returning();
+
+        if (!updatedShift) {
+          throw new Error("Failed to update shift");
+        }
+
+        return [updatedRequest, updatedShift];
+      });
+
+      // Send notification about the cancelled swap request
+      broadcast(notify.shiftSwapCancelled(updatedShift, {
+        name: request.requestor.name,
+        title: request.requestor.title,
+        userType: request.requestor.userType
+      }, {
+        name: request.recipient.name,
+        title: request.recipient.title,
+        userType: request.recipient.userType
+      }));
+
+      res.json({ request, shift: updatedShift });
+    } catch (error: any) {
+      console.error('Error cancelling swap request:', error);
       res.status(500).json({ message: error.message });
     }
   });

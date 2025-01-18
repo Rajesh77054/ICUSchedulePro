@@ -35,6 +35,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import type { SwapRequest } from "@/lib/types";
+import { SwapRequestActions } from "@/components/scheduler/SwapRequestActions";
 
 export function SwapRequestsDashboard() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -255,16 +256,21 @@ export function SwapRequestsDashboard() {
                         Shift period: {format(new Date(request.shift.startDate), "MMM d, yyyy")} - {format(new Date(request.shift.endDate), "MMM d, yyyy")}
                       </div>
                     </div>
-                    {request.status === "pending" && (
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => handleCancelRequest(request.id)}
-                      >
-                        <X className="h-4 w-4 mr-1" />
-                        Cancel Request
-                      </Button>
-                    )}
+                    <div className="flex gap-2">
+                      {request.status === "pending" && (
+                        <>
+                          <SwapRequestActions request={request} />
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => handleCancelRequest(request.id)}
+                          >
+                            <X className="h-4 w-4 mr-1" />
+                            Cancel Request
+                          </Button>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}

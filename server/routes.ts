@@ -322,7 +322,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Request shift swap endpoint - NEW
+  // Request shift swap endpoint
   app.post("/api/swap-requests", async (req, res) => {
     try {
       const { shiftId, requestorId, recipientId } = req.body;
@@ -410,6 +410,96 @@ export function registerRoutes(app: Express): Server {
       res.json({ swapRequest, shift: updatedShift });
     } catch (error: any) {
       console.error('Error creating swap request:', error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Add swap request response endpoint after the swap request creation endpoint
+  app.post("/api/swap-requests/:id/respond", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { status, responderId } = req.body;
+
+      if (!['accepted', 'rejected'].includes(status)) {
+        return res.status(400).json({ message: "Invalid status. Must be 'accepted' or 'rejected'" });
+      }
+
+      // Start a transaction to handle both swap request and shift updates
+      const [updatedRequest, updatedShift] = await db.transaction(async (tx) => {
+        // Get the swap request with related shift and users
+        const request = await tx.query.swapRequests.findFirst({
+          where: eq(swapRequests.id, parseInt(id)),
+          with: {
+            shift: true
+          }
+        });
+
+        if (!request) {
+          throw new Error("Swap request not found");
+        }
+
+        // Get users involved
+        const requestor = await tx.query.users.findFirst({
+          where: eq(users.id, request.requestorId)
+        });
+
+        const recipient = await tx.query.users.findFirst({
+          where: eq(users.id, request.recipientId)
+        });
+
+        if (!requestor || !recipient) {
+          throw new Error("Users not found");
+        }
+
+        // Update swap request status
+        const [updatedRequest] = await tx.update(swapRequests)
+          .set({
+            status,
+            updatedAt: new Date()
+          })
+          .where(eq(swapRequests.id, parseInt(id)))
+          .returning();
+
+        if (!updatedRequest) {
+          throw new Error("Failed to update swap request");
+        }
+
+        // Update shift based on response
+        const [updatedShift] = await tx.update(shifts)
+          .set({
+            status: status === 'accepted' ? 'swapped' : 'confirmed',
+            userId: status === 'accepted' ? request.recipientId : request.requestorId,
+            updatedAt: new Date()
+          })
+          .where(eq(shifts.id, request.shiftId))
+          .returning();
+
+        if (!updatedShift) {
+          throw new Error("Failed to update shift");
+        }
+
+        // Send notification about the swap response
+        broadcast(notify.shiftSwapResponded(
+          updatedShift,
+          {
+            name: requestor.name,
+            title: requestor.title,
+            userType: requestor.userType
+          },
+          {
+            name: recipient.name,
+            title: recipient.title,
+            userType: recipient.userType
+          },
+          status
+        ));
+
+        return [updatedRequest, updatedShift];
+      });
+
+      res.json({ request: updatedRequest, shift: updatedShift });
+    } catch (error: any) {
+      console.error('Error responding to swap request:', error);
       res.status(500).json({ message: error.message });
     }
   });

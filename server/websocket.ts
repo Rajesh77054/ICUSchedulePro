@@ -3,7 +3,7 @@ import type { Server } from 'http';
 import { type TimeOffRequest, type Shift, type Message, type ChatRoom } from '@db/schema';
 
 interface NotificationMessage {
-  type: 'shift_created' | 'shift_updated' | 'shift_deleted' | 'shift_swap_requested' | 'shift_swap_responded' | 'time_off_requested' | 'time_off_responded' | 'time_off_cancelled' | 'chat_message' | 'urgent_coverage';
+  type: 'shift_created' | 'shift_updated' | 'shift_deleted' | 'shift_swap_requested' | 'shift_swap_responded' | 'shift_swap_cancelled' | 'time_off_requested' | 'time_off_responded' | 'time_off_cancelled' | 'chat_message' | 'urgent_coverage';
   data: any;
   timestamp: string;
   user?: {
@@ -93,19 +93,7 @@ export function setupWebSocket(server: Server) {
     });
   };
 
-  // Broadcast to specific room
-  const broadcastToRoom = (roomId: number, message: NotificationMessage) => {
-    const roomClients = roomSubscriptions.get(roomId);
-    if (roomClients) {
-      roomClients.forEach(client => {
-        if (client.readyState === WebSocket.OPEN) {
-          client.send(JSON.stringify(message));
-        }
-      });
-    }
-  };
-
-  return { broadcast, broadcastToRoom };
+  return { broadcast };
 }
 
 export const notify = {
@@ -152,6 +140,16 @@ export const notify = {
     timestamp: new Date().toISOString(),
   }),
 
+  shiftSwapCancelled: (
+    shift: Shift,
+    requestor: { name: string; title: string; userType?: string },
+    recipient: { name: string; title: string; userType?: string }
+  ) => ({
+    type: 'shift_swap_cancelled' as const,
+    data: { shift, requestor, recipient },
+    timestamp: new Date().toISOString(),
+  }),
+
   timeOffRequested: (request: TimeOffRequest, user: { name: string; title: string }) => ({
     type: 'time_off_requested' as const,
     data: request,
@@ -159,7 +157,7 @@ export const notify = {
     timestamp: new Date().toISOString(),
   }),
 
-  timeOffResponded: (request: TimeOffRequest, user: { name: string; title: string }) => ({
+  timeOffResponded: (request: TimeOffRequest, user: { name: string; title: string }, status: 'approved' | 'rejected') => ({
     type: 'time_off_responded' as const,
     data: request,
     user,

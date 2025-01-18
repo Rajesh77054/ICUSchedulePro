@@ -16,7 +16,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 
 interface Notification {
-  type: 'shift_created' | 'shift_updated' | 'shift_deleted' | 'shift_swap_requested' | 'shift_swap_responded' | 'qgenda_sync_completed' | 'qgenda_sync_failed';
+  type: 'shift_created' | 'shift_updated' | 'shift_deleted' | 'shift_swap_requested' | 'shift_swap_responded' | 'shift_swap_cancelled' | 'qgenda_sync_completed' | 'qgenda_sync_failed';
   data: any;
   timestamp: string;
   provider?: {
@@ -46,8 +46,8 @@ export function Notifications() {
   const { mutate: respondToSwap, isPending: isResponding } = useMutation({
     mutationFn: async ({ requestId, status }: { requestId: number; status: 'accepted' | 'rejected' }) => {
       setError(null);
-      const res = await fetch(`/api/swap-requests/${requestId}`, {
-        method: 'PATCH',
+      const res = await fetch(`/api/swap-requests/${requestId}/respond`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status }),
       });
@@ -163,6 +163,8 @@ export function Notifications() {
         return `${notification.data.requestor.name} requested to swap shift with ${notification.data.recipient.name} (${format(new Date(notification.data.shift.startDate), 'MMM d')} - ${format(new Date(notification.data.shift.endDate), 'MMM d')})`;
       case 'shift_swap_responded':
         return `${notification.data.recipient.name} ${notification.data.status} your shift swap request`;
+      case 'shift_swap_cancelled':
+        return `${notification.data.requestor.name} cancelled the shift swap request with ${notification.data.recipient.name}`;
       case 'qgenda_sync_completed':
         return `QGenda sync completed: ${notification.data.shiftsImported} shifts imported${
           notification.data.conflicts.length > 0 

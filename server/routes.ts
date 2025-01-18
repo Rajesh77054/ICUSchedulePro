@@ -402,7 +402,7 @@ export function registerRoutes(app: express.Application) {
     try {
       const { userId } = req.query;
 
-      const query = userId 
+      const query = userId
         ? db.query.timeOffRequests.findMany({
             where: eq(timeOffRequests.userId, parseInt(userId as string)),
             orderBy: (timeOffRequests, { desc }) => [desc(timeOffRequests.createdAt)]
@@ -458,7 +458,7 @@ export function registerRoutes(app: express.Application) {
       const { id } = req.params;
       const { status, reason } = req.body;
 
-      // Validate request exists
+      // Validate request exists and get user information
       const existingRequest = await db.query.timeOffRequests.findFirst({
         where: eq(timeOffRequests.id, parseInt(id)),
         with: {
@@ -470,6 +470,12 @@ export function registerRoutes(app: express.Application) {
         return res.status(404).json({ message: "Time off request not found" });
       }
 
+      // Validate status
+      if (!['approved', 'rejected', 'pending'].includes(status)) {
+        return res.status(400).json({ message: "Invalid status value" });
+      }
+
+      // Update the request
       const [updated] = await db.update(timeOffRequests)
         .set({
           status,
@@ -487,6 +493,7 @@ export function registerRoutes(app: express.Application) {
 
       res.json(updated);
     } catch (error: any) {
+      console.error('Error updating time-off request:', error);
       res.status(500).json({ message: error.message });
     }
   });

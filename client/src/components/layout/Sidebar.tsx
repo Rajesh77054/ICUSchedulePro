@@ -15,6 +15,7 @@ import {
   UserCog,
   Database,
   BarChart,
+  MessageSquare,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -84,6 +85,12 @@ export function Sidebar() {
         icon: <Calendar className="h-4 w-4" />,
         label: "Schedule",
         tooltip: "View and manage the main schedule",
+      },
+      {
+        href: "/chat",
+        icon: <MessageSquare className="h-4 w-4" />,
+        label: "Team Chat",
+        tooltip: "Open team chat for communication",
       },
     ],
     scheduling: [

@@ -13,8 +13,12 @@ export function SwapRequestActions({ request, onClose }: SwapRequestActionsProps
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Add debug log
+  console.log('SwapRequestActions received request:', request);
+
   const { mutate: respondToRequest, isPending } = useMutation({
     mutationFn: async ({ status }: { status: 'accepted' | 'rejected' }) => {
+      console.log('Responding to request:', request.id, 'with status:', status);
       const res = await fetch(`/api/swap-requests/${request.id}/respond`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -42,6 +46,7 @@ export function SwapRequestActions({ request, onClose }: SwapRequestActionsProps
       }
     },
     onError: (error: Error) => {
+      console.error('Error responding to swap request:', error);
       toast({
         title: 'Error',
         description: error.message,
@@ -52,6 +57,7 @@ export function SwapRequestActions({ request, onClose }: SwapRequestActionsProps
 
   const { mutate: cancelRequest, isPending: isCanceling } = useMutation({
     mutationFn: async () => {
+      console.log('Canceling request:', request.id);
       const res = await fetch(`/api/swap-requests/${request.id}`, {
         method: 'DELETE',
       });
@@ -77,6 +83,7 @@ export function SwapRequestActions({ request, onClose }: SwapRequestActionsProps
       }
     },
     onError: (error: Error) => {
+      console.error('Error canceling swap request:', error);
       toast({
         title: 'Error',
         description: error.message,

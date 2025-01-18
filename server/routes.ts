@@ -1,18 +1,14 @@
 import express, { Express } from 'express';
 import { createServer, Server } from 'http';
 import { db } from '../db';
-import { users, shifts, userPreferences, timeOffRequests, swapRequests, chatRooms, messages, roomMembers } from '@db/schema';
+import { users, shifts, userPreferences, timeOffRequests, swapRequests } from '@db/schema';
 import { and, eq, sql } from 'drizzle-orm';
 import { setupWebSocket, notify } from './websocket';
 import { setupAuth } from './auth';
-import ical from 'ical-generator';
 
 export function registerRoutes(app: Express): Server {
-  // Initialize auth system
-  setupAuth(app);
-
   const server = createServer(app);
-  const { broadcast, broadcastToRoom } = setupWebSocket(server);
+  const { broadcast } = setupWebSocket(server);
 
   // Get all users
   app.get("/api/users", async (_req, res) => {
@@ -205,16 +201,43 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Get all shifts
+  // Get all shifts with their swap requests
   app.get("/api/shifts", async (_req, res) => {
     try {
       const result = await db.query.shifts.findMany({
         with: {
-          user: true
+          user: true,
+          swapRequests: {
+            where: eq(swapRequests.status, 'pending'),
+            with: {
+              requestor: {
+                columns: {
+                  name: true,
+                  title: true,
+                  color: true,
+                }
+              },
+              recipient: {
+                columns: {
+                  name: true,
+                  title: true, 
+                  color: true,
+                }
+              }
+            }
+          }
         }
       });
-      res.json(result);
+
+      // Map the shifts to include the latest swap request
+      const shiftsWithSwapRequests = result.map(shift => ({
+        ...shift,
+        swapRequest: shift.swapRequests?.[0] || null
+      }));
+
+      res.json(shiftsWithSwapRequests);
     } catch (error: any) {
+      console.error('Error fetching shifts:', error);
       res.status(500).json({ message: error.message });
     }
   });
@@ -331,12 +354,20 @@ export function registerRoutes(app: Express): Server {
       const shift = await db.query.shifts.findFirst({
         where: eq(shifts.id, shiftId),
         with: {
-          user: true
+          user: true,
+          swapRequests: {
+            where: eq(swapRequests.status, 'pending')
+          }
         }
       });
 
       if (!shift) {
         return res.status(404).json({ message: "Shift not found" });
+      }
+
+      // Check if there's already a pending swap request
+      if (shift.swapRequests?.length > 0) {
+        return res.status(400).json({ message: "This shift already has a pending swap request" });
       }
 
       const requestor = await db.query.users.findFirst({
@@ -349,13 +380,6 @@ export function registerRoutes(app: Express): Server {
 
       if (!requestor || !recipient) {
         return res.status(404).json({ message: "User not found" });
-      }
-
-      // Validate user types match
-      if (requestor.userType !== recipient.userType) {
-        return res.status(400).json({
-          message: `Cannot swap shifts between different provider types (${requestor.userType} and ${recipient.userType})`
-        });
       }
 
       // Start a transaction
@@ -384,10 +408,6 @@ export function registerRoutes(app: Express): Server {
           })
           .returning();
 
-        if (!newRequest) {
-          throw new Error("Failed to create swap request");
-        }
-
         return [newRequest, updatedShift];
       });
 
@@ -414,11 +434,11 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Add swap request response endpoint after the swap request creation endpoint
+  // Respond to swap request (accept/reject)
   app.post("/api/swap-requests/:id/respond", async (req, res) => {
     try {
       const { id } = req.params;
-      const { status, responderId } = req.body;
+      const { status } = req.body;
 
       if (!['accepted', 'rejected'].includes(status)) {
         return res.status(400).json({ message: "Invalid status. Must be 'accepted' or 'rejected'" });
@@ -430,25 +450,14 @@ export function registerRoutes(app: Express): Server {
         const request = await tx.query.swapRequests.findFirst({
           where: eq(swapRequests.id, parseInt(id)),
           with: {
-            shift: true
+            shift: true,
+            requestor: true,
+            recipient: true
           }
         });
 
         if (!request) {
           throw new Error("Swap request not found");
-        }
-
-        // Get users involved
-        const requestor = await tx.query.users.findFirst({
-          where: eq(users.id, request.requestorId)
-        });
-
-        const recipient = await tx.query.users.findFirst({
-          where: eq(users.id, request.recipientId)
-        });
-
-        if (!requestor || !recipient) {
-          throw new Error("Users not found");
         }
 
         // Update swap request status
@@ -459,10 +468,6 @@ export function registerRoutes(app: Express): Server {
           })
           .where(eq(swapRequests.id, parseInt(id)))
           .returning();
-
-        if (!updatedRequest) {
-          throw new Error("Failed to update swap request");
-        }
 
         // Update shift based on response
         const [updatedShift] = await tx.update(shifts)
@@ -482,14 +487,14 @@ export function registerRoutes(app: Express): Server {
         broadcast(notify.shiftSwapResponded(
           updatedShift,
           {
-            name: requestor.name,
-            title: requestor.title,
-            userType: requestor.userType
+            name: request.requestor.name,
+            title: request.requestor.title,
+            userType: request.requestor.userType
           },
           {
-            name: recipient.name,
-            title: recipient.title,
-            userType: recipient.userType
+            name: request.recipient.name,
+            title: request.recipient.title,
+            userType: request.recipient.userType
           },
           status
         ));
@@ -503,7 +508,6 @@ export function registerRoutes(app: Express): Server {
       res.status(500).json({ message: error.message });
     }
   });
-
 
   // Delete shift
   app.delete("/api/shifts/:id", async (req, res) => {

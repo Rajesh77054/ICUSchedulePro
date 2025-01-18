@@ -53,17 +53,33 @@ export function PersonalDashboard() {
 
 
   const handleShiftActions = (shift: Shift) => {
-    if (shift.swapRequest && shift.status === 'pending_swap') {
-      // If the current user is the recipient or an admin, show accept/reject buttons
-      if (shift.swapRequest.recipientId === userId || user?.userType === 'physician') {
-        return <SwapRequestActions request={shift.swapRequest} />;
-      }
+    console.log('handleShiftActions - shift:', shift); // Debug log
 
-      // If the current user is the requestor, show cancel button
-      if (shift.swapRequest.requestorId === userId) {
-        return <SwapRequestActions request={shift.swapRequest} />;
-      }
+    if (!shift.swapRequest) {
+      console.log('No swap request for shift:', shift.id);
+      return null;
     }
+
+    if (shift.status !== 'pending_swap') {
+      console.log('Shift not in pending_swap status:', shift.status);
+      return null;
+    }
+
+    console.log('Shift has pending swap request:', shift.swapRequest);
+
+    // If the current user is the recipient or an admin, show accept/reject buttons
+    if (shift.swapRequest.recipientId === userId || user?.userType === 'physician') {
+      console.log('User can respond to swap request');
+      return <SwapRequestActions request={shift.swapRequest} />;
+    }
+
+    // If the current user is the requestor, show cancel button
+    if (shift.swapRequest.requestorId === userId) {
+      console.log('User is the requestor');
+      return <SwapRequestActions request={shift.swapRequest} />;
+    }
+
+    console.log('User cannot act on this swap request');
     return null;
   };
 
@@ -262,7 +278,9 @@ export function PersonalDashboard() {
                         )}
                       </div>
                     </div>
-                    {handleShiftActions(shift)}
+                    <div className="flex items-center gap-2">
+                      {handleShiftActions(shift)}
+                    </div>
                   </div>
                 ))}
               </div>

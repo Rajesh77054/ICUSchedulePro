@@ -7,7 +7,7 @@ import type { InferModel } from "drizzle-orm";
 export const TimeOffRequestStatus = ['pending', 'approved', 'rejected'] as const;
 export type TimeOffRequestStatus = typeof TimeOffRequestStatus[number];
 
-export const ShiftStatus = ['confirmed', 'pending_swap', 'swapped', 'inactive'] as const;
+export const ShiftStatus = ['confirmed', 'pending_swap', 'swapped', 'archived'] as const;
 export type ShiftStatus = typeof ShiftStatus[number];
 
 export const UserType = ['physician', 'app'] as const;
@@ -18,7 +18,7 @@ export type MessageType = typeof MessageType[number];
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
-  username: text("username").unique().notNull(),
+  username: text("username").notNull(),
   password: text("password").notNull(),
   name: text("name").notNull(),
   title: text("title").notNull(),
@@ -49,6 +49,7 @@ export const swapRequests = pgTable("swap_requests", {
   status: text("status").notNull().default('pending'),
   reason: text("reason"),
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const timeOffRequests = pgTable("time_off_requests", {
@@ -114,11 +115,12 @@ export const usersRelations = relations(users, ({ many }) => ({
   rooms: many(roomMembers),
 }));
 
-export const shiftsRelations = relations(shifts, ({ one }) => ({
+export const shiftsRelations = relations(shifts, ({ one, many }) => ({
   user: one(users, {
     fields: [shifts.userId],
     references: [users.id],
   }),
+  swapRequests: many(swapRequests),
 }));
 
 export const timeOffRequestsRelations = relations(timeOffRequests, ({ one }) => ({
@@ -132,10 +134,12 @@ export const swapRequestsRelations = relations(swapRequests, ({ one }) => ({
   requestor: one(users, {
     fields: [swapRequests.requestorId],
     references: [users.id],
+    relationName: "requestor",
   }),
   recipient: one(users, {
     fields: [swapRequests.recipientId],
     references: [users.id],
+    relationName: "recipient",
   }),
   shift: one(shifts, {
     fields: [swapRequests.shiftId],

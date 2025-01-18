@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { X, Settings, Loader2 } from "lucide-react";
+import { X, Settings, Loader2, Calendar } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -10,6 +10,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -24,11 +25,12 @@ interface TimeOffRequestListProps {
 
 function TimeOffRequestSkeleton() {
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" aria-label="Loading time-off requests">
       {[1, 2, 3].map((i) => (
         <div
           key={i}
           className="flex items-center justify-between p-4 rounded-lg border bg-card"
+          role="status"
         >
           <div className="space-y-2">
             <Skeleton className="h-4 w-32" />
@@ -38,6 +40,7 @@ function TimeOffRequestSkeleton() {
           <Skeleton className="h-9 w-[120px]" />
         </div>
       ))}
+      <span className="sr-only">Loading time-off requests...</span>
     </div>
   );
 }
@@ -46,6 +49,7 @@ export function TimeOffRequestList({ userId, showActions = true }: TimeOffReques
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [cancelRequestId, setCancelRequestId] = useState<number | null>(null);
+  const dialogId = "cancel-dialog-description";
 
   const { mutate: cancelRequest, isPending: isCancelling } = useMutation({
     mutationFn: async (requestId: number) => {
@@ -107,8 +111,16 @@ export function TimeOffRequestList({ userId, showActions = true }: TimeOffReques
 
   if (requests.length === 0) {
     return (
-      <div className="text-center py-8 bg-muted/20 rounded-lg">
+      <div 
+        className="text-center py-8 bg-muted/20 rounded-lg space-y-2"
+        role="status"
+        aria-label="No time-off requests found"
+      >
+        <Calendar className="h-8 w-8 mx-auto text-muted-foreground" />
         <p className="text-muted-foreground">No time-off requests found</p>
+        <p className="text-sm text-muted-foreground">
+          Create a new request using the button above
+        </p>
       </div>
     );
   }
@@ -124,6 +136,8 @@ export function TimeOffRequestList({ userId, showActions = true }: TimeOffReques
             <div
               key={request.id}
               className="flex items-center justify-between p-4 rounded-lg border bg-card"
+              role="listitem"
+              aria-label={`Time-off request for ${user?.name}`}
             >
               <div className="space-y-1">
                 {!userId && (
@@ -138,6 +152,7 @@ export function TimeOffRequestList({ userId, showActions = true }: TimeOffReques
                     "inline-flex items-center px-2 py-1 rounded-full text-xs font-medium",
                     getStatusColor(request.status)
                   )}
+                  role="status"
                 >
                   {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
                 </span>
@@ -154,6 +169,7 @@ export function TimeOffRequestList({ userId, showActions = true }: TimeOffReques
                   onClick={() => setCancelRequestId(request.id)}
                   disabled={isCancelling}
                   className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                  aria-label={`Cancel time-off request for ${user?.name}`}
                 >
                   <X className="h-4 w-4 mr-1" />
                   Cancel Request
@@ -164,14 +180,17 @@ export function TimeOffRequestList({ userId, showActions = true }: TimeOffReques
         })}
       </div>
 
-      <Dialog open={cancelRequestId !== null} onOpenChange={() => setCancelRequestId(null)}>
-        <DialogContent>
+      <Dialog 
+        open={cancelRequestId !== null} 
+        onOpenChange={() => setCancelRequestId(null)}
+      >
+        <DialogContent aria-describedby={dialogId}>
           <DialogHeader>
             <DialogTitle>Cancel Time-off Request</DialogTitle>
+            <DialogDescription id={dialogId}>
+              Are you sure you want to cancel this time-off request? This action cannot be undone.
+            </DialogDescription>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            Are you sure you want to cancel this time-off request? This action cannot be undone.
-          </p>
           <div className="flex justify-end gap-2 mt-4">
             <Button
               variant="outline"
@@ -186,6 +205,7 @@ export function TimeOffRequestList({ userId, showActions = true }: TimeOffReques
                 if (cancelRequestId) cancelRequest(cancelRequestId);
               }}
               disabled={isCancelling}
+              aria-busy={isCancelling}
             >
               {isCancelling ? (
                 <>
@@ -207,16 +227,36 @@ export function TimeOffRequests() {
   const [dialogOpen, setDialogOpen] = useState(false);
   // Use the first user as a temporary placeholder until auth is implemented
   const defaultUserId = USERS[0]?.id;
+  const dialogId = "create-dialog-description";
+
+  const user = USERS.find(u => u.id === defaultUserId);
 
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto py-8 space-y-8">
         <div className="flex justify-between items-center">
-          <h2 className="text-2xl font-semibold">Time Off Requests</h2>
+          <div>
+            <h2 className="text-2xl font-semibold">Time Off Requests</h2>
+            {user && (
+              <p className="text-sm text-muted-foreground mt-1">
+                Viewing requests for {user.name}, {user.title}
+              </p>
+            )}
+          </div>
           <div className="flex items-center gap-4">
-            <Button onClick={() => setDialogOpen(true)}>New Request</Button>
+            <Button 
+              onClick={() => setDialogOpen(true)}
+              aria-label="Create new time-off request"
+            >
+              New Request
+            </Button>
             <Link href="/admin/time-off">
-              <Button variant="outline" size="icon" title="Manage Time Off Requests">
+              <Button 
+                variant="outline" 
+                size="icon" 
+                title="Manage Time Off Requests"
+                aria-label="Go to time off management"
+              >
                 <Settings className="h-4 w-4" />
               </Button>
             </Link>
@@ -224,9 +264,12 @@ export function TimeOffRequests() {
         </div>
 
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogContent>
+          <DialogContent aria-describedby={dialogId}>
             <DialogHeader>
               <DialogTitle>Request Time Off</DialogTitle>
+              <DialogDescription id={dialogId}>
+                Submit a new time-off request for approval
+              </DialogDescription>
             </DialogHeader>
             <TimeOffRequestForm
               userId={defaultUserId}

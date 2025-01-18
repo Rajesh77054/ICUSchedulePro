@@ -1,9 +1,9 @@
 import { useParams } from "wouter";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, Calendar, Clock, Settings, Share2 } from "lucide-react";
+import { ArrowLeft, Calendar, Clock, Settings, Share2, X } from "lucide-react";
 import { Link } from "wouter";
 import { USERS } from "@/lib/constants";
 import type { Shift, TimeOffRequest } from "@/lib/types";
@@ -12,21 +12,10 @@ import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
 import { TimeOffRequestForm } from "@/components/time-off/TimeOffRequestForm";
 import { PreferencesForm } from "@/components/scheduler/preferences/PreferencesForm";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { SwapRequestActions } from "@/components/scheduler/SwapRequestActions";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 
 export function PersonalDashboard() {
@@ -61,6 +50,41 @@ export function PersonalDashboard() {
       return res.json();
     },
   });
+
+  // Add mutation for canceling swap requests
+  const { mutate: cancelSwapRequest } = useMutation({
+    mutationFn: async (requestId: number) => {
+      const res = await fetch(`/api/swap-requests/${requestId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const error = await res.text();
+        throw new Error(error);
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/shifts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/swap-requests"] });
+      toast({
+        title: "Success",
+        description: "Swap request cancelled successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleCancelSwapRequest = (requestId: number) => {
+    if (confirm("Are you sure you want to cancel this swap request?")) {
+      cancelSwapRequest(requestId);
+    }
+  };
 
   if (!user) {
     return (
@@ -128,7 +152,7 @@ export function PersonalDashboard() {
               Customize your schedule preferences and notification settings
             </DialogDescription>
           </DialogHeader>
-          <PreferencesForm 
+          <PreferencesForm
             userId={userId}
             onSuccess={() => {
               setShowPreferences(false);
@@ -232,23 +256,51 @@ export function PersonalDashboard() {
                     className="flex items-center justify-between p-3 rounded-lg border"
                     style={{ borderColor: user.color }}
                   >
-                    <div>
+                    <div className="flex-grow">
                       <p className="font-medium">
                         {format(new Date(shift.startDate), 'MMM d, yyyy')} - {format(new Date(shift.endDate), 'MMM d, yyyy')}
                       </p>
                       <p className="text-sm text-muted-foreground">
                         {Math.ceil((new Date(shift.endDate).getTime() - new Date(shift.startDate).getTime()) / (1000 * 60 * 60 * 24))} days
                       </p>
+                      <div className="mt-2">
+                        {shift.status === 'confirmed' && (
+                          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                            Confirmed
+                          </Badge>
+                        )}
+                        {shift.status === 'pending_swap' && (
+                          <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
+                            Pending Swap
+                          </Badge>
+                        )}
+                        {shift.status === 'swapped' && (
+                          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                            Swapped
+                          </Badge>
+                        )}
+                      </div>
                     </div>
-                    <div className="text-sm">
-                      {shift.status === 'confirmed' ? (
-                        <span className="text-green-600 font-medium">Confirmed</span>
-                      ) : shift.status === 'pending_swap' ? (
-                        <span className="text-yellow-600 font-medium">Pending Swap</span>
-                      ) : (
-                        <span className="text-blue-600 font-medium">Swapped</span>
-                      )}
-                    </div>
+                    {shift.swapRequest && shift.status === 'pending_swap' && (
+                      <div className="flex items-center gap-2">
+                        {/* Show SwapRequestActions for the recipient */}
+                        {shift.swapRequest.recipientId === userId && (
+                          <SwapRequestActions request={shift.swapRequest} />
+                        )}
+                        {/* Show cancel button for the requestor */}
+                        {shift.swapRequest.requestorId === userId && (
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => handleCancelSwapRequest(shift.swapRequest.id)}
+                            className="gap-1"
+                          >
+                            <X className="h-4 w-4" />
+                            Cancel Request
+                          </Button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

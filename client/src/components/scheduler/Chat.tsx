@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
+import { useUser } from "@/hooks/use-user";
 
 interface ChatMessage {
   id: number;
@@ -37,6 +38,7 @@ export function Chat({ roomId }: { roomId: number }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useUser();
 
   const { data: room, isLoading: isLoadingRoom, error: roomError } = useQuery<ChatRoom>({
     queryKey: ['/api/chat/rooms', roomId],
@@ -59,12 +61,16 @@ export function Chat({ roomId }: { roomId: number }) {
 
   const sendMessage = useMutation({
     mutationFn: async (content: string) => {
+      if (!user) {
+        throw new Error('You must be logged in to send messages');
+      }
+
       const res = await fetch(`/api/chat/rooms/${roomId}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           content,
-          senderId: 1 // Default to first user for now
+          senderId: user.id
         }),
       });
       if (!res.ok) throw new Error('Failed to send message');

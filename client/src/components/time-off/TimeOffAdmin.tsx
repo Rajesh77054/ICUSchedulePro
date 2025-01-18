@@ -162,7 +162,7 @@ export function TimeOffAdmin() {
             <DialogHeader>
               <DialogTitle>Create Time Off Request</DialogTitle>
               <DialogDescription id={createDialogId}>
-                Create a time off request on behalf of a user.
+                Create an automatically approved time off period for a user.
               </DialogDescription>
             </DialogHeader>
             <TimeOffRequestForm
@@ -171,11 +171,12 @@ export function TimeOffAdmin() {
                 queryClient.invalidateQueries({ queryKey: ["/api/time-off-requests"] });
                 toast({
                   title: "Success",
-                  description: "Time off request created successfully",
+                  description: "Time off period created successfully",
                 });
               }}
               onCancel={() => setCreateDialogOpen(false)}
               isAdmin={true}
+              initialStatus="approved"
             />
           </DialogContent>
         </Dialog>

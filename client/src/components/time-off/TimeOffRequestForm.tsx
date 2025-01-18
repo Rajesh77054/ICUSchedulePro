@@ -65,9 +65,16 @@ interface TimeOffRequestFormProps {
   onSuccess?: () => void;
   onCancel?: () => void;
   isAdmin?: boolean;
+  initialStatus?: 'pending' | 'approved';
 }
 
-export function TimeOffRequestForm({ userId, onSuccess, onCancel, isAdmin = false }: TimeOffRequestFormProps) {
+export function TimeOffRequestForm({ 
+  userId, 
+  onSuccess, 
+  onCancel, 
+  isAdmin = false,
+  initialStatus = 'pending'
+}: TimeOffRequestFormProps) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
@@ -98,7 +105,7 @@ export function TimeOffRequestForm({ userId, onSuccess, onCancel, isAdmin = fals
             userId: data.userId,
             startDate: format(data.dateRange.from, "yyyy-MM-dd"),
             endDate: format(data.dateRange.to, "yyyy-MM-dd"),
-            status: "pending",
+            status: initialStatus, // Use the initialStatus here
           }),
         });
 
@@ -116,7 +123,9 @@ export function TimeOffRequestForm({ userId, onSuccess, onCancel, isAdmin = fals
       queryClient.invalidateQueries({ queryKey: ["/api/time-off-requests"] });
       toast({
         title: "Success",
-        description: "Time-off request submitted successfully",
+        description: initialStatus === 'approved' 
+          ? "Time-off request created and automatically approved"
+          : "Time-off request submitted successfully",
       });
       setConfirmOpen(false);
       setError(null);
@@ -242,7 +251,7 @@ export function TimeOffRequestForm({ userId, onSuccess, onCancel, isAdmin = fals
                   Submitting...
                 </>
               ) : (
-                "Request Time Off"
+                initialStatus === 'approved' ? "Create Time Off" : "Request Time Off"
               )}
             </Button>
           </div>
@@ -252,10 +261,14 @@ export function TimeOffRequestForm({ userId, onSuccess, onCancel, isAdmin = fals
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <DialogContent aria-describedby={confirmDialogId}>
           <DialogHeader>
-            <DialogTitle>Confirm Time-off Request</DialogTitle>
+            <DialogTitle>
+              {initialStatus === 'approved' ? 'Confirm Time Off Creation' : 'Confirm Time-off Request'}
+            </DialogTitle>
             <DialogDescription id={confirmDialogId}>
               {isAdmin ? (
-                "Please review the time-off request details before submitting."
+                initialStatus === 'approved' 
+                  ? "Create an approved time-off period for the selected user."
+                  : "Please review the time-off request details before submitting."
               ) : (
                 "Are you sure you want to submit this time-off request?"
               )}
@@ -272,6 +285,12 @@ export function TimeOffRequestForm({ userId, onSuccess, onCancel, isAdmin = fals
               From: {form.getValues().dateRange?.from && format(form.getValues().dateRange.from, "MMM d, yyyy")}
               <br />
               To: {form.getValues().dateRange?.to && format(form.getValues().dateRange.to, "MMM d, yyyy")}
+              {initialStatus === 'approved' && (
+                <>
+                  <br />
+                  <span className="text-green-600 font-medium">Status: Pre-approved</span>
+                </>
+              )}
             </p>
           </div>
           <DialogFooter>
@@ -292,7 +311,7 @@ export function TimeOffRequestForm({ userId, onSuccess, onCancel, isAdmin = fals
                   Submitting...
                 </>
               ) : (
-                "Confirm Request"
+                initialStatus === 'approved' ? "Create Time Off" : "Confirm Request"
               )}
             </Button>
           </DialogFooter>

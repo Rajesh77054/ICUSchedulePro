@@ -14,6 +14,7 @@ import {
   ShieldCheck,
   UserCog,
   Database,
+  BarChart,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -125,6 +126,12 @@ export function Sidebar() {
         icon: <Clock className="h-4 w-4" />,
         label: "Time Off Admin",
         tooltip: "Review and manage time-off requests",
+      },
+      {
+        href: "/analytics",
+        icon: <BarChart className="h-4 w-4" />,
+        label: "Analytics",
+        tooltip: "View workload analytics and distribution metrics",
       },
     ],
   };

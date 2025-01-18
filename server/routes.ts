@@ -2,7 +2,7 @@ import express from 'express';
 import { Server } from 'http';
 import { db } from '../db';
 import { users, shifts, userPreferences, timeOffRequests, swapRequests } from '@db/schema';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { setupWebSocket, notify } from './websocket';
 
 export function registerRoutes(app: express.Application) {
@@ -529,6 +529,156 @@ export function registerRoutes(app: express.Application) {
       }
 
       res.json({ message: "Time off request cancelled successfully" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Get workload analytics
+  app.get("/api/analytics/workload", async (req, res) => {
+    try {
+      const { timeRange = 'month' } = req.query;
+
+      // Calculate start date based on time range
+      const startDate = new Date();
+      if (timeRange === 'week') {
+        startDate.setDate(startDate.getDate() - 7);
+      } else if (timeRange === 'month') {
+        startDate.setMonth(startDate.getMonth() - 1);
+      } else if (timeRange === 'quarter') {
+        startDate.setMonth(startDate.getMonth() - 3);
+      }
+
+      // Get all shifts within the time range with their users
+      const allShifts = await db.query.shifts.findMany({
+        where: sql`${shifts.startDate} >= ${startDate.toISOString()}`,
+        with: {
+          user: true
+        }
+      });
+
+      // Calculate hours worked per provider
+      const hoursDistribution = allShifts.reduce((acc: any[], shift) => {
+        const provider = shift.user;
+        if (!provider) return acc;
+
+        const existingProvider = acc.find(p => p.name === provider.name);
+        const shiftHours = (new Date(shift.endDate).getTime() - new Date(shift.startDate).getTime()) / (1000 * 60 * 60);
+
+        if (existingProvider) {
+          existingProvider.hours += shiftHours;
+        } else {
+          acc.push({
+            name: provider.name,
+            hours: shiftHours,
+            target: provider.targetDays * 24 // Convert target days to hours
+          });
+        }
+
+        return acc;
+      }, []);
+
+      res.json({ hoursDistribution });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Get fatigue metrics
+  app.get("/api/analytics/fatigue", async (req, res) => {
+    try {
+      const { timeRange = 'month' } = req.query;
+
+      // Calculate start date based on time range
+      const startDate = new Date();
+      if (timeRange === 'week') {
+        startDate.setDate(startDate.getDate() - 7);
+      } else if (timeRange === 'month') {
+        startDate.setMonth(startDate.getMonth() - 1);
+      } else if (timeRange === 'quarter') {
+        startDate.setMonth(startDate.getMonth() - 3);
+      }
+
+      // Get all shifts within the time range
+      const allShifts = await db.query.shifts.findMany({
+        where: sql`${shifts.startDate} >= ${startDate.toISOString()}`,
+        orderBy: (shifts, { asc }) => [asc(shifts.startDate)],
+        with: {
+          user: true
+        }
+      });
+
+      // Calculate consecutive shifts and rest periods
+      const fatigueMetrics = allShifts.reduce((acc: any[], shift, index) => {
+        if (index === 0) return acc;
+
+        const prevShift = allShifts[index - 1];
+        if (shift.userId === prevShift.userId) {
+          const restHours = (new Date(shift.startDate).getTime() - new Date(prevShift.endDate).getTime()) / (1000 * 60 * 60);
+          const date = new Date(shift.startDate).toLocaleDateString();
+
+          acc.push({
+            date,
+            consecutiveShifts: acc.length > 0 ? acc[acc.length - 1].consecutiveShifts + 1 : 1,
+            restHours
+          });
+        } else {
+          acc.push({
+            date: new Date(shift.startDate).toLocaleDateString(),
+            consecutiveShifts: 0,
+            restHours: 24 // Default rest period
+          });
+        }
+
+        return acc;
+      }, []);
+
+      res.json({ fatigueMetrics });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Get fair distribution metrics
+  app.get("/api/analytics/distribution", async (req, res) => {
+    try {
+      const { timeRange = 'month' } = req.query;
+
+      // Calculate start date based on time range
+      const startDate = new Date();
+      if (timeRange === 'week') {
+        startDate.setDate(startDate.getDate() - 7);
+      } else if (timeRange === 'month') {
+        startDate.setMonth(startDate.getMonth() - 1);
+      } else if (timeRange === 'quarter') {
+        startDate.setMonth(startDate.getMonth() - 3);
+      }
+
+      // Get all shifts within the time range
+      const allShifts = await db.query.shifts.findMany({
+        where: sql`${shifts.startDate} >= ${startDate.toISOString()}`,
+        with: {
+          user: true
+        }
+      });
+
+      // Calculate workload distribution
+      const distribution = allShifts.reduce((acc: Record<string, number>, shift) => {
+        const provider = shift.user;
+        if (!provider) return acc;
+
+        const shiftHours = (new Date(shift.endDate).getTime() - new Date(shift.startDate).getTime()) / (1000 * 60 * 60);
+        acc[provider.name] = (acc[provider.name] || 0) + shiftHours;
+        return acc;
+      }, {});
+
+      // Convert to array format for pie chart
+      const fairnessMetrics = Object.entries(distribution).map(([name, hours]) => ({
+        name,
+        value: hours
+      }));
+
+      res.json({ fairnessMetrics });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }

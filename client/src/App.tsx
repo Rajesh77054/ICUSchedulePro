@@ -1,3 +1,4 @@
+typescript
 import { Switch, Route } from "wouter";
 import { Dashboard } from "@/pages/Dashboard";
 import { PersonalDashboard } from "@/pages/PersonalDashboard";
@@ -7,8 +8,9 @@ import { TimeOffAdmin } from "@/components/time-off/TimeOffAdmin";
 import { Settings } from "@/pages/Settings";
 import { UserManagement } from "@/pages/admin/UserManagement";
 import { ScheduleManagement } from "@/pages/admin/ScheduleManagement";
+import { Analytics } from "@/pages/Analytics";  // Add this import
 import { AlertCircle } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/data-display/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { BreadcrumbNavigation } from "@/components/layout/BreadcrumbNavigation";
 import { Sidebar } from "@/components/layout/Sidebar";
@@ -18,7 +20,7 @@ function App() {
     <TooltipProvider>
       <div className="min-h-screen bg-background">
         <Sidebar />
-        <div className="md:pl-64">  {/* Add padding for sidebar */}
+        <div className="md:pl-64">
           <BreadcrumbNavigation />
           <main className="container mx-auto py-6">
             <Switch>
@@ -30,6 +32,7 @@ function App() {
               <Route path="/preferences" component={Settings} />
               <Route path="/admin/users" component={UserManagement} />
               <Route path="/admin/schedule" component={ScheduleManagement} />
+              <Route path="/analytics" component={Analytics} />  {/* Add this route */}
               <Route component={NotFound} />
             </Switch>
           </main>

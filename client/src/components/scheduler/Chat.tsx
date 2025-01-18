@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import { Send, AlertCircle } from 'lucide-react';
+import { Send, AlertCircle, Loader2 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 
 interface ChatMessage {
@@ -37,7 +38,7 @@ export function Chat({ roomId }: { roomId: number }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: room } = useQuery<ChatRoom>({
+  const { data: room, isLoading: isLoadingRoom, error: roomError } = useQuery<ChatRoom>({
     queryKey: ['/api/chat/rooms', roomId],
     queryFn: async () => {
       const res = await fetch(`/api/chat/rooms/${roomId}`);
@@ -46,13 +47,14 @@ export function Chat({ roomId }: { roomId: number }) {
     },
   });
 
-  const { data: messages = [] } = useQuery<ChatMessage[]>({
+  const { data: messages = [], isLoading: isLoadingMessages } = useQuery<ChatMessage[]>({
     queryKey: ['/api/chat/messages', roomId],
     queryFn: async () => {
       const res = await fetch(`/api/chat/rooms/${roomId}/messages`);
       if (!res.ok) throw new Error('Failed to fetch messages');
       return res.json();
     },
+    enabled: !!room, // Only fetch messages if room exists
   });
 
   const sendMessage = useMutation({
@@ -92,14 +94,44 @@ export function Chat({ roomId }: { roomId: number }) {
     }
   };
 
+  if (isLoadingRoom || isLoadingMessages) {
+    return (
+      <Card>
+        <CardContent className="p-6">
+          <div className="flex items-center justify-center gap-2">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <p>Loading chat...</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (roomError) {
+    return (
+      <Card>
+        <CardContent className="p-6">
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Failed to load chat room. Please try again later.
+            </AlertDescription>
+          </Alert>
+        </CardContent>
+      </Card>
+    );
+  }
+
   if (!room) {
     return (
       <Card>
-        <CardContent className="p-4">
-          <div className="flex items-center gap-2 text-muted-foreground">
+        <CardContent className="p-6">
+          <Alert>
             <AlertCircle className="h-4 w-4" />
-            <p>Loading chat room...</p>
-          </div>
+            <AlertDescription>
+              Chat room not found or you don't have access.
+            </AlertDescription>
+          </Alert>
         </CardContent>
       </Card>
     );
@@ -107,36 +139,35 @@ export function Chat({ roomId }: { roomId: number }) {
 
   return (
     <Card className="flex flex-col h-[600px]">
-      <CardHeader className="px-4 py-2">
-        <CardTitle className="text-lg">{room.name}</CardTitle>
-      </CardHeader>
-      <ScrollArea ref={scrollRef} className="flex-1 p-4">
-        <div className="space-y-4">
-          {messages.map((msg) => (
-            <div
-              key={msg.id}
-              className="flex flex-col space-y-1"
-            >
-              <div className="flex items-center gap-2">
-                <span className="font-medium">{msg.sender.name}</span>
-                <span className="text-xs text-muted-foreground">
-                  {format(new Date(msg.createdAt), 'h:mm a')}
-                </span>
-              </div>
-              <p className="text-sm">{msg.content}</p>
-              {msg.messageType === 'urgent_coverage' && (
-                <div className="mt-1 p-2 bg-red-100 dark:bg-red-900 rounded-md">
-                  <p className="text-sm font-medium">Urgent Coverage Needed</p>
-                  <p className="text-xs">
-                    {format(new Date(msg.metadata.shift.startDate), 'MMM d, yyyy h:mm a')} -{' '}
-                    {format(new Date(msg.metadata.shift.endDate), 'MMM d, yyyy h:mm a')}
-                  </p>
+      <CardContent className="flex-1 p-0">
+        <ScrollArea ref={scrollRef} className="h-full">
+          <div className="p-4 space-y-4">
+            {messages.map((msg) => (
+              <div
+                key={msg.id}
+                className="flex flex-col space-y-1"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">{msg.sender.name}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {format(new Date(msg.createdAt), 'h:mm a')}
+                  </span>
                 </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </ScrollArea>
+                <p className="text-sm">{msg.content}</p>
+                {msg.messageType === 'urgent_coverage' && (
+                  <div className="mt-1 p-2 bg-destructive/10 text-destructive rounded-md">
+                    <p className="text-sm font-medium">Urgent Coverage Needed</p>
+                    <p className="text-xs">
+                      {format(new Date(msg.metadata.shift.startDate), 'MMM d, yyyy h:mm a')} -{' '}
+                      {format(new Date(msg.metadata.shift.endDate), 'MMM d, yyyy h:mm a')}
+                    </p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </ScrollArea>
+      </CardContent>
       <form onSubmit={handleSend} className="p-4 border-t">
         <div className="flex gap-2">
           <Input

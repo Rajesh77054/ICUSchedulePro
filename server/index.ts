@@ -60,6 +60,19 @@ app.use((req, res, next) => {
     for (let i = 0; i < maxRetries; i++) {
       try {
         await new Promise<void>((resolve, reject) => {
+          // Ensure any existing connections are properly closed
+          server.on('error', (err: any) => {
+            if (err.code === 'EADDRINUSE') {
+              log(`Port ${port} is in use, trying ${port + 1}`);
+              server.close();
+              port++;
+              reject(new Error('Port in use'));
+            } else {
+              console.error('Server error:', err);
+              reject(err);
+            }
+          });
+
           server.listen(port, "0.0.0.0")
             .once('listening', () => {
               log(`Server started on port ${port}`);

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Loader2 } from "lucide-react";
+import { Loader2, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DatePickerWithRange } from "@/components/ui/date-range-picker";
 import {
@@ -157,7 +157,7 @@ export function TimeOffRequestForm({ userId, onSuccess, onCancel, isAdmin = fals
       )}
 
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" aria-label="Time off request form">
           {isAdmin ? (
             <FormField
               control={form.control}
@@ -191,9 +191,12 @@ export function TimeOffRequestForm({ userId, onSuccess, onCancel, isAdmin = fals
             />
           ) : (
             selectedUser && (
-              <div className="mb-4">
-                <p className="text-sm font-medium">Requesting Time Off for:</p>
-                <p className="text-sm text-muted-foreground">{selectedUser.name}, {selectedUser.title}</p>
+              <div className="mb-4 p-4 bg-muted/20 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <p className="text-sm font-medium">Requesting Time Off for:</p>
+                </div>
+                <p className="text-sm text-muted-foreground mt-1">{selectedUser.name}, {selectedUser.title}</p>
               </div>
             )
           )}

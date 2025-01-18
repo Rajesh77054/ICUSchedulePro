@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Check, X, Loader2, Plus } from "lucide-react";
+import { Check, X, Loader2, Plus, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TimeOffRequestForm } from "./TimeOffRequestForm";
 import {
@@ -19,6 +19,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -26,7 +27,7 @@ import { USERS } from "@/lib/constants";
 import type { TimeOffRequest } from "@/lib/types";
 
 export function TimeOffAdmin() {
-  const [selectedUser, setSelectedUser] = useState<string | null>(null);
+  const [selectedUser, setSelectedUser] = useState<string>("all");
   const [rejectionReason, setRejectionReason] = useState("");
   const [selectedRequest, setSelectedRequest] = useState<TimeOffRequest | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -128,9 +129,14 @@ export function TimeOffAdmin() {
     <div className="min-h-screen bg-background">
       <div className="container mx-auto py-8 space-y-8">
         <div className="flex justify-between items-center">
-          <h2 className="text-2xl font-semibold">Manage Time Off Requests</h2>
+          <div>
+            <h2 className="text-2xl font-semibold">Manage Time Off Requests</h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              Review and manage time-off requests for all users
+            </p>
+          </div>
           <div className="flex items-center gap-4">
-            <Select value={selectedUser ?? undefined} onValueChange={setSelectedUser}>
+            <Select value={selectedUser} onValueChange={setSelectedUser}>
               <SelectTrigger className="w-[200px]">
                 <SelectValue placeholder="Filter by user" />
               </SelectTrigger>
@@ -179,7 +185,8 @@ export function TimeOffAdmin() {
           <div className="space-y-4">
             <h3 className="text-lg font-medium">Pending Requests</h3>
             {pendingRequests.length === 0 ? (
-              <div className="text-center py-8 bg-muted/20 rounded-lg">
+              <div className="text-center py-8 bg-muted/20 rounded-lg space-y-2">
+                <Calendar className="h-8 w-8 mx-auto text-muted-foreground" />
                 <p className="text-muted-foreground">No pending requests</p>
               </div>
             ) : (
@@ -203,6 +210,7 @@ export function TimeOffAdmin() {
                             "inline-flex items-center px-2 py-1 rounded-full text-xs font-medium",
                             getStatusColor(request.status)
                           )}
+                          role="status"
                         >
                           Pending
                         </span>
@@ -243,6 +251,7 @@ export function TimeOffAdmin() {
             <h3 className="text-lg font-medium">Past Requests</h3>
             {otherRequests.length === 0 ? (
               <div className="text-center py-8 bg-muted/20 rounded-lg">
+                <Calendar className="h-8 w-8 mx-auto text-muted-foreground" />
                 <p className="text-muted-foreground">No past requests</p>
               </div>
             ) : (
@@ -266,6 +275,7 @@ export function TimeOffAdmin() {
                             "inline-flex items-center px-2 py-1 rounded-full text-xs font-medium",
                             getStatusColor(request.status)
                           )}
+                          role="status"
                         >
                           {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
                         </span>

@@ -1,25 +1,21 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/data-display/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Progress } from "@/components/ui/data-display/progress";
+import { Progress } from "@/components/ui/progress";
 import type { User, Shift } from "@/lib/types";
 
-interface UserListProps {
+interface ProviderListProps {
+  users?: User[];
   onUserSelect?: (user: User) => void;
   selectedUserId?: number;
-  getUserStats: (userId: number) => number;
 }
 
-export function ProviderList({ onUserSelect, selectedUserId }: UserListProps) {
+export function ProviderList({ users = [], onUserSelect, selectedUserId }: ProviderListProps) {
   const [activeTab, setActiveTab] = useState<string>("all");
   const [, navigate] = useLocation();
-
-  const { data: users = [] } = useQuery<User[]>({
-    queryKey: ["/api/users"],
-  });
 
   const { data: shifts } = useQuery<Shift[]>({
     queryKey: ["/api/shifts"],

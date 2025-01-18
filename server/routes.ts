@@ -2,7 +2,7 @@ import express from 'express';
 import { Server } from 'http';
 import { db } from '../db';
 import { users, shifts, userPreferences, timeOffRequests, swapRequests } from '@db/schema';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { setupWebSocket, notify } from './websocket';
 
 export function registerRoutes(app: express.Application) {
@@ -402,14 +402,13 @@ export function registerRoutes(app: express.Application) {
     try {
       const { userId } = req.query;
 
-      const query = userId
-        ? db.query.timeOffRequests.findMany({
-            where: eq(timeOffRequests.userId, parseInt(userId as string)),
-            orderBy: (timeOffRequests, { desc }) => [desc(timeOffRequests.createdAt)]
-          })
-        : db.query.timeOffRequests.findMany({
-            orderBy: (timeOffRequests, { desc }) => [desc(timeOffRequests.createdAt)]
-          });
+      const query = db.query.timeOffRequests.findMany({
+        where: userId ? eq(timeOffRequests.userId, parseInt(userId as string)) : undefined,
+        with: {
+          user: true
+        },
+        orderBy: (timeOffRequests, { desc }) => [desc(timeOffRequests.createdAt)]
+      });
 
       const results = await query;
       res.json(results);
@@ -437,7 +436,8 @@ export function registerRoutes(app: express.Application) {
           userId,
           startDate,
           endDate,
-          status: 'pending'
+          status: 'pending',
+          reason: null
         })
         .returning();
 
@@ -449,6 +449,7 @@ export function registerRoutes(app: express.Application) {
 
       res.json(request);
     } catch (error: any) {
+      console.error('Error creating time-off request:', error);
       res.status(500).json({ message: error.message });
     }
   });
@@ -478,12 +479,13 @@ export function registerRoutes(app: express.Application) {
       // Update the request
       const [updated] = await db.update(timeOffRequests)
         .set({
-          status,
+          status: status as 'approved' | 'rejected' | 'pending',
           reason: reason || null
         })
         .where(eq(timeOffRequests.id, parseInt(id)))
         .returning();
 
+      // Send notification about the update
       if (existingRequest.user) {
         broadcast(notify.timeOffResponded(updated, {
           name: existingRequest.user.name,
@@ -498,6 +500,7 @@ export function registerRoutes(app: express.Application) {
     }
   });
 
+  // Delete time off request
   app.delete("/api/time-off-requests/:id", async (req, res) => {
     try {
       const { id } = req.params;

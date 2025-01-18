@@ -1,6 +1,6 @@
 import { WebSocket, WebSocketServer } from 'ws';
 import type { Server } from 'http';
-import { type shifts, type timeOffRequests } from '@db/schema';
+import { type TimeOffRequest, type Shift, type User } from '@db/schema';
 
 interface NotificationMessage {
   type: 'shift_created' | 'shift_updated' | 'shift_deleted' | 'shift_swap_requested' | 'shift_swap_responded' | 'time_off_requested' | 'time_off_responded' | 'time_off_cancelled';
@@ -48,21 +48,21 @@ export function setupWebSocket(server: Server) {
 }
 
 export const notify = {
-  shiftCreated: (shift: typeof shifts.$inferSelect, user: { name: string; title: string }) => ({
+  shiftCreated: (shift: Shift, user: { name: string; title: string }) => ({
     type: 'shift_created' as const,
     data: shift,
     user,
     timestamp: new Date().toISOString(),
   }),
 
-  shiftUpdated: (shift: typeof shifts.$inferSelect, user: { name: string; title: string }) => ({
+  shiftUpdated: (shift: Shift, user: { name: string; title: string }) => ({
     type: 'shift_updated' as const,
     data: shift,
     user,
     timestamp: new Date().toISOString(),
   }),
 
-  shiftDeleted: (shift: typeof shifts.$inferSelect, user: { name: string; title: string }) => ({
+  shiftDeleted: (shift: Shift, user: { name: string; title: string }) => ({
     type: 'shift_deleted' as const,
     data: shift,
     user,
@@ -70,7 +70,7 @@ export const notify = {
   }),
 
   shiftSwapRequested: (
-    shift: typeof shifts.$inferSelect,
+    shift: Shift,
     requestor: { name: string; title: string },
     recipient: { name: string; title: string },
     requestId: number
@@ -81,7 +81,7 @@ export const notify = {
   }),
 
   shiftSwapResponded: (
-    shift: typeof shifts.$inferSelect,
+    shift: Shift,
     requestor: { name: string; title: string },
     recipient: { name: string; title: string },
     status: 'accepted' | 'rejected'
@@ -91,21 +91,21 @@ export const notify = {
     timestamp: new Date().toISOString(),
   }),
 
-  timeOffRequested: (request: typeof timeOffRequests.$inferSelect, user: { name: string; title: string }) => ({
+  timeOffRequested: (request: TimeOffRequest, user: { name: string; title: string }) => ({
     type: 'time_off_requested' as const,
     data: request,
     user,
     timestamp: new Date().toISOString(),
   }),
 
-  timeOffResponded: (request: typeof timeOffRequests.$inferSelect, user: { name: string; title: string }, status: 'approved' | 'rejected') => ({
+  timeOffResponded: (request: TimeOffRequest, user: { name: string; title: string }) => ({
     type: 'time_off_responded' as const,
-    data: { ...request, status },
+    data: request,
     user,
     timestamp: new Date().toISOString(),
   }),
 
-  timeOffCancelled: (request: typeof timeOffRequests.$inferSelect, user: { name: string; title: string }) => ({
+  timeOffCancelled: (request: TimeOffRequest, user: { name: string; title: string }) => ({
     type: 'time_off_cancelled' as const,
     data: request,
     user,

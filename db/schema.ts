@@ -114,11 +114,11 @@ export type TimeOffRequest = InferModel<typeof timeOffRequests>;
 export type UserPreferences = InferModel<typeof userPreferences>;
 
 // Define schemas
-export const insertShiftSchema = createInsertSchema(shifts);
-export const selectShiftSchema = createSelectSchema(shifts);
-
 export const insertUserSchema = createInsertSchema(users);
 export const selectUserSchema = createSelectSchema(users);
+
+export const insertShiftSchema = createInsertSchema(shifts);
+export const selectShiftSchema = createSelectSchema(shifts);
 
 export const insertSwapRequestSchema = createInsertSchema(swapRequests);
 export const selectSwapRequestSchema = createSelectSchema(swapRequests);

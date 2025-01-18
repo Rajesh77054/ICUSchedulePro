@@ -62,7 +62,10 @@ export function Chat({ roomId }: { roomId: number }) {
       const res = await fetch(`/api/chat/rooms/${roomId}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content }),
+        body: JSON.stringify({ 
+          content,
+          senderId: 1 // Default to first user for now
+        }),
       });
       if (!res.ok) throw new Error('Failed to send message');
       return res.json();

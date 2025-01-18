@@ -33,19 +33,59 @@ import {
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
+interface WorkloadData {
+  hoursDistribution: Array<{
+    name: string;
+    hours: number;
+    target: number;
+  }>;
+}
+
+interface FatigueData {
+  fatigueMetrics: Array<{
+    date: string;
+    consecutiveShifts: number;
+    restHours: number;
+  }>;
+}
+
+interface DistributionData {
+  fairnessMetrics: Array<{
+    name: string;
+    value: number;
+  }>;
+}
+
+type TimeRange = 'week' | 'month' | 'quarter';
+
 export function Analytics() {
-  const [timeRange, setTimeRange] = useState<'week' | 'month' | 'quarter'>('month');
+  const [timeRange, setTimeRange] = useState<TimeRange>('month');
 
-  const { data: workloadData, isLoading: isLoadingWorkload } = useQuery({
-    queryKey: ['/api/analytics/workload', timeRange],
+  const { data: workloadData, isLoading: isLoadingWorkload } = useQuery<WorkloadData>({
+    queryKey: ['/api/analytics/workload', timeRange] as const,
+    queryFn: async () => {
+      const res = await fetch(`/api/analytics/workload?timeRange=${timeRange}`);
+      if (!res.ok) throw new Error('Failed to fetch workload data');
+      return res.json();
+    }
   });
 
-  const { data: fatigueData, isLoading: isLoadingFatigue } = useQuery({
-    queryKey: ['/api/analytics/fatigue', timeRange],
+  const { data: fatigueData, isLoading: isLoadingFatigue } = useQuery<FatigueData>({
+    queryKey: ['/api/analytics/fatigue', timeRange] as const,
+    queryFn: async () => {
+      const res = await fetch(`/api/analytics/fatigue?timeRange=${timeRange}`);
+      if (!res.ok) throw new Error('Failed to fetch fatigue data');
+      return res.json();
+    }
   });
 
-  const { data: distributionData, isLoading: isLoadingDistribution } = useQuery({
-    queryKey: ['/api/analytics/distribution', timeRange],
+  const { data: distributionData, isLoading: isLoadingDistribution } = useQuery<DistributionData>({
+    queryKey: ['/api/analytics/distribution', timeRange] as const,
+    queryFn: async () => {
+      const res = await fetch(`/api/analytics/distribution?timeRange=${timeRange}`);
+      if (!res.ok) throw new Error('Failed to fetch distribution data');
+      return res.json();
+    }
   });
 
   if (isLoadingWorkload || isLoadingFatigue || isLoadingDistribution) {
@@ -60,7 +100,7 @@ export function Analytics() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">Workload Analytics</h1>
-        <Select value={timeRange} onValueChange={(value: any) => setTimeRange(value)}>
+        <Select value={timeRange} onValueChange={setTimeRange}>
           <SelectTrigger className="w-32">
             <SelectValue placeholder="Select range" />
           </SelectTrigger>
@@ -84,7 +124,7 @@ export function Analytics() {
           <CardContent>
             <div className="h-[400px]">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={workloadData?.hoursDistribution}>
+                <BarChart data={workloadData?.hoursDistribution ?? []}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" />
                   <YAxis />
@@ -109,7 +149,7 @@ export function Analytics() {
           <CardContent>
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={fatigueData?.fatigueMetrics}>
+                <LineChart data={fatigueData?.fatigueMetrics ?? []}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="date" />
                   <YAxis />
@@ -146,7 +186,7 @@ export function Analytics() {
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={distributionData?.fairnessMetrics}
+                    data={distributionData?.fairnessMetrics ?? []}
                     dataKey="value"
                     nameKey="name"
                     cx="50%"
@@ -154,7 +194,7 @@ export function Analytics() {
                     outerRadius={100}
                     label
                   >
-                    {distributionData?.fairnessMetrics?.map((entry: any, index: number) => (
+                    {distributionData?.fairnessMetrics?.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>

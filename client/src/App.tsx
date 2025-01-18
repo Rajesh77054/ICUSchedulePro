@@ -1,4 +1,3 @@
-typescript
 import { Switch, Route } from "wouter";
 import { Dashboard } from "@/pages/Dashboard";
 import { PersonalDashboard } from "@/pages/PersonalDashboard";
@@ -32,7 +31,7 @@ function App() {
               <Route path="/preferences" component={Settings} />
               <Route path="/admin/users" component={UserManagement} />
               <Route path="/admin/schedule" component={ScheduleManagement} />
-              <Route path="/analytics" component={Analytics} />  {/* Add this route */}
+              <Route path="/analytics" component={Analytics} />
               <Route component={NotFound} />
             </Switch>
           </main>

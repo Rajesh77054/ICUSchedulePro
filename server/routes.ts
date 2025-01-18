@@ -1,13 +1,13 @@
-import express from 'express';
+import express, { Express } from 'express';
 import { Server } from 'http';
 import { db } from '../db';
-import { users, shifts, userPreferences, timeOffRequests, swapRequests } from '@db/schema';
+import { users, shifts, userPreferences, timeOffRequests, swapRequests, chatRooms, messages, roomMembers } from '@db/schema';
 import { and, eq, sql } from 'drizzle-orm';
 import { setupWebSocket, notify } from './websocket';
 
-export function registerRoutes(app: express.Application) {
+export function registerRoutes(app: Express): Server {
   const server = new Server(app);
-  const { broadcast } = setupWebSocket(server);
+  const { broadcast, broadcastToRoom } = setupWebSocket(server);
 
   // Get all users
   app.get("/api/users", async (_req, res) => {
@@ -679,6 +679,140 @@ export function registerRoutes(app: express.Application) {
       }));
 
       res.json({ fairnessMetrics });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Chat Routes
+  app.get("/api/chat/rooms", async (req, res) => {
+    try {
+      const result = await db.query.chatRooms.findMany({
+        with: {
+          members: {
+            with: {
+              user: true
+            }
+          }
+        }
+      });
+
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/chat/rooms", async (req, res) => {
+    try {
+      const { name, type, memberIds } = req.body;
+      const createdBy = req.user?.id; // Assuming authentication is set up
+
+      if (!createdBy) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const [room] = await db.insert(chatRooms)
+        .values({
+          name,
+          type,
+          createdBy
+        })
+        .returning();
+
+      // Add members to the room
+      await db.insert(roomMembers)
+        .values(
+          memberIds.map((userId: number) => ({
+            roomId: room.id,
+            userId,
+            role: userId === createdBy ? 'admin' : 'member'
+          }))
+        );
+
+      res.json(room);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/chat/rooms/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      const room = await db.query.chatRooms.findFirst({
+        where: eq(chatRooms.id, parseInt(id)),
+        with: {
+          members: {
+            with: {
+              user: true
+            }
+          }
+        }
+      });
+
+      if (!room) {
+        return res.status(404).json({ message: "Room not found" });
+      }
+
+      res.json(room);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/chat/rooms/:id/messages", async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      const result = await db.query.messages.findMany({
+        where: eq(messages.roomId, parseInt(id)),
+        with: {
+          sender: true
+        },
+        orderBy: (messages, { asc }) => [asc(messages.createdAt)]
+      });
+
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/chat/rooms/:id/messages", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { content, messageType = 'text', metadata = {} } = req.body;
+      const senderId = req.user?.id; // Assuming authentication is set up
+
+      if (!senderId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const [message] = await db.insert(messages)
+        .values({
+          roomId: parseInt(id),
+          senderId,
+          content,
+          messageType,
+          metadata
+        })
+        .returning();
+
+      // Get the sender information
+      const sender = await db.query.users.findFirst({
+        where: eq(users.id, senderId)
+      });
+
+      if (sender) {
+        // Broadcast the message to all room members
+        broadcastToRoom(parseInt(id), notify.chatMessage(message, { id: parseInt(id) } as any, {
+          name: sender.name,
+          title: sender.title
+        }));
+      }
+
+      res.json(message);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }

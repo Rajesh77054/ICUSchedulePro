@@ -13,6 +13,9 @@ export type ShiftStatus = typeof ShiftStatus[number];
 export const UserType = ['physician', 'app'] as const;
 export type UserType = typeof UserType[number];
 
+export const MessageType = ['text', 'shift_swap', 'urgent_coverage'] as const;
+export type MessageType = typeof MessageType[number];
+
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
@@ -68,6 +71,36 @@ export const userPreferences = pgTable("user_preferences", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// New tables for chat functionality
+export const chatRooms = pgTable("chat_rooms", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  type: text("type").notNull().default('group'), // 'group' or 'direct'
+  createdBy: integer("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const messages = pgTable("messages", {
+  id: serial("id").primaryKey(),
+  roomId: integer("room_id").references(() => chatRooms.id),
+  senderId: integer("sender_id").references(() => users.id),
+  content: text("content").notNull(),
+  messageType: text("message_type", { enum: MessageType }).notNull().default('text'),
+  metadata: jsonb("metadata").default({}), // For shift swap requests or urgent coverage needs
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const roomMembers = pgTable("room_members", {
+  id: serial("id").primaryKey(),
+  roomId: integer("room_id").references(() => chatRooms.id),
+  userId: integer("user_id").references(() => users.id),
+  role: text("role").notNull().default('member'), // 'admin' or 'member'
+  lastRead: timestamp("last_read"),
+  joinedAt: timestamp("joined_at").defaultNow(),
+});
+
 // Define relations
 export const usersRelations = relations(users, ({ many }) => ({
   shifts: many(shifts),
@@ -75,6 +108,8 @@ export const usersRelations = relations(users, ({ many }) => ({
   receivedSwaps: many(swapRequests, { relationName: "recipient" }),
   timeOffRequests: many(timeOffRequests),
   preferences: many(userPreferences),
+  messages: many(messages, { relationName: "sent_messages" }),
+  rooms: many(roomMembers),
 }));
 
 export const shiftsRelations = relations(shifts, ({ one }) => ({
@@ -106,12 +141,46 @@ export const swapRequestsRelations = relations(swapRequests, ({ one }) => ({
   }),
 }));
 
+export const chatRoomsRelations = relations(chatRooms, ({ many, one }) => ({
+  messages: many(messages),
+  members: many(roomMembers),
+  creator: one(users, {
+    fields: [chatRooms.createdBy],
+    references: [users.id],
+  }),
+}));
+
+export const messagesRelations = relations(messages, ({ one }) => ({
+  room: one(chatRooms, {
+    fields: [messages.roomId],
+    references: [chatRooms.id],
+  }),
+  sender: one(users, {
+    fields: [messages.senderId],
+    references: [users.id],
+  }),
+}));
+
+export const roomMembersRelations = relations(roomMembers, ({ one }) => ({
+  room: one(chatRooms, {
+    fields: [roomMembers.roomId],
+    references: [chatRooms.id],
+  }),
+  user: one(users, {
+    fields: [roomMembers.userId],
+    references: [users.id],
+  }),
+}));
+
 // Define models
 export type User = InferModel<typeof users>;
 export type Shift = InferModel<typeof shifts>;
 export type SwapRequest = InferModel<typeof swapRequests>;
 export type TimeOffRequest = InferModel<typeof timeOffRequests>;
 export type UserPreferences = InferModel<typeof userPreferences>;
+export type ChatRoom = InferModel<typeof chatRooms>;
+export type Message = InferModel<typeof messages>;
+export type RoomMember = InferModel<typeof roomMembers>;
 
 // Define schemas
 export const insertUserSchema = createInsertSchema(users);
@@ -128,3 +197,12 @@ export const selectTimeOffRequestSchema = createSelectSchema(timeOffRequests);
 
 export const insertUserPreferencesSchema = createInsertSchema(userPreferences);
 export const selectUserPreferencesSchema = createSelectSchema(userPreferences);
+
+export const insertChatRoomSchema = createInsertSchema(chatRooms);
+export const selectChatRoomSchema = createSelectSchema(chatRooms);
+
+export const insertMessageSchema = createInsertSchema(messages);
+export const selectMessageSchema = createSelectSchema(messages);
+
+export const insertRoomMemberSchema = createInsertSchema(roomMembers);
+export const selectRoomMemberSchema = createSelectSchema(roomMembers);

@@ -1,9 +1,9 @@
 import { WebSocket, WebSocketServer } from 'ws';
 import type { Server } from 'http';
-import { type TimeOffRequest, type Shift, type User } from '@db/schema';
+import { type TimeOffRequest, type Shift, type Message, type ChatRoom } from '@db/schema';
 
 interface NotificationMessage {
-  type: 'shift_created' | 'shift_updated' | 'shift_deleted' | 'shift_swap_requested' | 'shift_swap_responded' | 'time_off_requested' | 'time_off_responded' | 'time_off_cancelled';
+  type: 'shift_created' | 'shift_updated' | 'shift_deleted' | 'shift_swap_requested' | 'shift_swap_responded' | 'time_off_requested' | 'time_off_responded' | 'time_off_cancelled' | 'chat_message' | 'urgent_coverage';
   data: any;
   timestamp: string;
   user?: {
@@ -12,19 +12,68 @@ interface NotificationMessage {
   };
 }
 
+interface ChatClient extends WebSocket {
+  userId?: number;
+  rooms?: Set<number>;
+}
+
 export function setupWebSocket(server: Server) {
   const wss = new WebSocketServer({ 
     server,
     path: '/ws',
   });
 
-  const clients = new Set<WebSocket>();
+  const clients = new Set<ChatClient>();
+  const roomSubscriptions = new Map<number, Set<ChatClient>>();
 
-  wss.on('connection', (ws) => {
+  wss.on('connection', (ws: ChatClient) => {
     clients.add(ws);
+
+    ws.on('message', async (data: string) => {
+      try {
+        const message = JSON.parse(data);
+
+        // Handle authentication
+        if (message.type === 'auth') {
+          ws.userId = message.userId;
+          ws.rooms = new Set();
+          return;
+        }
+
+        // Handle room subscription
+        if (message.type === 'join_room') {
+          const roomId = message.roomId;
+          ws.rooms?.add(roomId);
+
+          let roomClients = roomSubscriptions.get(roomId);
+          if (!roomClients) {
+            roomClients = new Set();
+            roomSubscriptions.set(roomId, roomClients);
+          }
+          roomClients.add(ws);
+          return;
+        }
+
+        // Handle room unsubscription
+        if (message.type === 'leave_room') {
+          const roomId = message.roomId;
+          ws.rooms?.delete(roomId);
+          roomSubscriptions.get(roomId)?.delete(ws);
+          return;
+        }
+      } catch (error) {
+        console.error('WebSocket message error:', error);
+      }
+    });
 
     ws.on('close', () => {
       clients.delete(ws);
+      // Remove from all room subscriptions
+      if (ws.rooms) {
+        for (const roomId of ws.rooms) {
+          roomSubscriptions.get(roomId)?.delete(ws);
+        }
+      }
     });
 
     // Send initial connection success message
@@ -44,7 +93,19 @@ export function setupWebSocket(server: Server) {
     });
   };
 
-  return { broadcast };
+  // Broadcast to specific room
+  const broadcastToRoom = (roomId: number, message: NotificationMessage) => {
+    const roomClients = roomSubscriptions.get(roomId);
+    if (roomClients) {
+      roomClients.forEach(client => {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(JSON.stringify(message));
+        }
+      });
+    }
+  };
+
+  return { broadcast, broadcastToRoom };
 }
 
 export const notify = {
@@ -111,4 +172,25 @@ export const notify = {
     user,
     timestamp: new Date().toISOString(),
   }),
+
+  chatMessage: (message: Message, room: ChatRoom, sender: { name: string; title: string }) => ({
+    type: 'chat_message' as const,
+    data: {
+      message,
+      room,
+      sender
+    },
+    timestamp: new Date().toISOString(),
+    user: sender
+  }),
+
+  urgentCoverage: (shift: Shift, requester: { name: string; title: string }) => ({
+    type: 'urgent_coverage' as const,
+    data: {
+      shift,
+      requester
+    },
+    timestamp: new Date().toISOString(),
+    user: requester
+  })
 };

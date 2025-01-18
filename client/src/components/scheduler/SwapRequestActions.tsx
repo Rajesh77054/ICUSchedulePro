@@ -50,28 +50,81 @@ export function SwapRequestActions({ request, onClose }: SwapRequestActionsProps
     },
   });
 
+  const { mutate: cancelRequest, isPending: isCanceling } = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/swap-requests/${request.id}`, {
+        method: 'DELETE',
+      });
+
+      if (!res.ok) {
+        const error = await res.text();
+        throw new Error(error);
+      }
+
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/shifts'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/swap-requests'] });
+
+      toast({
+        title: 'Success',
+        description: 'Swap request cancelled successfully',
+      });
+
+      if (onClose) {
+        onClose();
+      }
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
   return (
     <div className="flex items-center gap-2">
-      <Button
-        variant="outline"
-        size="sm"
-        className="gap-1"
-        onClick={() => respondToRequest({ status: 'accepted' })}
-        disabled={isPending || request.status !== 'pending'}
-      >
-        <Check className="h-4 w-4" />
-        Accept
-      </Button>
-      <Button
-        variant="outline"
-        size="sm"
-        className="gap-1"
-        onClick={() => respondToRequest({ status: 'rejected' })}
-        disabled={isPending || request.status !== 'pending'}
-      >
-        <X className="h-4 w-4" />
-        Reject
-      </Button>
+      {request.status === 'pending' && (
+        <>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1"
+            onClick={() => respondToRequest({ status: 'accepted' })}
+            disabled={isPending || isCanceling}
+          >
+            <Check className="h-4 w-4" />
+            Accept
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1"
+            onClick={() => respondToRequest({ status: 'rejected' })}
+            disabled={isPending || isCanceling}
+          >
+            <X className="h-4 w-4" />
+            Reject
+          </Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            className="gap-1"
+            onClick={() => {
+              if (confirm('Are you sure you want to cancel this swap request?')) {
+                cancelRequest();
+              }
+            }}
+            disabled={isPending || isCanceling}
+          >
+            <X className="h-4 w-4" />
+            Cancel
+          </Button>
+        </>
+      )}
     </div>
   );
 }

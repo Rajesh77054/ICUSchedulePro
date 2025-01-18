@@ -51,39 +51,20 @@ export function PersonalDashboard() {
     },
   });
 
-  // Add mutation for canceling swap requests
-  const { mutate: cancelSwapRequest } = useMutation({
-    mutationFn: async (requestId: number) => {
-      const res = await fetch(`/api/swap-requests/${requestId}`, {
-        method: "DELETE",
-      });
-      if (!res.ok) {
-        const error = await res.text();
-        throw new Error(error);
-      }
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/shifts"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/swap-requests"] });
-      toast({
-        title: "Success",
-        description: "Swap request cancelled successfully",
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
 
-  const handleCancelSwapRequest = (requestId: number) => {
-    if (confirm("Are you sure you want to cancel this swap request?")) {
-      cancelSwapRequest(requestId);
+  const handleShiftActions = (shift: Shift) => {
+    if (shift.swapRequest && shift.status === 'pending_swap') {
+      // If the current user is the recipient or an admin, show accept/reject buttons
+      if (shift.swapRequest.recipientId === userId || user?.userType === 'physician') {
+        return <SwapRequestActions request={shift.swapRequest} />;
+      }
+
+      // If the current user is the requestor, show cancel button
+      if (shift.swapRequest.requestorId === userId) {
+        return <SwapRequestActions request={shift.swapRequest} />;
+      }
     }
+    return null;
   };
 
   if (!user) {
@@ -281,26 +262,7 @@ export function PersonalDashboard() {
                         )}
                       </div>
                     </div>
-                    {shift.swapRequest && shift.status === 'pending_swap' && (
-                      <div className="flex items-center gap-2">
-                        {/* Show SwapRequestActions for the recipient */}
-                        {shift.swapRequest.recipientId === userId && (
-                          <SwapRequestActions request={shift.swapRequest} />
-                        )}
-                        {/* Show cancel button for the requestor */}
-                        {shift.swapRequest.requestorId === userId && (
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => handleCancelSwapRequest(shift.swapRequest.id)}
-                            className="gap-1"
-                          >
-                            <X className="h-4 w-4" />
-                            Cancel Request
-                          </Button>
-                        )}
-                      </div>
-                    )}
+                    {handleShiftActions(shift)}
                   </div>
                 ))}
               </div>

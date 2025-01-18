@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 export interface User {
   id: number;
   name: string;
@@ -19,6 +21,7 @@ export interface Shift {
   schedulingNotes?: any;
   source?: 'manual';
   externalId?: string;
+  swapRequest?: SwapRequest; // Add the swapRequest property
 }
 
 export interface SwapRequest {

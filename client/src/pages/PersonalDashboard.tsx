@@ -7,10 +7,11 @@ import { ArrowLeft, Calendar, Clock, Settings, Share2 } from "lucide-react";
 import { Link } from "wouter";
 import { USERS } from "@/lib/constants";
 import type { Shift, TimeOffRequest } from "@/lib/types";
-import { format, isAfter, isBefore, startOfWeek, endOfWeek } from "date-fns";
+import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
 import { TimeOffRequestForm } from "@/components/time-off/TimeOffRequestForm";
+import { PreferencesForm } from "@/components/scheduler/preferences/PreferencesForm";
 import {
   Dialog,
   DialogContent,
@@ -102,6 +103,10 @@ export function PersonalDashboard() {
           <p className="text-muted-foreground">Personal Schedule Dashboard</p>
         </div>
         <div className="flex items-center gap-2">
+          <Button onClick={() => setShowPreferences(true)} variant="outline">
+            <Settings className="mr-2 h-4 w-4" />
+            Preferences
+          </Button>
           <Button onClick={() => setShowTimeOffForm(true)}>
             Request Time Off
           </Button>
@@ -113,6 +118,28 @@ export function PersonalDashboard() {
           </Link>
         </div>
       </div>
+
+      {/* Preferences Dialog */}
+      <Dialog open={showPreferences} onOpenChange={setShowPreferences}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Schedule Preferences</DialogTitle>
+            <DialogDescription>
+              Customize your schedule preferences and notification settings
+            </DialogDescription>
+          </DialogHeader>
+          <PreferencesForm 
+            userId={userId}
+            onSuccess={() => {
+              setShowPreferences(false);
+              toast({
+                title: "Success",
+                description: "Preferences updated successfully",
+              });
+            }}
+          />
+        </DialogContent>
+      </Dialog>
 
       {/* Time Off Request Dialog */}
       <Dialog open={showTimeOffForm} onOpenChange={setShowTimeOffForm}>

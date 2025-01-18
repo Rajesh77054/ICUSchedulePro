@@ -1,5 +1,5 @@
 import { WebSocket, WebSocketServer } from 'ws';
-import type { Server } from 'http';
+import { Server } from 'http';
 import { type TimeOffRequest, type Shift, type Message, type ChatRoom } from '@db/schema';
 
 interface NotificationMessage {
@@ -70,7 +70,7 @@ export function setupWebSocket(server: Server) {
       clients.delete(ws);
       // Remove from all room subscriptions
       if (ws.rooms) {
-        for (const roomId of ws.rooms) {
+        for (const roomId of [...ws.rooms]) {  // Convert Set to Array for iteration
           roomSubscriptions.get(roomId)?.delete(ws);
         }
       }
@@ -159,7 +159,7 @@ export const notify = {
 
   timeOffResponded: (request: TimeOffRequest, user: { name: string; title: string }, status: 'approved' | 'rejected') => ({
     type: 'time_off_responded' as const,
-    data: request,
+    data: { ...request, status },
     user,
     timestamp: new Date().toISOString(),
   }),

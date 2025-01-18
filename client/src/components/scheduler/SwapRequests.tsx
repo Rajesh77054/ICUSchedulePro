@@ -45,12 +45,12 @@ export function SwapRequests({ userId, variant = 'dashboard' }: Props) {
       }
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['/api/shifts'] });
       queryClient.invalidateQueries({ queryKey: ['/api/swap-requests'] });
       toast({
         title: 'Success',
-        description: 'Successfully responded to the shift swap request.',
+        description: `Successfully ${variables.status} the shift swap request.`,
       });
     },
     onError: (error: Error) => {
@@ -109,18 +109,24 @@ export function SwapRequests({ userId, variant = 'dashboard' }: Props) {
     );
   }
 
-  // Filter requests based on user role (recipient/requestor) and variant
+  // Filter requests based on user role and variant
   const filteredRequests = swapRequests?.filter(request => {
     if (!userId) return true; // Show all if no userId
     if (variant === 'dashboard') {
-      // On dashboard, show requests where user is recipient
-      return request.recipientId === userId;
+      // For dashboard, show pending requests where user is either recipient or requestor
+      return (request.recipientId === userId || request.requestorId === userId) && 
+             request.status === 'pending';
     }
-    // In sidebar, show all requests involving the user
+    // For sidebar, show all requests involving the user, regardless of status
     return request.recipientId === userId || request.requestorId === userId;
   });
 
-  if (!filteredRequests?.length) {
+  // Sort requests by creation date, most recent first
+  const sortedRequests = [...(filteredRequests || [])].sort((a, b) => 
+    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
+
+  if (!sortedRequests?.length) {
     return (
       <Card>
         <CardHeader>
@@ -148,7 +154,7 @@ export function SwapRequests({ userId, variant = 'dashboard' }: Props) {
           </Alert>
         )}
         <div className="space-y-4">
-          {filteredRequests.map((request) => (
+          {sortedRequests.map((request) => (
             <div 
               key={request.id} 
               className="p-4 border rounded-lg space-y-2"
@@ -161,6 +167,11 @@ export function SwapRequests({ userId, variant = 'dashboard' }: Props) {
                   <p className="text-sm text-muted-foreground">
                     {format(new Date(request.shift.startDate), 'MMM d')} - {format(new Date(request.shift.endDate), 'MMM d')}
                   </p>
+                  {request.status !== 'pending' && (
+                    <p className="text-sm font-medium mt-1 capitalize text-muted-foreground">
+                      Status: {request.status}
+                    </p>
+                  )}
                 </div>
                 {userId === request.recipientId && request.status === 'pending' && (
                   <div className="flex gap-2">

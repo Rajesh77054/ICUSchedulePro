@@ -8,6 +8,7 @@ import { Settings } from "@/pages/Settings";
 import { UserManagement } from "@/pages/admin/UserManagement";
 import { ScheduleManagement } from "@/pages/admin/ScheduleManagement";
 import { Analytics } from "@/pages/Analytics";
+import Chat from "@/pages/chat";
 import { AlertCircle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -19,14 +20,13 @@ function App() {
   return (
     <TooltipProvider>
       <div className="min-h-screen bg-background">
-        <Sidebar>
-          <ChatDialog className="absolute bottom-4 left-4" />
-        </Sidebar>
+        <Sidebar />
         <div className="md:pl-64">
           <BreadcrumbNavigation />
           <main className="container mx-auto py-6">
             <Switch>
               <Route path="/" component={Dashboard} />
+              <Route path="/chat" component={Chat} />
               <Route path="/provider/:id" component={PersonalDashboard} />
               <Route path="/swap-requests" component={SwapRequestsDashboard} />
               <Route path="/time-off" component={TimeOffRequests} />

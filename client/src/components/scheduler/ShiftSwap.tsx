@@ -85,8 +85,11 @@ export function ShiftSwap({ shift, onClose }: ShiftSwapProps) {
       }
       return responseData;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      // Invalidate both shifts and swap requests queries
       queryClient.invalidateQueries({ queryKey: ["/api/shifts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/swap-requests"] });
+
       toast({
         title: "Success",
         description: "Shift swap requested successfully. The recipient will be notified.",

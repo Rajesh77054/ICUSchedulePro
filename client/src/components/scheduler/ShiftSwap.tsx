@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
@@ -18,17 +18,16 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { USERS } from "@/lib/constants";
-import type { Shift, SwapRequest } from "@/lib/types";
+import type { Shift, SwapRequest, User } from "@/lib/types";
 import { format } from "date-fns";
 import { getSwapRecommendations } from "@/lib/utils";
-import { useQuery } from "@tanstack/react-query";
 import { Progress } from "@/components/ui/progress";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { AlertCircle, Info, X } from "lucide-react";
+import { AlertCircle, Info } from "lucide-react";
 import { AlertTriangle } from "lucide-react";
 import type { TimeOffRequest, Holiday } from "@/lib/types";
 
@@ -41,6 +40,7 @@ export function ShiftSwap({ shift, onClose }: ShiftSwapProps) {
   const [recipientId, setRecipientId] = useState<string>();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const currentUser = USERS.find(u => u.id === shift.userId);
 
   const { data: shifts = [], isLoading: isLoadingShifts } = useQuery<Shift[]>({
     queryKey: ["/api/shifts"],
@@ -73,6 +73,13 @@ export function ShiftSwap({ shift, onClose }: ShiftSwapProps) {
 
   const { mutate: requestSwap, isLoading: isSubmitting } = useMutation({
     mutationFn: async (data: Partial<SwapRequest>) => {
+      const recipient = USERS.find(u => u.id === parseInt(recipientId!));
+
+      // Validate user types match
+      if (recipient && currentUser && recipient.userType !== currentUser.userType) {
+        throw new Error(`Cannot swap shifts between different provider types (${currentUser.userType} and ${recipient.userType})`);
+      }
+
       const res = await fetch("/api/swap-requests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -123,13 +130,19 @@ export function ShiftSwap({ shift, onClose }: ShiftSwapProps) {
     return recommendations?.find(r => r.userId === userId);
   };
 
+  // Filter users to only show those of the same type
+  const eligibleUsers = USERS.filter(user => 
+    user.id !== shift.userId && 
+    currentUser && user.userType === currentUser.userType
+  );
+
   return (
     <Dialog open={true} onOpenChange={onClose}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Request Shift Swap</DialogTitle>
           <DialogDescription>
-            Select a user to swap shifts with. Users are ranked based on preferences, workload balance, and schedule compatibility.
+            Select a {currentUser?.userType.toUpperCase()} to swap shifts with. Users are ranked based on preferences, workload balance, and schedule compatibility.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
@@ -142,13 +155,13 @@ export function ShiftSwap({ shift, onClose }: ShiftSwapProps) {
 
           <div className="grid gap-2">
             <div className="flex items-center gap-2">
-              <label className="text-sm font-medium">Swap with User</label>
+              <label className="text-sm font-medium">Swap with {currentUser?.userType.toUpperCase()}</label>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Info className="h-4 w-4 text-muted-foreground" />
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p className="text-sm">Users are ranked based on preferences, workload balance, schedule compatibility, and policy compliance</p>
+                  <p className="text-sm">Only providers of the same type ({currentUser?.userType.toUpperCase()}) are shown to ensure proper coverage</p>
                 </TooltipContent>
               </Tooltip>
             </div>
@@ -158,10 +171,10 @@ export function ShiftSwap({ shift, onClose }: ShiftSwapProps) {
             ) : (
               <Select value={recipientId} onValueChange={setRecipientId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select user" />
+                  <SelectValue placeholder={`Select ${currentUser?.userType.toUpperCase()}`} />
                 </SelectTrigger>
                 <SelectContent>
-                  {USERS.filter(user => user.id !== shift.userId).map(user => {
+                  {eligibleUsers.map(user => {
                     const recommendation = getProviderRecommendation(user.id);
                     return (
                       <SelectItem key={user.id} value={user.id.toString()}>
@@ -200,9 +213,18 @@ export function ShiftSwap({ shift, onClose }: ShiftSwapProps) {
             )}
           </div>
 
+          {eligibleUsers.length === 0 && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                No eligible {currentUser?.userType.toUpperCase()}s available for swap. Shifts can only be swapped between providers of the same type.
+              </AlertDescription>
+            </Alert>
+          )}
+
           <Button 
             onClick={handleSwapRequest} 
-            disabled={!recipientId || isSubmitting} 
+            disabled={!recipientId || isSubmitting || eligibleUsers.length === 0} 
             className="w-full"
           >
             {isSubmitting ? "Sending Request..." : "Send Request"}

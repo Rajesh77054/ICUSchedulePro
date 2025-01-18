@@ -121,6 +121,7 @@ interface SwapRecommendation {
   score: number;
   reasons: string[];
   warnings: string[];
+  userType: 'physician' | 'app';
 }
 
 interface RecommendationFactors {
@@ -130,15 +131,17 @@ interface RecommendationFactors {
   timeOffConflicts: number;
   historicalPatterns: number;
   preferenceMatch: number;
+  userTypeMatch: number;
 }
 
 const FACTOR_WEIGHTS = {
-  workloadBalance: 0.25,
-  scheduleCompatibility: 0.2,
+  userTypeMatch: 0.25,
+  workloadBalance: 0.20,
+  scheduleCompatibility: 0.15,
   policyCompliance: 0.15,
-  timeOffConflicts: 0.15,
-  historicalPatterns: 0.1,
-  preferenceMatch: 0.15,
+  timeOffConflicts: 0.10,
+  historicalPatterns: 0.05,
+  preferenceMatch: 0.10,
 };
 
 export function getSwapRecommendations(
@@ -160,7 +163,8 @@ export function getSwapRecommendations(
 
   // Only consider users of the same type (Physician or APP)
   const eligibleUsers = USERS.filter(user => 
-    user.id !== shift.userId && user.userType === currentUser.userType
+    user.id !== shift.userId && 
+    user.userType === currentUser.userType 
   );
 
   eligibleUsers.forEach(user => {
@@ -171,13 +175,16 @@ export function getSwapRecommendations(
       timeOffConflicts: 0,
       historicalPatterns: 0,
       preferenceMatch: 0,
+      userTypeMatch: 1, 
     };
 
     const reasons: string[] = [];
     const warnings: string[] = [];
     const userShifts = allShifts.filter(s => s.userId === user.id);
 
-    // Factor 1: Workload Balance (25%)
+    reasons.push(`Same ${user.userType} type`);
+
+    // Factor 1: Workload Balance (20%)
     const totalDays = userShifts.reduce((acc, s) => {
       const start = new Date(s.startDate);
       const end = new Date(s.endDate);
@@ -195,7 +202,7 @@ export function getSwapRecommendations(
       reasons.push(`Within acceptable ${user.userType} workload range`);
     }
 
-    // Factor 2: Schedule Compatibility (20%)
+    // Factor 2: Schedule Compatibility (15%)
     let hasScheduleConflict = false;
     let nearbyShifts = 0;
 
@@ -251,7 +258,7 @@ export function getSwapRecommendations(
       reasons.push("Complies with all policies");
     }
 
-    // Factor 4: Time Off Conflicts (15%)
+    // Factor 4: Time Off Conflicts (10%)
     const relevantTimeOff = timeOffRequests.filter(request => 
       request.userId === user.id &&
       request.status === 'approved' &&
@@ -272,7 +279,7 @@ export function getSwapRecommendations(
       warnings.push("Conflicts with time-off");
     }
 
-    // Factor 5: Historical Patterns (10%)
+    // Factor 5: Historical Patterns (5%)
     const recentSwaps = swapHistory.filter(swap => 
       swap.requestorId === user.id || 
       swap.recipientId === user.id
@@ -285,7 +292,7 @@ export function getSwapRecommendations(
       warnings.push("High recent swap activity");
     }
 
-    // Factor 6: Preference Match (15%)
+    // Factor 6: Preference Match (10%)
     const userPrefs = preferences.find(p => p.userId === user.id);
     if (userPrefs) {
       let prefScore = 0;
@@ -312,9 +319,10 @@ export function getSwapRecommendations(
       factors.preferenceMatch = prefScore;
     }
 
-    // Calculate final weighted score
+    // Calculate final weighted score with user type match factor
     const score = Math.round(
-      (factors.workloadBalance * FACTOR_WEIGHTS.workloadBalance +
+      (factors.userTypeMatch * FACTOR_WEIGHTS.userTypeMatch +
+      factors.workloadBalance * FACTOR_WEIGHTS.workloadBalance +
       factors.scheduleCompatibility * FACTOR_WEIGHTS.scheduleCompatibility +
       factors.policyCompliance * FACTOR_WEIGHTS.policyCompliance +
       factors.timeOffConflicts * FACTOR_WEIGHTS.timeOffConflicts +
@@ -326,7 +334,8 @@ export function getSwapRecommendations(
       userId: user.id,
       score,
       reasons,
-      warnings
+      warnings,
+      userType: user.userType 
     });
   });
 

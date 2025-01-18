@@ -1,5 +1,5 @@
 import express, { Express } from 'express';
-import { Server } from 'http';
+import { createServer, Server } from 'http';
 import { db } from '../db';
 import { users, shifts, userPreferences, timeOffRequests, swapRequests, chatRooms, messages, roomMembers } from '@db/schema';
 import { and, eq, sql } from 'drizzle-orm';
@@ -11,7 +11,7 @@ export function registerRoutes(app: Express): Server {
   // Initialize auth system
   setupAuth(app);
 
-  const server = new Server(app);
+  const server = createServer(app);
   const { broadcast, broadcastToRoom } = setupWebSocket(server);
 
   // Get all users
@@ -322,14 +322,14 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Request shift swap
-  app.post("/api/shifts/:id/swap-request", async (req, res) => {
+  // Request shift swap endpoint - NEW
+  app.post("/api/swap-requests", async (req, res) => {
     try {
-      const { id } = req.params;
-      const { targetUserId } = req.body;
+      const { shiftId, requestorId, recipientId } = req.body;
 
+      // Get the shift and users involved
       const shift = await db.query.shifts.findFirst({
-        where: eq(shifts.id, parseInt(id)),
+        where: eq(shifts.id, shiftId),
         with: {
           user: true
         }
@@ -339,34 +339,58 @@ export function registerRoutes(app: Express): Server {
         return res.status(404).json({ message: "Shift not found" });
       }
 
-      const targetUser = await db.query.users.findFirst({
-        where: eq(users.id, targetUserId)
+      const requestor = await db.query.users.findFirst({
+        where: eq(users.id, requestorId)
       });
 
-      if (!targetUser) {
-        return res.status(404).json({ message: "Target user not found" });
+      const recipient = await db.query.users.findFirst({
+        where: eq(users.id, recipientId)
+      });
+
+      if (!requestor || !recipient) {
+        return res.status(404).json({ message: "User not found" });
       }
 
-      // Here you would create a swap request record
-      // For now, we'll just broadcast the request
+      // Validate user types match
+      if (requestor.userType !== recipient.userType) {
+        return res.status(400).json({
+          message: `Cannot swap shifts between different provider types (${requestor.userType} and ${recipient.userType})`
+        });
+      }
+
+      // Create swap request
+      const [request] = await db.insert(swapRequests)
+        .values({
+          shiftId,
+          requestorId,
+          recipientId,
+          status: 'pending',
+          createdAt: new Date()
+        })
+        .returning();
+
       if (shift.user) {
-        broadcast(notify.swapRequested(shift, {
-          requestor: {
+        broadcast(notify.shiftSwapRequested(
+          shift,
+          {
             name: shift.user.name,
             title: shift.user.title
           },
-          target: {
-            name: targetUser.name,
-            title: targetUser.title
-          }
-        }));
+          {
+            name: recipient.name,
+            title: recipient.title
+          },
+          request.id
+        ));
       }
 
-      res.json({ message: "Swap request sent" });
+      res.json(request);
     } catch (error: any) {
+      console.error('Error creating swap request:', error);
       res.status(500).json({ message: error.message });
     }
   });
+
 
   // Delete shift
   app.delete("/api/shifts/:id", async (req, res) => {
@@ -684,6 +708,300 @@ export function registerRoutes(app: Express): Server {
       }));
 
       res.json({ fairnessMetrics });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Chat Routes
+  app.get("/api/chat/rooms", async (req, res) => {
+    try {
+      const result = await db.query.chatRooms.findMany({
+        with: {
+          members: {
+            with: {
+              user: true
+            }
+          }
+        }
+      });
+
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/chat/rooms", async (req, res) => {
+    try {
+      const { name, type, memberIds } = req.body;
+      const createdBy = req.user?.id; // Assuming authentication is set up
+
+      if (!createdBy) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const [room] = await db.insert(chatRooms)
+        .values({
+          name,
+          type,
+          createdBy
+        })
+        .returning();
+
+      // Add members to the room
+      await db.insert(roomMembers)
+        .values(
+          memberIds.map((userId: number) => ({
+            roomId: room.id,
+            userId,
+            role: userId === createdBy ? 'admin' : 'member'
+          }))
+        );
+
+      res.json(room);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/chat/rooms/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      const room = await db.query.chatRooms.findFirst({
+        where: eq(chatRooms.id, parseInt(id)),
+        with: {
+          members: {
+            with: {
+              user: true
+            }
+          }
+        }
+      });
+
+      if (!room) {
+        return res.status(404).json({ message: "Room not found" });
+      }
+
+      res.json(room);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/chat/rooms/:id/messages", async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      const result = await db.query.messages.findMany({
+        where: eq(messages.roomId, parseInt(id)),
+        with: {
+          sender: true
+        },
+        orderBy: (messages, { asc }) => [asc(messages.createdAt)]
+      });
+
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/chat/rooms/:id/messages", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { content, messageType = 'text', metadata = {} } = req.body;
+      const senderId = req.user?.id; // Get user ID from authenticated session
+
+      if (!senderId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const [message] = await db.insert(messages)
+        .values({
+          roomId: parseInt(id),
+          senderId,
+          content,
+          messageType,
+          metadata
+        })
+        .returning();
+
+      // Get the sender information
+      const sender = await db.query.users.findFirst({
+        where: eq(users.id, senderId)
+      });
+
+      if (sender) {
+        // Broadcast the message to all room members
+        broadcastToRoom(parseInt(id), notify.chatMessage(message, { id: parseInt(id) }, {
+          name: sender.name,
+          title: sender.title
+        }));
+      }
+
+      res.json(message);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Calendar Export Routes
+  app.get("/api/schedules/:userId/google", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const user = await db.query.users.findFirst({
+        where: eq(users.id, parseInt(userId))
+      });
+
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const userShifts = await db.query.shifts.findMany({
+        where: eq(shifts.userId, parseInt(userId)),
+        orderBy: (shifts, { asc }) => [asc(shifts.startDate)]
+      });
+
+      // Generate Google Calendar URL
+      const calendar = ical({ name: `${user.name}'s Schedule` });
+
+      userShifts.forEach(shift => {
+        calendar.createEvent({
+          start: new Date(shift.startDate),
+          end: new Date(shift.endDate),
+          summary: `${user.name} - ICU Shift`,
+          description: `Status: ${shift.status}\nSource: ${shift.source}`,
+          location: 'ICU Department'
+        });
+      });
+
+      // Google Calendar requires specific parameters
+      const googleUrl = `https://www.google.com/calendar/render?cid=${encodeURIComponent(
+        `${req.protocol}://${req.get('host')}/api/schedules/${userId}/feed`
+      )}`;
+
+      res.redirect(googleUrl);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/schedules/:userId/outlook", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const user = await db.query.users.findFirst({
+        where: eq(users.id, parseInt(userId))
+      });
+
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const userShifts = await db.query.shifts.findMany({
+        where: eq(shifts.userId, parseInt(userId)),
+        orderBy: (shifts, { asc }) => [asc(shifts.startDate)]
+      });
+
+      // Generate iCal data
+      const calendar = ical({ name: `${user.name}'s Schedule` });
+
+      userShifts.forEach(shift => {
+        calendar.createEvent({
+          start: new Date(shift.startDate),
+          end: new Date(shift.endDate),
+          summary: `${user.name} - ICU Shift`,
+          description: `Status: ${shift.status}\nSource: ${shift.source}`,
+          location: 'ICU Department'
+        });
+      });
+
+      // Set headers for Outlook webcal subscription
+      res.set('Content-Type', 'text/calendar; charset=utf-8');
+      res.set('Content-Disposition', `attachment; filename="${user.name}-schedule.ics"`);
+      res.send(calendar.toString());
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/schedules/:userId/ical", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const user = await db.query.users.findFirst({
+        where: eq(users.id, parseInt(userId))
+      });
+
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const userShifts = await db.query.shifts.findMany({
+        where: eq(shifts.userId, parseInt(userId)),
+        orderBy: (shifts, { asc }) => [asc(shifts.startDate)]
+      });
+
+      // Generate iCal data
+      const calendar = ical({ name: `${user.name}'s Schedule` });
+
+      userShifts.forEach(shift => {
+        calendar.createEvent({
+          start: new Date(shift.startDate),
+          end: new Date(shift.endDate),
+          summary: `${user.name} - ICU Shift`,
+          description: `Status: ${shift.status}\nSource: ${shift.source}`,
+          location: 'ICU Department'
+        });
+      });
+
+      // Set headers for iCal download
+      res.set('Content-Type', 'text/calendar; charset=utf-8');
+      res.set('Content-Disposition', `attachment; filename="${user.name}-schedule.ics"`);
+      res.send(calendar.toString());
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/schedules/:userId/feed", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const user = await db.query.users.findFirst({
+        where: eq(users.id, parseInt(userId))
+      });
+
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const userShifts = await db.query.shifts.findMany({
+        where: eq(shifts.userId, parseInt(userId)),
+        orderBy: (shifts, { asc }) => [asc(shifts.startDate)]
+      });
+
+      // Generate calendar feed
+      const calendar = ical({
+        name: `${user.name}'s Schedule`,
+        timezone: 'America/Los_Angeles',
+        ttl: 60 // Update every hour
+      });
+
+      userShifts.forEach(shift => {
+        calendar.createEvent({
+          start: new Date(shift.startDate),
+          end: new Date(shift.endDate),
+          summary: `${user.name} - ICU Shift`,
+          description: `Status: ${shift.status}\nSource: ${shift.source}`,
+          location: 'ICU Department',
+          url: `${req.protocol}://${req.get('host')}/provider/${userId}`
+        });
+      });
+
+      // Set headers for calendar feed
+      res.set('Content-Type', 'text/calendar; charset=utf-8');
+      res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.send(calendar.toString());
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }

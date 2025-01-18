@@ -132,8 +132,8 @@ export const notify = {
 
   shiftSwapRequested: (
     shift: Shift,
-    requestor: { name: string; title: string },
-    recipient: { name: string; title: string },
+    requestor: { name: string; title: string; userType?: string },
+    recipient: { name: string; title: string; userType?: string },
     requestId: number
   ) => ({
     type: 'shift_swap_requested' as const,
@@ -143,8 +143,8 @@ export const notify = {
 
   shiftSwapResponded: (
     shift: Shift,
-    requestor: { name: string; title: string },
-    recipient: { name: string; title: string },
+    requestor: { name: string; title: string; userType?: string },
+    recipient: { name: string; title: string; userType?: string },
     status: 'accepted' | 'rejected'
   ) => ({
     type: 'shift_swap_responded' as const,

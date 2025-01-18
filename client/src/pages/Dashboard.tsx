@@ -6,6 +6,7 @@ import { ListFilter } from "lucide-react";
 import { Loader } from "@/components/ui/loader";
 import { useQuery } from "@tanstack/react-query";
 import type { Shift, User } from "@/lib/types";
+import { ChatDialog } from "@/components/scheduler/ChatDialog";
 
 export function Dashboard() {
   const { data: shifts, isLoading: isLoadingShifts, error: shiftsError } = useQuery<Shift[]>({
@@ -71,6 +72,11 @@ export function Dashboard() {
         <div className="w-full lg:max-w-[300px]">
           <ProviderList users={users} />
         </div>
+      </div>
+
+      {/* Floating Chat Button */}
+      <div className="fixed bottom-6 right-6 z-50">
+        <ChatDialog />
       </div>
     </div>
   );

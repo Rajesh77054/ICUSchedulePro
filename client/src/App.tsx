@@ -7,18 +7,21 @@ import { TimeOffAdmin } from "@/components/time-off/TimeOffAdmin";
 import { Settings } from "@/pages/Settings";
 import { UserManagement } from "@/pages/admin/UserManagement";
 import { ScheduleManagement } from "@/pages/admin/ScheduleManagement";
-import { Analytics } from "@/pages/Analytics";  // Add this import
+import { Analytics } from "@/pages/Analytics";
 import { AlertCircle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { BreadcrumbNavigation } from "@/components/layout/BreadcrumbNavigation";
 import { Sidebar } from "@/components/layout/Sidebar";
+import { ChatDialog } from "@/components/scheduler/ChatDialog";
 
 function App() {
   return (
     <TooltipProvider>
       <div className="min-h-screen bg-background">
-        <Sidebar />
+        <Sidebar>
+          <ChatDialog className="absolute bottom-4 left-4" />
+        </Sidebar>
         <div className="md:pl-64">
           <BreadcrumbNavigation />
           <main className="container mx-auto py-6">

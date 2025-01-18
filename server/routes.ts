@@ -359,9 +359,22 @@ export function registerRoutes(app: Express): Server {
       }
 
       // Start a transaction
-      const [request, updatedShift] = await db.transaction(async (tx) => {
-        // Create swap request
-        const [swapRequest] = await tx.insert(swapRequests)
+      const [swapRequest, updatedShift] = await db.transaction(async (tx) => {
+        // First update the shift status
+        const [updatedShift] = await tx.update(shifts)
+          .set({
+            status: 'pending_swap',
+            updatedAt: new Date()
+          })
+          .where(eq(shifts.id, shiftId))
+          .returning();
+
+        if (!updatedShift) {
+          throw new Error("Failed to update shift status");
+        }
+
+        // Then create the swap request
+        const [newRequest] = await tx.insert(swapRequests)
           .values({
             shiftId,
             requestorId,
@@ -371,37 +384,30 @@ export function registerRoutes(app: Express): Server {
           })
           .returning();
 
-        // Update shift status
-        const [updatedShift] = await tx.update(shifts)
-          .set({
-            status: 'pending_swap',
-            updatedAt: new Date()
-          })
-          .where(eq(shifts.id, shiftId))
-          .returning();
+        if (!newRequest) {
+          throw new Error("Failed to create swap request");
+        }
 
-        return [swapRequest, updatedShift];
+        return [newRequest, updatedShift];
       });
 
       // Send notification about the swap request
-      if (shift.user) {
-        broadcast(notify.shiftSwapRequested(
-          updatedShift,
-          {
-            name: requestor.name,
-            title: requestor.title,
-            userType: requestor.userType
-          },
-          {
-            name: recipient.name,
-            title: recipient.title,
-            userType: recipient.userType
-          },
-          request.id
-        ));
-      }
+      broadcast(notify.shiftSwapRequested(
+        updatedShift,
+        {
+          name: requestor.name,
+          title: requestor.title,
+          userType: requestor.userType
+        },
+        {
+          name: recipient.name,
+          title: recipient.title,
+          userType: recipient.userType
+        },
+        swapRequest.id
+      ));
 
-      res.json({ request, shift: updatedShift });
+      res.json({ swapRequest, shift: updatedShift });
     } catch (error: any) {
       console.error('Error creating swap request:', error);
       res.status(500).json({ message: error.message });
@@ -1005,23 +1011,24 @@ export function registerRoutes(app: Express): Server {
       });
 
       userShifts.forEach(shift => {
-            calendar.createEvent({
-              start: new Date(shift.startDate),
-              end: new Date(shift.endDate),
-              summary: `${user.name} - ICU Shift`,
-              description: `Status: ${shift.status}\nSource: ${shift.source}`,
-              location: 'ICU Department',
-              url: `${req.protocol}://${req.get('host')}/provider/${userId}`
-            });
-          });
-
-          // Set headers for calendar feed
-          res.set('Content-Type', 'text/calendar; charset=utf-8');
-          res.send(calendar.toString());
-        } catch (error: any) {
-          res.status(500).json({ message: error.message });
-        }
+        calendar.createEvent({
+          start: new Date(shift.startDate),
+          end: new Date(shift.endDate),
+          summary: `${user.name} - ICU Shift`,
+          description: `Status: ${shift.status}\nSource: ${shift.source}`,
+          location: 'ICU Department',
+          url: `${req.protocol}://${req.get('host')}/provider/${userId}`
+        });
       });
+
+      // Set headers for calendar feed
+      res.set('Content-Type', 'text/calendar; charset=utf-8');
+      res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.send(calendar.toString());
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
 
   // Chat Routes
   app.get("/api/chat/rooms", async (req, res) => {

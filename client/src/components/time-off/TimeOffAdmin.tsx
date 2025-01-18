@@ -33,6 +33,10 @@ export function TimeOffAdmin() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Dialog IDs for accessibility
+  const createDialogId = "create-dialog-description";
+  const rejectDialogId = "reject-dialog-description";
+
   const { data: requests = [], isLoading } = useQuery<TimeOffRequest[]>({
     queryKey: ["/api/time-off-requests", selectedUser],
     queryFn: async ({ queryKey }) => {
@@ -54,7 +58,10 @@ export function TimeOffAdmin() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status, reason }),
       });
-      if (!res.ok) throw new Error("Failed to update request status");
+      if (!res.ok) {
+        const error = await res.text();
+        throw new Error(error || "Failed to update request status");
+      }
       return res.json();
     },
     onSuccess: () => {
@@ -107,8 +114,9 @@ export function TimeOffAdmin() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center" aria-live="polite">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <span className="sr-only">Loading time-off requests...</span>
       </div>
     );
   }
@@ -144,10 +152,10 @@ export function TimeOffAdmin() {
 
         {/* Create Request Dialog */}
         <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-          <DialogContent className="sm:max-w-[500px]">
+          <DialogContent aria-describedby={createDialogId}>
             <DialogHeader>
               <DialogTitle>Create Time Off Request</DialogTitle>
-              <DialogDescription>
+              <DialogDescription id={createDialogId}>
                 Create a time off request on behalf of a user.
               </DialogDescription>
             </DialogHeader>
@@ -175,13 +183,14 @@ export function TimeOffAdmin() {
                 <p className="text-muted-foreground">No pending requests</p>
               </div>
             ) : (
-              <div className="grid gap-4">
+              <div className="grid gap-4" role="list" aria-label="Pending time-off requests">
                 {pendingRequests.map((request) => {
                   const user = USERS.find((u) => u.id === request.userId);
                   return (
                     <div
                       key={request.id}
                       className="flex items-center justify-between p-4 rounded-lg border bg-card"
+                      role="listitem"
                     >
                       <div className="space-y-1">
                         <p className="font-medium">{user?.name}</p>
@@ -205,6 +214,7 @@ export function TimeOffAdmin() {
                           className="text-green-600 hover:text-green-700"
                           onClick={() => updateRequestStatus({ id: request.id, status: 'approved' })}
                           disabled={isPending}
+                          aria-label={`Approve ${user?.name}'s time-off request`}
                         >
                           <Check className="h-4 w-4 mr-1" />
                           Approve
@@ -215,6 +225,7 @@ export function TimeOffAdmin() {
                           className="text-red-600 hover:text-red-700"
                           onClick={() => setSelectedRequest(request)}
                           disabled={isPending}
+                          aria-label={`Reject ${user?.name}'s time-off request`}
                         >
                           <X className="h-4 w-4 mr-1" />
                           Reject
@@ -235,13 +246,14 @@ export function TimeOffAdmin() {
                 <p className="text-muted-foreground">No past requests</p>
               </div>
             ) : (
-              <div className="grid gap-4">
+              <div className="grid gap-4" role="list" aria-label="Past time-off requests">
                 {otherRequests.map((request) => {
                   const user = USERS.find((u) => u.id === request.userId);
                   return (
                     <div
                       key={request.id}
                       className="flex items-center justify-between p-4 rounded-lg border bg-card"
+                      role="listitem"
                     >
                       <div className="space-y-1">
                         <p className="font-medium">{user?.name}</p>
@@ -270,44 +282,46 @@ export function TimeOffAdmin() {
             )}
           </div>
         </div>
-      </div>
 
-      {/* Rejection Reason Dialog */}
-      <Dialog open={!!selectedRequest} onOpenChange={() => setSelectedRequest(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Reject Time Off Request</DialogTitle>
-            <DialogDescription>
-              Please provide a reason for rejecting this time off request.
-            </DialogDescription>
-          </DialogHeader>
-          <Textarea
-            placeholder="Enter rejection reason..."
-            value={rejectionReason}
-            onChange={(e) => setRejectionReason(e.target.value)}
-            className="min-h-[100px]"
-          />
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSelectedRequest(null)}>
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleReject}
-              disabled={isPending}
-            >
-              {isPending ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Rejecting...
-                </>
-              ) : (
-                "Reject Request"
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        {/* Rejection Reason Dialog */}
+        <Dialog open={!!selectedRequest} onOpenChange={() => setSelectedRequest(null)}>
+          <DialogContent aria-describedby={rejectDialogId}>
+            <DialogHeader>
+              <DialogTitle>Reject Time Off Request</DialogTitle>
+              <DialogDescription id={rejectDialogId}>
+                Please provide a reason for rejecting this time off request.
+              </DialogDescription>
+            </DialogHeader>
+            <Textarea
+              placeholder="Enter rejection reason..."
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
+              className="min-h-[100px]"
+              aria-label="Rejection reason"
+              required
+            />
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setSelectedRequest(null)}>
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleReject}
+                disabled={isPending}
+              >
+                {isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Rejecting...
+                  </>
+                ) : (
+                  "Reject Request"
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
     </div>
   );
 }

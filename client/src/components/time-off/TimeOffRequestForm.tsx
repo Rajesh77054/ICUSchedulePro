@@ -11,6 +11,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from "@/components/ui/form";
 import {
   Select,
@@ -27,12 +28,12 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { USERS } from "@/lib/constants";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { DateRange } from "react-day-picker";
 
 const timeOffRequestSchema = z.object({
   userId: z.number({
@@ -48,7 +49,10 @@ const timeOffRequestSchema = z.object({
       required_error: "Please select an end date",
       invalid_type_error: "Please select a valid end date",
     }),
-  }).refine(data => data.to >= data.from, {
+  }).refine(data => {
+    if (!data.from || !data.to) return false;
+    return data.to >= data.from;
+  }, {
     message: "End date must be after start date",
     path: ["to"],
   }),
@@ -65,8 +69,10 @@ interface TimeOffRequestFormProps {
 
 export function TimeOffRequestForm({ userId, onSuccess, onCancel, isAdmin = false }: TimeOffRequestFormProps) {
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const confirmDialogId = "confirm-dialog-description";
 
   // Get user details for display
   const selectedUser = userId ? USERS.find(u => u.id === userId) : undefined;
@@ -84,22 +90,27 @@ export function TimeOffRequestForm({ userId, onSuccess, onCancel, isAdmin = fals
 
   const { mutate: createRequest, isPending: isSubmitting } = useMutation({
     mutationFn: async (data: TimeOffRequestFormData) => {
-      const res = await fetch("/api/time-off-requests", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId: data.userId,
-          startDate: format(data.dateRange.from, "yyyy-MM-dd"),
-          endDate: format(data.dateRange.to, "yyyy-MM-dd"),
-          status: "pending",
-        }),
-      });
+      try {
+        const res = await fetch("/api/time-off-requests", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId: data.userId,
+            startDate: format(data.dateRange.from, "yyyy-MM-dd"),
+            endDate: format(data.dateRange.to, "yyyy-MM-dd"),
+            status: "pending",
+          }),
+        });
 
-      if (!res.ok) {
-        const error = await res.text();
-        throw new Error(error || "Failed to create time-off request");
+        if (!res.ok) {
+          const error = await res.text();
+          throw new Error(error || "Failed to create time-off request");
+        }
+        return res.json();
+      } catch (error: any) {
+        setError(error.message);
+        throw error;
       }
-      return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/time-off-requests"] });
@@ -108,6 +119,7 @@ export function TimeOffRequestForm({ userId, onSuccess, onCancel, isAdmin = fals
         description: "Time-off request submitted successfully",
       });
       setConfirmOpen(false);
+      setError(null);
       form.reset();
       onSuccess?.();
     },
@@ -117,24 +129,33 @@ export function TimeOffRequestForm({ userId, onSuccess, onCancel, isAdmin = fals
         description: error.message,
         variant: "destructive",
       });
+      setError(error.message);
     },
   });
 
   const onSubmit = (data: TimeOffRequestFormData) => {
+    setError(null);
     setConfirmOpen(true);
   };
 
   // If not admin view and no userId provided, show error
   if (!isAdmin && !userId) {
     return (
-      <div className="p-4 text-red-600 bg-red-50 rounded-lg">
-        Error: User context not available. Please try again or contact support.
+      <div className="p-4 text-red-600 bg-red-50 rounded-lg" role="alert">
+        <p className="font-medium">User Context Error</p>
+        <p className="text-sm">Unable to determine the current user. Please try again or contact support.</p>
       </div>
     );
   }
 
   return (
     <>
+      {error && (
+        <Alert variant="destructive" className="mb-4">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           {isAdmin ? (
@@ -161,6 +182,9 @@ export function TimeOffRequestForm({ userId, onSuccess, onCancel, isAdmin = fals
                       </SelectContent>
                     </Select>
                   </FormControl>
+                  <FormDescription>
+                    Choose the user for whom you're creating the time-off request.
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -186,17 +210,29 @@ export function TimeOffRequestForm({ userId, onSuccess, onCancel, isAdmin = fals
                     onSelect={field.onChange}
                   />
                 </FormControl>
+                <FormDescription>
+                  Choose the start and end dates for your time-off request.
+                </FormDescription>
                 <FormMessage />
               </FormItem>
             )}
           />
           <div className="flex justify-end gap-2">
             {onCancel && (
-              <Button type="button" variant="outline" onClick={onCancel}>
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={onCancel}
+                disabled={isSubmitting}
+              >
                 Cancel
               </Button>
             )}
-            <Button type="submit" disabled={isSubmitting}>
+            <Button 
+              type="submit" 
+              disabled={isSubmitting || !form.formState.isValid}
+              aria-disabled={isSubmitting || !form.formState.isValid}
+            >
               {isSubmitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -211,10 +247,10 @@ export function TimeOffRequestForm({ userId, onSuccess, onCancel, isAdmin = fals
       </Form>
 
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <DialogContent>
+        <DialogContent aria-describedby={confirmDialogId}>
           <DialogHeader>
             <DialogTitle>Confirm Time-off Request</DialogTitle>
-            <DialogDescription>
+            <DialogDescription id={confirmDialogId}>
               {isAdmin ? (
                 "Please review the time-off request details before submitting."
               ) : (

@@ -53,20 +53,24 @@ export function BreadcrumbNavigation() {
   };
 
   const breadcrumbs = buildPath(location);
+  const isLastItem = (index: number) => index === breadcrumbs.length - 1;
 
   return (
     <Breadcrumb className="px-4 py-2 bg-background border-b">
       <BreadcrumbList>
         {breadcrumbs.map((item, index) => (
-          <BreadcrumbItem key={item.path}>
-            {index === breadcrumbs.length - 1 ? (
+          <li key={item.path} className="inline-flex items-center">
+            {isLastItem(index) ? (
               <div className="flex items-center gap-2">
                 <BreadcrumbPage>{item.title}</BreadcrumbPage>
                 {item.tooltip && (
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                        <Info 
+                          className="h-4 w-4 text-muted-foreground cursor-help" 
+                          aria-label={`More information about ${item.title}`}
+                        />
                       </TooltipTrigger>
                       <TooltipContent>
                         <p>{item.tooltip}</p>
@@ -78,10 +82,10 @@ export function BreadcrumbNavigation() {
             ) : (
               <>
                 <BreadcrumbLink href={item.path}>{item.title}</BreadcrumbLink>
-                <BreadcrumbSeparator />
+                {!isLastItem(index) && <BreadcrumbSeparator aria-hidden="true" />}
               </>
             )}
-          </BreadcrumbItem>
+          </li>
         ))}
       </BreadcrumbList>
     </Breadcrumb>

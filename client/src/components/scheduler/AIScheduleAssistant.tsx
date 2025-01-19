@@ -8,12 +8,24 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/hooks/use-user";
 
+interface PageContext {
+  shifts?: any[];
+  requests?: any[];
+  analytics?: any[];
+  users?: any[];
+}
+
 interface Message {
   id: number;
   content: string;
   type: 'user' | 'assistant';
   suggestion?: boolean;
   createdAt: string;
+}
+
+interface AIScheduleAssistantProps {
+  currentPage: string;
+  pageContext?: PageContext;
 }
 
 const pageContextSuggestions: Record<string, string[]> = {
@@ -94,7 +106,7 @@ const generatePageGreeting = (page: string) => {
   return greetings[page] || "Hello! I'm your schedule assistant. How can I help you today?";
 };
 
-export function AIScheduleAssistant({ currentPage }: { currentPage: string }) {
+export function AIScheduleAssistant({ currentPage, pageContext = {} }: AIScheduleAssistantProps) {
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);

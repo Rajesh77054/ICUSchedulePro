@@ -1,41 +1,3 @@
-// Debug testing utility
-const testAIResponse = (shifts: any[], message: string = "show my shifts") => {
-  console.log("=== AI Assistant Test ===");
-  console.log("Input context:", { shifts });
-  console.log("Test message:", message);
-
-  const upcomingShifts = shifts.filter(shift => {
-    if (!shift?.endDate) return false;
-    const endDate = new Date(shift.endDate);
-    return endDate > new Date();
-  });
-
-  console.log("Processed shifts:", upcomingShifts);
-
-  let response = "";
-  if (upcomingShifts?.length > 0) {
-    response = `Test passed: Found ${upcomingShifts.length} upcoming shifts`;
-  } else {
-    response = "Test failed: No upcoming shifts found in context";
-  }
-
-  console.log("AI Response:", response);
-  console.log("=== Test Complete ===");
-  return response;
-};
-
-
-const debugShiftData = (shifts: any[]) => {
-  console.log("=== Debug Shift Data ===");
-  console.log("Raw shifts:", shifts);
-  const validShifts = shifts.filter(shift => shift && shift.startDate && shift.endDate);
-  console.log("Valid shifts:", validShifts);
-  const upcomingShifts = validShifts.filter(shift => new Date(shift.endDate) > new Date());
-  console.log("Upcoming shifts:", upcomingShifts);
-  console.log("=== End Debug ===");
-  return upcomingShifts;
-};
-
 import { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
@@ -153,7 +115,13 @@ const generatePageGreeting = (page: string) => {
 
 export function AIScheduleAssistant({ currentPage, pageContext = defaultPageContext }: AIScheduleAssistantProps) {
   const [contextLoaded, setContextLoaded] = useState(false);
-  
+  const [message, setMessage] = useState('');
+  const [messages, setMessages] = useState<Message[]>([]);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const { toast } = useToast();
+  const { user } = useUser();
+  const currentContext = currentPage.toLowerCase().split('/').pop() || 'dashboard';
+
   useEffect(() => {
     console.log("AIScheduleAssistant received context:", pageContext);
     if (pageContext?.shifts?.length > 0) {
@@ -161,12 +129,6 @@ export function AIScheduleAssistant({ currentPage, pageContext = defaultPageCont
       setContextLoaded(true);
     }
   }, [pageContext]);
-  const [message, setMessage] = useState('');
-  const [messages, setMessages] = useState<Message[]>([]);
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const { toast } = useToast();
-  const { user } = useUser();
-  const currentContext = currentPage.toLowerCase().split('/').pop() || 'dashboard';
 
   useEffect(() => {
     const pageSuggestions = pageContextSuggestions[currentContext] || pageContextSuggestions['dashboard'];
@@ -198,24 +160,13 @@ export function AIScheduleAssistant({ currentPage, pageContext = defaultPageCont
     }
   }, [messages]);
 
-  const debugShiftData = (shifts: any[]) => {
-    console.log("=== Debug Shift Data ===");
-    console.log("Raw shifts:", shifts);
-    const validShifts = shifts.filter(shift => shift && shift.startDate && shift.endDate);
-    console.log("Valid shifts:", validShifts);
-    const upcomingShifts = validShifts.filter(shift => new Date(shift.endDate) > new Date());
-    console.log("Upcoming shifts:", upcomingShifts);
-    console.log("=== End Debug ===");
-    return upcomingShifts;
-  };
-
   const handleSendMessage = async (content: string) => {
     if (!content.trim()) return;
 
     // Get last message for context
     const lastMessage = messages[messages.length - 1];
     const input = content.toLowerCase();
-    
+
     setMessages(prev => [...prev, {
       id: Date.now(),
       content,
@@ -226,7 +177,7 @@ export function AIScheduleAssistant({ currentPage, pageContext = defaultPageCont
 
     // Handle conversation flow
     let contextualResponse = '';
-    
+
     if (lastMessage?.content.includes("Would you like to review your upcoming shifts?") && 
         (input.includes("yes") || input.includes("sure") || input.includes("okay"))) {
       const upcomingShifts = (pageContext?.shifts || []).filter(shift => {
@@ -244,18 +195,7 @@ export function AIScheduleAssistant({ currentPage, pageContext = defaultPageCont
       } else {
         contextualResponse = "You don't have any upcoming shifts scheduled.";
       }
-    } else if (input === "test") {
-      console.log("PageContext:", pageContext);
-      const shifts = debugShiftData(pageContext?.shifts || []);
-      const testResult = testAIResponse(shifts);
-      console.log(testResult);
-      contextualResponse = testResult;
-    } else {
-      // Default context matching
-      if (input.includes('shift') || input.includes('schedule')) {
-
-    // Match input with relevant context
-    if (input.toLowerCase().includes('shift') || input.toLowerCase().includes('schedule')) {
+    } else if (input.includes('shift') || input.includes('schedule')) {
       console.log('Processing shifts from context:', pageContext?.shifts);
 
       const upcomingShifts = (pageContext?.shifts || []).filter(shift => {

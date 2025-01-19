@@ -63,8 +63,15 @@ interface Message {
 
 interface AIScheduleAssistantProps {
   currentPage: string;
-  pageContext?: PageContext;
+  pageContext: PageContext;
 }
+
+const defaultPageContext: PageContext = {
+  shifts: [],
+  requests: [],
+  analytics: [],
+  users: []
+};
 
 const pageContextSuggestions: Record<string, string[]> = {
   dashboard: [
@@ -144,7 +151,8 @@ const generatePageGreeting = (page: string) => {
   return greetings[page] || "Hello! I'm your schedule assistant. How can I help you today?";
 };
 
-export function AIScheduleAssistant({ currentPage, pageContext = {} }: AIScheduleAssistantProps) {
+export function AIScheduleAssistant({ currentPage, pageContext = defaultPageContext }: AIScheduleAssistantProps) {
+  console.log("AIScheduleAssistant received context:", pageContext);
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);

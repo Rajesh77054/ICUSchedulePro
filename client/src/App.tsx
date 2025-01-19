@@ -38,6 +38,10 @@ function App() {
               <Route component={NotFound} />
             </Switch>
           </main>
+          {/* Global AI Schedule Assistant */}
+          <div className="fixed bottom-6 right-6 z-50">
+            <ChatDialog currentPage={location.pathname.split('/')[1] || 'dashboard'} />
+          </div>
         </div>
       </div>
     </TooltipProvider>

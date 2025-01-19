@@ -42,6 +42,14 @@ export function Dashboard() {
     );
   }
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div>Loading...</div>
+      </div>
+    );
+  }
+
   if (hasError) {
     console.error('Shifts error:', shiftsError);
     console.error('Users error:', usersError);

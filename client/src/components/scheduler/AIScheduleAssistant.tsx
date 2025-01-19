@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useChat } from 'ai/react';
+import { useState } from 'react';
 import { Bot, Send } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,14 +14,42 @@ interface AIScheduleAssistantProps {
 }
 
 export function AIScheduleAssistant({ currentPage, pageContext = {} }: AIScheduleAssistantProps) {
-  const { messages, input, handleInputChange, handleSubmit } = useChat({
-    api: '/api/chat',
-    initialMessages: [{
-      id: '1',
-      role: 'assistant',
-      content: `Hello! I'm your schedule assistant. How can I help you manage your schedule today?`
-    }]
-  });
+  const [messages, setMessages] = useState([{
+    id: '1',
+    role: 'assistant',
+    content: `Hello! I'm your schedule assistant. How can I help you manage your schedule today?`
+  }]);
+  const [input, setInput] = useState('');
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setInput(e.target.value);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim()) return;
+
+    const userMessage = { id: Date.now().toString(), role: 'user', content: input };
+    setMessages(prev => [...prev, userMessage]);
+    setInput('');
+
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: [...messages, userMessage] })
+      });
+      
+      const data = await response.json();
+      setMessages(prev => [...prev, {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: data.content
+      }]);
+    } catch (error) {
+      console.error('Chat error:', error);
+    }
+  };
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedDates, setSelectedDates] = useState<{start: Date, end: Date} | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);

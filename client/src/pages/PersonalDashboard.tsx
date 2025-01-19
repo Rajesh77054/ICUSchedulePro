@@ -52,36 +52,43 @@ export function PersonalDashboard() {
   });
 
 
+  // Get all swap requests for the user
+  const { data: swapRequests } = useQuery({
+    queryKey: ['/api/swap-requests', userId],
+    queryFn: async () => {
+      const res = await fetch(`/api/swap-requests?userId=${userId}`);
+      if (!res.ok) throw new Error('Failed to fetch swap requests');
+      return res.json();
+    },
+  });
+
   const handleShiftActions = (shift: Shift) => {
     console.log('handleShiftActions - shift:', shift);
 
-    // Show actions for shifts owned by user
-    if (shift.userId === userId) {
-      // For shifts I own, show my outgoing swap requests
-      const myRequests = shift.swapRequests?.filter(req => 
-        req.status === 'pending' && req.requestorId === userId
-      );
-      
-      if (myRequests && myRequests.length > 0) {
-        return myRequests.map(request => (
-          <SwapRequestActions key={request.id} request={request} />
-        ));
-      }
-    }
-    
-    // Show incoming swap requests where I'm the recipient
-    const incomingRequests = shift.swapRequests?.filter(req =>
-      req.status === 'pending' && req.recipientId === userId  
+    // Show all pending requests related to this shift where user is either requestor or recipient
+    const relevantRequests = swapRequests?.filter(req => 
+      req.shiftId === shift.id && 
+      req.status === 'pending' &&
+      (req.requestorId === userId || req.recipientId === userId)
     );
 
-    if (incomingRequests && incomingRequests.length > 0) {
-      return incomingRequests.map(request => (
+    if (relevantRequests?.length > 0) {
+      return relevantRequests.map(request => (
         <SwapRequestActions key={request.id} request={request} />
       ));
     }
 
     return null;
   };
+
+  // Include shifts that have pending requests for this user
+  const shiftsToDisplay = shifts?.filter(shift => 
+    shift.userId === userId || 
+    shift.swapRequests?.some(req => 
+      req.status === 'pending' && 
+      (req.requestorId === userId || req.recipientId === userId)
+    )
+  );
 
   if (!user) {
     return (

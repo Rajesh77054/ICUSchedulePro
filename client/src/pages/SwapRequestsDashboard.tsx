@@ -36,6 +36,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import type { SwapRequest } from "@/lib/types";
 import { SwapRequestActions } from "@/components/scheduler/SwapRequestActions";
+import { ChatDialog } from "@/components/scheduler/ChatDialog";
 
 export function SwapRequestsDashboard() {
   const [statusFilter, setStatusFilter] = useState<string>("all");

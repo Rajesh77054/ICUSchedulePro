@@ -18,7 +18,7 @@ interface ChatDialogProps {
   pageContext?: Record<string, any>;
 }
 
-export function ChatDialog({ trigger, className, currentPage }: ChatDialogProps) {
+export function ChatDialog({ trigger, className, currentPage, pageContext }: ChatDialogProps) {
   const [open, setOpen] = useState(false);
 
   return (

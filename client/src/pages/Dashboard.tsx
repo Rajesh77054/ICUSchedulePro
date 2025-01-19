@@ -78,9 +78,9 @@ export function Dashboard() {
         </div>
       </div>
 
-      {/* Floating Chat Button */}
+      {/* Floating AI Assistant Button */}
       <div className="fixed bottom-6 right-6 z-50">
-        <ChatDialog />
+        <ChatDialog currentPage="dashboard" />
       </div>
     </div>
   );

@@ -1,5 +1,6 @@
+
 import { useState } from "react";
-import { MessageCircle } from "lucide-react";
+import { Bot } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -8,15 +9,15 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Chat } from "./Chat";
+import { AIScheduleAssistant } from "./AIScheduleAssistant";
 
 interface ChatDialogProps {
-  roomId?: number;
   trigger?: React.ReactNode;
   className?: string;
+  currentPage: string;
 }
 
-export function ChatDialog({ roomId = 1, trigger, className }: ChatDialogProps) {
+export function ChatDialog({ trigger, className, currentPage }: ChatDialogProps) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -26,18 +27,18 @@ export function ChatDialog({ roomId = 1, trigger, className }: ChatDialogProps) 
           <Button
             variant="outline"
             size="icon"
-            className={className}
+            className={`${className} hover:bg-primary hover:text-primary-foreground transition-colors`}
           >
-            <MessageCircle className="h-5 w-5" />
-            <span className="sr-only">Open chat</span>
+            <Bot className="h-5 w-5" />
+            <span className="sr-only">Open AI Assistant</span>
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Team Chat</DialogTitle>
+          <DialogTitle>Schedule Assistant</DialogTitle>
         </DialogHeader>
-        <Chat roomId={roomId} />
+        <AIScheduleAssistant currentPage={currentPage} />
       </DialogContent>
     </Dialog>
   );

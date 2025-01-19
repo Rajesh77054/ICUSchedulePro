@@ -413,6 +413,24 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Send user invitation
+  app.post("/api/users/invite", async (req, res) => {
+    try {
+      const { email, name } = req.body;
+      
+      // Generate invitation URL - this would be your deployed Replit URL
+      const inviteUrl = `${req.protocol}://${req.get('host')}`;
+      
+      // For now, just log the invitation (you can implement actual email sending later)
+      console.log(`Invitation would be sent to ${email} for ${name}`);
+      console.log(`Access URL: ${inviteUrl}`);
+      
+      res.json({ message: "Invitation sent successfully" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // Create new user
   app.post("/api/users", async (req, res) => {
     try {

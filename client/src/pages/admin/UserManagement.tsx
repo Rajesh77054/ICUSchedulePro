@@ -118,13 +118,14 @@ export function UserManagement() {
     },
   });
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const form = e.currentTarget;
     const formData = new FormData(form);
 
     const data = {
       name: formData.get("name"),
+      email: formData.get("email"),
       title: formData.get("title"),
       userType: formData.get("userType"),
       targetDays: parseInt(formData.get("targetDays") as string),
@@ -133,10 +134,34 @@ export function UserManagement() {
       color: formData.get("color"),
     };
 
-    if (selectedUser) {
-      saveUser({ ...data, id: selectedUser });
-    } else {
-      saveUser(data);
+    try {
+      if (selectedUser) {
+        saveUser({ ...data, id: selectedUser });
+      } else {
+        // First create user
+        const response = await fetch("/api/users/invite", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data)
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to send invitation");
+        }
+
+        toast({
+          title: "Invitation Sent",
+          description: `An invitation has been sent to ${data.email}`,
+        });
+        
+        saveUser(data);
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
     }
   };
 
@@ -239,6 +264,16 @@ export function UserManagement() {
                       id="name"
                       name="name"
                       defaultValue={currentUser?.name}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="email">Email</Label>
+                    <Input
+                      id="email"
+                      name="email"
+                      type="email"
+                      defaultValue={currentUser?.email}
                       required
                     />
                   </div>

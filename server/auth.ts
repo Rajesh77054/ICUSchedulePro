@@ -193,6 +193,7 @@ export function setupAuth(app: Express) {
       return res.json(req.user);
     }
 
-    res.status(401).send("Not logged in");
+    // Return null for unauthenticated users instead of error
+    res.json(null);
   });
 }

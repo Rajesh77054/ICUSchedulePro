@@ -181,6 +181,9 @@ export function AIScheduleAssistant({ currentPage, pageContext = {} }: AISchedul
       console.log(testResult);
     }
 
+    // Get shifts from pageContext
+    const shifts = Array.isArray(pageContext?.shifts) ? pageContext.shifts : [];
+
     setMessages(prev => [...prev, {
       id: Date.now(),
       content,
@@ -195,9 +198,7 @@ export function AIScheduleAssistant({ currentPage, pageContext = {} }: AISchedul
 
     // Match input with relevant context
     if (input.toLowerCase().includes('shift') || input.toLowerCase().includes('schedule')) {
-      console.log('Current page context:', pageContext);
-      const shifts = Array.isArray(pageContext?.shifts) ? pageContext.shifts : [];
-      console.log('Parsed shifts:', shifts);
+      console.log('Processing shifts from context:', shifts);
 
       const upcomingShifts = shifts.filter(shift => {
         if (!shift || !shift.endDate) return false;

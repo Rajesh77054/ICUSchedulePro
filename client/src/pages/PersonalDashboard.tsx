@@ -134,8 +134,9 @@ export function PersonalDashboard() {
       <ChatDialog 
         currentPage="personal-dashboard" 
         pageContext={{
-          shifts: userShifts,
-          swapRequests: swapRequests
+          shifts: shiftsToDisplay,
+          swapRequests: swapRequests,
+          userId: userId
         }} 
       />
       <div className="flex items-center justify-between">

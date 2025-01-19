@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { ChatDialog } from "@/components/scheduler/ChatDialog";
 import {
   Card,
   CardContent,
@@ -49,7 +50,8 @@ export function ScheduleManagement() {
   };
 
   return (
-    <div className="container mx-auto p-4 md:py-6">
+    <div className="container mx-auto p-4 md:py-6 relative">
+      <ChatDialog currentPage="schedule" />
       <Card>
         <CardHeader>
           <CardTitle>Schedule Management</CardTitle>

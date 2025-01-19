@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { ChatDialog } from "@/components/scheduler/ChatDialog";
 import {
   Card,
   CardContent,
@@ -97,7 +98,8 @@ export function Analytics() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
+      <ChatDialog currentPage="analytics" />
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">Workload Analytics</h1>
         <Select value={timeRange} onValueChange={setTimeRange}>

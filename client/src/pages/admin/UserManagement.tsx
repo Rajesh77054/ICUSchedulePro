@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { ChatDialog } from "@/components/scheduler/ChatDialog";
 import {
   Card,
   CardContent,
@@ -143,7 +144,8 @@ export function UserManagement() {
   const currentUser = users?.find(u => u.id === selectedUser);
 
   return (
-    <div className="container mx-auto p-4 md:py-6">
+    <div className="container mx-auto p-4 md:py-6 relative">
+      <ChatDialog currentPage="users" />
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">

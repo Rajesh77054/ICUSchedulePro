@@ -152,7 +152,15 @@ const generatePageGreeting = (page: string) => {
 };
 
 export function AIScheduleAssistant({ currentPage, pageContext = defaultPageContext }: AIScheduleAssistantProps) {
-  console.log("AIScheduleAssistant received context:", pageContext);
+  const [contextLoaded, setContextLoaded] = useState(false);
+  
+  useEffect(() => {
+    console.log("AIScheduleAssistant received context:", pageContext);
+    if (pageContext?.shifts?.length > 0) {
+      console.log("Valid shifts found:", pageContext.shifts.length);
+      setContextLoaded(true);
+    }
+  }, [pageContext]);
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);

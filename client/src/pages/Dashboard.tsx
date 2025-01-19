@@ -83,8 +83,9 @@ export function Dashboard() {
         <ChatDialog 
           currentPage="dashboard" 
           pageContext={{
-            shifts: shifts || [],
-            requests: []
+            shifts: Array.isArray(shifts) ? shifts.filter(s => s !== null) : [],
+            requests: [],
+            lastUpdate: new Date().toISOString()
           }}
         />
       </div>

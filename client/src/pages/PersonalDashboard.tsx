@@ -81,13 +81,18 @@ export function PersonalDashboard() {
     return null;
   };
 
-  // Include shifts that have pending requests for this user
-  const shiftsToDisplay = shifts?.filter(shift => 
-    shift.userId === userId || 
-    shift.swapRequests?.some(req => 
-      req.status === 'pending' && 
-      (req.requestorId === userId || req.recipientId === userId)
-    )
+  // Get all shifts that have pending requests where user is recipient
+  const incomingSwapShifts = swapRequests
+    ?.filter(req => req.status === 'pending' && req.recipientId === userId)
+    .map(req => req.shift) || [];
+
+  // Combine user's shifts with incoming swap request shifts
+  const shiftsToDisplay = [
+    ...(shifts || []),
+    ...incomingSwapShifts
+  ].filter((shift, index, self) => 
+    // Remove duplicates
+    index === self.findIndex(s => s.id === shift.id)
   );
 
   if (!user) {

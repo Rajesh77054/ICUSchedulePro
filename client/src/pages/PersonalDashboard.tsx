@@ -53,33 +53,23 @@ export function PersonalDashboard() {
 
 
   const handleShiftActions = (shift: Shift) => {
-    console.log('handleShiftActions - shift:', shift); // Debug log
+    console.log('handleShiftActions - shift:', shift);
 
-    if (!shift.swapRequest) {
-      console.log('No swap request for shift:', shift.id);
-      return null;
+    // Show actions for any pending swap request, regardless of shift status
+    const pendingRequest = shift.swapRequests?.find(req => req.status === 'pending');
+    
+    if (pendingRequest) {
+      // If user is recipient or admin, show accept/reject buttons
+      if (pendingRequest.recipientId === userId || user?.userType === 'physician') {
+        return <SwapRequestActions request={pendingRequest} />;
+      }
+      
+      // If user is requestor, show cancel button
+      if (pendingRequest.requestorId === userId) {
+        return <SwapRequestActions request={pendingRequest} />;
+      }
     }
 
-    if (shift.status !== 'pending_swap') {
-      console.log('Shift not in pending_swap status:', shift.status);
-      return null;
-    }
-
-    console.log('Shift has pending swap request:', shift.swapRequest);
-
-    // If the current user is the recipient or an admin, show accept/reject buttons
-    if (shift.swapRequest.recipientId === userId || user?.userType === 'physician') {
-      console.log('User can respond to swap request');
-      return <SwapRequestActions request={shift.swapRequest} />;
-    }
-
-    // If the current user is the requestor, show cancel button
-    if (shift.swapRequest.requestorId === userId) {
-      console.log('User is the requestor');
-      return <SwapRequestActions request={shift.swapRequest} />;
-    }
-
-    console.log('User cannot act on this swap request');
     return null;
   };
 

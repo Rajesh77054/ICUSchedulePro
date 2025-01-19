@@ -155,34 +155,41 @@ export function AIScheduleAssistant({ currentPage, pageContext = {} }: AISchedul
     }]);
     setMessage('');
 
-    // Generate contextual response based on current page
-    const responses = pageContextSuggestions[currentContext] || pageContextSuggestions['dashboard'];
-    const response = responses[Math.floor(Math.random() * responses.length)];
+    // Analyze user input for keywords
+    const input = content.toLowerCase();
+    let contextualResponse = '';
+
+    // Match input with relevant context
+    if (input.includes('shift') || input.includes('schedule')) {
+      if (pageContext.shifts?.length) {
+        contextualResponse = `You have ${pageContext.shifts.length} shifts scheduled. Would you like to review them or make changes?`;
+      } else {
+        contextualResponse = "You don't have any shifts scheduled yet. Would you like to add some?";
+      }
+    } else if (input.includes('swap') || input.includes('trade')) {
+      if (pageContext.requests?.length) {
+        contextualResponse = `You have ${pageContext.requests.length} pending swap requests. Would you like to review them?`;
+      } else {
+        contextualResponse = "No pending swap requests. Would you like to initiate a shift swap?";
+      }
+    } else if (input.includes('time off') || input.includes('leave')) {
+      contextualResponse = "I can help you submit a time-off request. Would you like to proceed?";
+    } else if (input.includes('coverage') || input.includes('available')) {
+      contextualResponse = "Let me check the coverage for you. What dates are you interested in?";
+    } else {
+      // Default responses based on current page context
+      const responses = pageContextSuggestions[currentContext] || pageContextSuggestions['dashboard'];
+      contextualResponse = responses[Math.floor(Math.random() * responses.length)];
+    }
 
     setTimeout(() => {
-      let contextualResponse = `Based on your current page (${currentContext}): `;
-
-      // Add contextual information based on pageContext
-      if (pageContext.shifts?.length) {
-        contextualResponse += `You have ${pageContext.shifts.length} shifts scheduled. `;
-      }
-      if (pageContext.requests?.length) {
-        contextualResponse += `You have ${pageContext.requests.length} pending requests. `;
-      }
-      if (pageContext.users?.length) {
-        contextualResponse += `There are ${pageContext.users.length} users to manage. `;
-      }
-
-      // Add the suggested action
-      contextualResponse += response;
-
       setMessages(prev => [...prev, {
         id: Date.now(),
         content: contextualResponse,
         type: 'assistant',
         createdAt: new Date().toISOString(),
       }]);
-    }, 1000);
+    }, 500);
   };
 
   const handleSuggestionClick = (suggestion: string) => {

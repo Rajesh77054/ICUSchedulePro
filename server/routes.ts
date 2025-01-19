@@ -1428,33 +1428,47 @@ export function registerRoutes(app: Express): Server {
     try {
       const { messages, pageContext } = req.body;
       let shifts = pageContext?.shifts || [];
+      let swapRequests = pageContext?.swapRequests || [];
       
-      // Add context about shifts to the system message
+      // Get comprehensive system context
       const systemMessage = {
         role: "system",
-        content: "You are a helpful schedule assistant. You help users manage their shifts and schedule."
+        content: `You are an AI schedule assistant integrated with a medical staff scheduling system. 
+You help users manage their shifts, schedule, and shift swap requests. Respond concisely and accurately 
+based on the provided context. Always format dates in a clear, readable format.`
       };
       
-      // Format shifts information
+      // Format current state information
       const shiftsContext = shifts.length > 0 
-        ? "Here are your upcoming shifts:\n" + shifts
+        ? "Current shifts:\n" + shifts
             .filter((s: any) => new Date(s.startDate) > new Date())
             .sort((a: any, b: any) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
-            .map((s: any) => `- ${new Date(s.startDate).toLocaleDateString()} to ${new Date(s.endDate).toLocaleDateString()}`)
+            .map((s: any) => `- ${new Date(s.startDate).toLocaleDateString()} to ${new Date(s.endDate).toLocaleDateString()} (${s.status})`)
             .join("\n")
-        : "You have no upcoming shifts scheduled.";
+        : "No upcoming shifts scheduled.";
+
+      const swapsContext = swapRequests.length > 0
+        ? "\n\nPending swap requests:\n" + swapRequests
+            .filter(r => r.status === 'pending')
+            .map((r: any) => `- Shift ${new Date(r.shift.startDate).toLocaleDateString()} to ${new Date(r.shift.endDate).toLocaleDateString()}: ${r.requestor.name} ↔ ${r.recipient.name}`)
+            .join("\n")
+        : "\n\nNo pending swap requests.";
       
       const response = await openai.chat.completions.create({
         model: 'gpt-3.5-turbo',
         messages: [
           systemMessage,
+          {
+            role: 'system',
+            content: `${shiftsContext}${swapsContext}\n\nPlease help the user with their schedule-related query.`
+          },
           ...messages.map((message: any) => ({
-            content: message.role === 'assistant' && message.content === messages[messages.length - 1].content 
-              ? `${shiftsContext}\n\n${message.content}`
-              : message.content,
+            content: message.content,
             role: message.role,
           }))
         ],
+        temperature: 0.7,
+        max_tokens: 500
       });
 
       res.json(response.choices[0].message);

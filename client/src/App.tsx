@@ -40,10 +40,14 @@ function App() {
           </main>
           {/* Global AI Schedule Assistant */}
           <div className="fixed bottom-6 right-6 z-50">
-            <ChatDialog 
-              currentPage={location.pathname.split('/')[1] || 'dashboard'}
-              pageContext={location.pathname.includes('provider') ? window.__INITIAL_STATE__ : {}} 
-            />
+            {location.pathname.includes('provider') ? (
+              <PersonalChatDialog pathname={location.pathname} />
+            ) : (
+              <ChatDialog 
+                currentPage={location.pathname.split('/')[1] || 'dashboard'}
+                pageContext={{}}
+              />
+            )}
           </div>
         </div>
       </div>

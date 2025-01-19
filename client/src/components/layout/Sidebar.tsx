@@ -91,9 +91,9 @@ export function Sidebar() {
         tooltip: "View and manage the main schedule",
       },
       {
-        href: "/personal",
+        href: "/provider/1",
         icon: <User className="h-4 w-4" />,
-        label: "My Schedule",
+        label: "Personal Schedule",
         tooltip: "View and manage your personal schedule",
         indent: true,
       },
@@ -111,14 +111,7 @@ export function Sidebar() {
         tooltip: "Open team chat for communication",
       },
     ],
-    scheduling: [
-      {
-        href: "/provider/1",
-        icon: <CalendarDays className="h-4 w-4" />,
-        label: "Personal Schedule",
-        tooltip: "View and manage your personal schedule",
-      },
-    ],
+    scheduling: [],
     timeManagement: [
       {
         href: "/time-off",

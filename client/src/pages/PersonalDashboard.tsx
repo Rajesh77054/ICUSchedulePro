@@ -65,7 +65,7 @@ export function PersonalDashboard() {
 
   const handleShiftActions = (shift: Shift) => {
     console.log('handleShiftActions - shift:', shift);
-    
+
     // Get pending requests for this shift
     const requests = swapRequests?.filter(req => 
       req.shiftId === shift.id && 
@@ -135,7 +135,6 @@ export function PersonalDashboard() {
         currentPage="personal-dashboard" 
         pageContext={{
           shifts: userShifts,
-          timeOffRequests: timeOffRequests,
           swapRequests: swapRequests
         }} 
       />

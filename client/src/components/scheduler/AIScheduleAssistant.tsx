@@ -42,6 +42,33 @@ const pageContextSuggestions: Record<string, string[]> = {
   'swap-requests': [
     "Need help reviewing swap requests?",
     "Want to submit a new swap request?",
+
+// Debug testing utility
+const testAIResponse = (shifts: any[], message: string = "show my shifts") => {
+  console.log("=== AI Assistant Test ===");
+  console.log("Input context:", { shifts });
+  console.log("Test message:", message);
+  
+  const upcomingShifts = shifts.filter(shift => {
+    if (!shift?.endDate) return false;
+    const endDate = new Date(shift.endDate);
+    return endDate > new Date();
+  });
+  
+  console.log("Processed shifts:", upcomingShifts);
+  
+  let response = "";
+  if (upcomingShifts?.length > 0) {
+    response = `Test passed: Found ${upcomingShifts.length} upcoming shifts`;
+  } else {
+    response = "Test failed: No upcoming shifts found in context";
+  }
+  
+  console.log("AI Response:", response);
+  console.log("=== Test Complete ===");
+  return response;
+}
+
     "Would you like to check the status of your requests?",
   ],
   'time-off': [
@@ -146,6 +173,12 @@ export function AIScheduleAssistant({ currentPage, pageContext = {} }: AISchedul
 
   const handleSendMessage = async (content: string) => {
     if (!content.trim()) return;
+    
+    // Run test when "test" message is sent
+    if (content.toLowerCase() === "test") {
+      const testResult = testAIResponse(pageContext?.shifts || []);
+      console.log(testResult);
+    }
 
     setMessages(prev => [...prev, {
       id: Date.now(),

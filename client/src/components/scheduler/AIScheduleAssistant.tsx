@@ -195,8 +195,31 @@ export function AIScheduleAssistant({ currentPage, pageContext = defaultPageCont
       } else {
         contextualResponse = "You don't have any upcoming shifts scheduled.";
       }
-    } else if (input.toLowerCase().includes('schedule a new shift') || input.toLowerCase().includes("let's schedule")) {
-      contextualResponse = "I'll help you schedule a new shift. Go to the main schedule view using the 'Main Schedule' link in the sidebar to access the calendar interface. There, you can click any empty time slot to start scheduling a new shift.";
+    } else if (input.toLowerCase().includes('schedule new shift') || input.toLowerCase().includes('schedule a new shift') || input.toLowerCase().includes("let's schedule")) {
+      // Parse dates from input
+      const dateRegex = /(\d{1,2})\/(\d{1,2})-(\d{1,2})\/(\d{4})/;
+      const matches = input.match(dateRegex);
+      
+      if (matches) {
+        const [_, startMonth, startDay, endDay, year] = matches;
+        const startDate = new Date(parseInt(year), parseInt(startMonth) - 1, parseInt(startDay));
+        const endDate = new Date(parseInt(year), parseInt(startMonth) - 1, parseInt(endDay));
+        
+        // Check for conflicts with existing shifts
+        const conflicts = (pageContext?.shifts || []).some(shift => {
+          const shiftStart = new Date(shift.startDate);
+          const shiftEnd = new Date(shift.endDate);
+          return (startDate <= shiftEnd && endDate >= shiftStart);
+        });
+
+        if (conflicts) {
+          contextualResponse = "There appears to be a scheduling conflict with existing shifts. Please check the calendar for available dates.";
+        } else {
+          contextualResponse = `I can help you schedule a shift from ${startMonth}/${startDay} to ${startMonth}/${endDay}/${year}. Click the 'Schedule' button below or use the calendar interface to create this shift.`;
+        }
+      } else {
+        contextualResponse = "I'll help you schedule a new shift. Please use the calendar interface to select your preferred dates, or specify the dates in the format MM/DD-DD/YYYY.";
+      }
     } else if (input.includes('shift') || input.includes('schedule')) {
       console.log('Processing shifts from context:', pageContext?.shifts);
 

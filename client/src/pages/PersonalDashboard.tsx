@@ -54,34 +54,31 @@ export function PersonalDashboard() {
 
   const handleShiftActions = (shift: Shift) => {
     console.log('handleShiftActions - shift:', shift);
+
+    // Show actions for shifts owned by user
+    if (shift.userId === userId) {
+      // For shifts I own, show my outgoing swap requests
+      const myRequests = shift.swapRequests?.filter(req => 
+        req.status === 'pending' && req.requestorId === userId
+      );
+      
+      if (myRequests && myRequests.length > 0) {
+        return myRequests.map(request => (
+          <SwapRequestActions key={request.id} request={request} />
+        ));
+      }
+    }
     
-    // Check for pending swap requests where user is recipient
-    const pendingRequests = shift.swapRequests?.filter(req => 
-      req.status === 'pending' && 
-      (req.recipientId === userId || req.requestorId === userId)
+    // Show incoming swap requests where I'm the recipient
+    const incomingRequests = shift.swapRequests?.filter(req =>
+      req.status === 'pending' && req.recipientId === userId  
     );
 
-    if (pendingRequests && pendingRequests.length > 0) {
-      return pendingRequests.map(request => (
+    if (incomingRequests && incomingRequests.length > 0) {
+      return incomingRequests.map(request => (
         <SwapRequestActions key={request.id} request={request} />
       ));
     }
-
-    return null;
-  };
-
-  // Add helper function to find shifts involved in pending swaps
-  const isShiftInPendingSwap = (shift: Shift) => {
-    return shift.swapRequests?.some(req => 
-      req.status === 'pending' && 
-      (req.recipientId === userId || req.requestorId === userId)
-    ) || false;
-  };
-
-  // Modified shift display logic to include recipient's pending swaps
-  const displayedShifts = shifts?.filter(shift => 
-    shift.userId === userId || isShiftInPendingSwap(shift)
-  );
 
     return null;
   };

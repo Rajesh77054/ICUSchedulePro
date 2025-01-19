@@ -56,10 +56,13 @@ app.use((req, res, next) => {
       serveStatic(app);
     }
 
-    const port = process.env.PORT || 3000;
-    return app.listen(port, '0.0.0.0', () => {
-      log(`Server started on port ${port}`);
-    });
+    // Try ports starting from 5000
+    let port = 5000;
+    const maxRetries = 10;
+    let server_started = false;
+
+    for (let i = 0; i < maxRetries && !server_started; i++) {
+      try {
         await new Promise<void>((resolve, reject) => {
           const cleanupAndRetry = (err?: Error) => {
             server.removeAllListeners();

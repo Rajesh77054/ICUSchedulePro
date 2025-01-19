@@ -1421,7 +1421,6 @@ export function registerRoutes(app: Express): Server {
   // Rest of your routes remain unchanged...
   return server;
 }
-import { OpenAIStream, StreamingTextResponse } from '@vercel/ai-sdk';
 import OpenAI from 'openai';
 
 const openai = new OpenAI({
@@ -1429,17 +1428,20 @@ const openai = new OpenAI({
 });
 
 app.post('/api/chat', async (req, res) => {
-  const { messages } = await req.json();
+  try {
+    const { messages } = await req.json();
+    
+    const response = await openai.chat.completions.create({
+      model: 'gpt-3.5-turbo',
+      messages: messages.map((message: any) => ({
+        content: message.content,
+        role: message.role,
+      })),
+    });
 
-  const response = await openai.chat.completions.create({
-    model: 'gpt-3.5-turbo',
-    stream: true,
-    messages: messages.map((message: any) => ({
-      content: message.content,
-      role: message.role,
-    })),
-  });
-
-  const stream = OpenAIStream(response);
-  return new StreamingTextResponse(stream);
+    res.json(response.choices[0].message);
+  } catch (error) {
+    console.error('Error in chat endpoint:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
 });

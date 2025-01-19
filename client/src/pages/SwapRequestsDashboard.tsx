@@ -260,14 +260,6 @@ export function SwapRequestsDashboard() {
                       {request.status === "pending" && (
                         <>
                           <SwapRequestActions request={request} />
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => handleCancelRequest(request.id)}
-                          >
-                            <X className="h-4 w-4 mr-1" />
-                            Cancel Request
-                          </Button>
                         </>
                       )}
                     </div>

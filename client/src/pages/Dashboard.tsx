@@ -80,7 +80,13 @@ export function Dashboard() {
 
       {/* Floating AI Assistant Button */}
       <div className="fixed bottom-6 right-6 z-50">
-        <ChatDialog currentPage="dashboard" />
+        <ChatDialog 
+          currentPage="dashboard" 
+          pageContext={{
+            shifts: shifts || [],
+            requests: []
+          }}
+        />
       </div>
     </div>
   );

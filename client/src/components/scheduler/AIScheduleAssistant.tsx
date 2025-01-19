@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/hooks/use-user";
+import { ShiftDialog } from "./ShiftDialog";
 
 interface PageContext {
   shifts?: any[];
@@ -117,6 +118,8 @@ export function AIScheduleAssistant({ currentPage, pageContext = defaultPageCont
   const [contextLoaded, setContextLoaded] = useState(false);
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedDates, setSelectedDates] = useState<{start: Date, end: Date} | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const { user } = useUser();
@@ -288,6 +291,14 @@ export function AIScheduleAssistant({ currentPage, pageContext = defaultPageCont
 
   return (
     <div className="flex flex-col h-[500px]">
+      {selectedDates && (
+        <ShiftDialog
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          startDate={selectedDates.start}
+          endDate={selectedDates.end}
+        />
+      )}
       <ScrollArea ref={scrollRef} className="flex-1 p-4">
         <div className="space-y-4">
           {messages.map((msg) => (

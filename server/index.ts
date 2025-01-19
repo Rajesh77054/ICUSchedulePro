@@ -56,10 +56,11 @@ app.use((req, res, next) => {
       serveStatic(app);
     }
 
-    // Try ports starting from 5000
-    let port = 5000;
-    const maxRetries = 10;
-    let server_started = false;
+    const port = process.env.PORT || 5000;
+    const server = app.listen(port, '0.0.0.0', () => {
+      log(`Server started on port ${port}`);
+    });
+    return server;e;
 
     for (let i = 0; i < maxRetries && !server_started; i++) {
       try {

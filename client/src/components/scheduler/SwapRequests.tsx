@@ -202,15 +202,7 @@ export function SwapRequests({ userId, variant = 'dashboard' }: Props) {
                   </div>
                 )}
                 {userId === request.requestorId && request.status === 'pending' && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => cancelSwap(request.id)}
-                    disabled={isResponding || isCancelling}
-                  >
-                    <X className="h-4 w-4 mr-1" />
-                    {isCancelling ? 'Cancelling...' : 'Cancel Request'}
-                  </Button>
+                  <SwapRequestActions request={request} />
                 )}
               </div>
             </div>

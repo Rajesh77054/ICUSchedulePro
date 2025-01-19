@@ -30,14 +30,23 @@ export function PersonalChatDialog({ pathname }: { pathname: string }) {
     enabled: !!userId
   });
 
+  // Convert swapRequests to requests for consistency
+  const pageContext = {
+    shifts: shifts?.map(shift => ({
+      ...shift,
+      startDate: new Date(shift.startDate).toISOString(),
+      endDate: new Date(shift.endDate).toISOString()
+    })) || [],
+    requests: swapRequests || [],
+    userId
+  };
+  
+  console.log("PersonalChatDialog pageContext:", pageContext);
+
   return (
     <ChatDialog 
       currentPage="provider"
-      pageContext={{
-        shifts: shifts || [],
-        swapRequests: swapRequests || [],
-        userId
-      }}
+      pageContext={pageContext}
     />
   );
 }

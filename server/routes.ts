@@ -1418,30 +1418,30 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Chat endpoint
+  const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY 
+  });
+
+  app.post('/api/chat', async (req, res) => {
+    try {
+      const { messages } = await req.json();
+      
+      const response = await openai.chat.completions.create({
+        model: 'gpt-3.5-turbo',
+        messages: messages.map((message: any) => ({
+          content: message.content,
+          role: message.role,
+        })),
+      });
+
+      res.json(response.choices[0].message);
+    } catch (error) {
+      console.error('Error in chat endpoint:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
   // Rest of your routes remain unchanged...
   return server;
 }
-import OpenAI from 'openai';
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY 
-});
-
-app.post('/api/chat', async (req, res) => {
-  try {
-    const { messages } = await req.json();
-    
-    const response = await openai.chat.completions.create({
-      model: 'gpt-3.5-turbo',
-      messages: messages.map((message: any) => ({
-        content: message.content,
-        role: message.role,
-      })),
-    });
-
-    res.json(response.choices[0].message);
-  } catch (error) {
-    console.error('Error in chat endpoint:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});

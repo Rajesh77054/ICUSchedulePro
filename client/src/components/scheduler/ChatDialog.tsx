@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Bot } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,6 +20,11 @@ interface ChatDialogProps {
 
 export function ChatDialog({ trigger, className, currentPage, pageContext }: ChatDialogProps) {
   const [open, setOpen] = useState(false);
+  const [context, setContext] = useState(pageContext);
+  
+  useEffect(() => {
+    setContext(pageContext);
+  }, [pageContext]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -41,7 +46,7 @@ export function ChatDialog({ trigger, className, currentPage, pageContext }: Cha
         </DialogHeader>
         <AIScheduleAssistant 
           currentPage={currentPage} 
-          pageContext={pageContext}
+          pageContext={context}
         />
       </DialogContent>
     </Dialog>

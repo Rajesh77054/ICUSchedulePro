@@ -113,25 +113,25 @@ export function Sidebar() {
       {
         href: "/admin/users",
         icon: <UserCog className="h-4 w-4" />,
-        label: "User Management",
+        label: "Users",
         tooltip: "Manage healthcare providers and their roles",
       },
       {
         href: "/admin/schedule",
         icon: <Database className="h-4 w-4" />,
-        label: "Schedule Management",
+        label: "Schedule Rules",
         tooltip: "Manage calendar data and scheduling rules",
       },
       {
         href: "/swap-requests",
         icon: <Repeat className="h-4 w-4" />,
-        label: "Shift Swaps Admin",
+        label: "Shift Swaps",
         tooltip: "Review and manage shift swap requests",
       },
       {
         href: "/admin/time-off",
         icon: <Clock className="h-4 w-4" />,
-        label: "Time Off Admin",
+        label: "Time Off",
         tooltip: "Review and manage time-off requests",
       },
       {

@@ -161,17 +161,23 @@ export function AIScheduleAssistant({ currentPage, pageContext = {} }: AISchedul
 
     // Match input with relevant context
     if (input.toLowerCase().includes('shift') || input.toLowerCase().includes('schedule')) {
-      const shifts = Array.isArray(pageContext?.shifts) ? pageContext.shifts : [];
+      const shifts = pageContext?.shifts || [];
       const upcomingShifts = shifts.filter(shift => 
         shift && 
         shift.endDate && 
         new Date(shift.endDate) > new Date()
       );
 
+      console.log('Available shifts:', shifts);
+      console.log('Filtered upcoming shifts:', upcomingShifts);
+
       if (upcomingShifts && upcomingShifts.length > 0) {
         contextualResponse = `You have ${upcomingShifts.length} upcoming shifts:\n`;
         upcomingShifts.forEach(shift => {
-          contextualResponse += `\n• ${format(new Date(shift.startDate), 'MMM d, yyyy')} - ${format(new Date(shift.endDate), 'MMM d, yyyy')} (${shift.status})`;
+          const startDate = format(new Date(shift.startDate), 'MMM d, yyyy');
+          const endDate = format(new Date(shift.endDate), 'MMM d, yyyy');
+          contextualResponse += `\n• ${startDate} - ${endDate} (${shift.status})`;
+        });
         });
       } else {
         contextualResponse = "You don't have any shifts scheduled yet. Would you like to add some?";

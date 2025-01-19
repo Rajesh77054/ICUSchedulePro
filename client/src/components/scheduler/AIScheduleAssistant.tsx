@@ -36,7 +36,10 @@ export function AIScheduleAssistant({ currentPage, pageContext = {} }: AISchedul
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: [...messages, userMessage] })
+        body: JSON.stringify({ 
+          messages: [...messages, userMessage],
+          pageContext
+        })
       });
       
       const data = await response.json();

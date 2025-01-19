@@ -1426,14 +1426,35 @@ export function registerRoutes(app: Express): Server {
 
   app.post('/api/chat', async (req, res) => {
     try {
-      const { messages } = req.body;
+      const { messages, pageContext } = req.body;
+      let shifts = pageContext?.shifts || [];
+      
+      // Add context about shifts to the system message
+      const systemMessage = {
+        role: "system",
+        content: "You are a helpful schedule assistant. You help users manage their shifts and schedule."
+      };
+      
+      // Format shifts information
+      const shiftsContext = shifts.length > 0 
+        ? "Here are your upcoming shifts:\n" + shifts
+            .filter((s: any) => new Date(s.startDate) > new Date())
+            .sort((a: any, b: any) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
+            .map((s: any) => `- ${new Date(s.startDate).toLocaleDateString()} to ${new Date(s.endDate).toLocaleDateString()}`)
+            .join("\n")
+        : "You have no upcoming shifts scheduled.";
       
       const response = await openai.chat.completions.create({
         model: 'gpt-3.5-turbo',
-        messages: messages.map((message: any) => ({
-          content: message.content,
-          role: message.role,
-        })),
+        messages: [
+          systemMessage,
+          ...messages.map((message: any) => ({
+            content: message.role === 'assistant' && message.content === messages[messages.length - 1].content 
+              ? `${shiftsContext}\n\n${message.content}`
+              : message.content,
+            role: message.role,
+          }))
+        ],
       });
 
       res.json(response.choices[0].message);

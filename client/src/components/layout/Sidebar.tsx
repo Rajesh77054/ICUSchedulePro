@@ -100,12 +100,6 @@ export function Sidebar() {
         label: "Personal Schedule",
         tooltip: "View and manage your personal schedule",
       },
-      {
-        href: "/swap-requests",
-        icon: <Repeat className="h-4 w-4" />,
-        label: "Shift Swaps",
-        tooltip: "Request and manage shift swaps with other providers",
-      },
     ],
     timeManagement: [
       {
@@ -127,6 +121,12 @@ export function Sidebar() {
         icon: <Database className="h-4 w-4" />,
         label: "Schedule Management",
         tooltip: "Manage calendar data and scheduling rules",
+      },
+      {
+        href: "/swap-requests",
+        icon: <Repeat className="h-4 w-4" />,
+        label: "Shift Swaps Admin",
+        tooltip: "Review and manage shift swap requests",
       },
       {
         href: "/admin/time-off",

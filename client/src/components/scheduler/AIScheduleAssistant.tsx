@@ -23,15 +23,40 @@ const pageContextSuggestions: Record<string, string[]> = {
     "Need help with a shift swap request?",
     "Want to check available coverage options?",
   ],
-  personal: [
+  provider: [
     "Want to update your schedule preferences?",
     "Need to request time off?",
     "Would you like to see your monthly schedule summary?",
   ],
-  admin: [
-    "Need help reviewing pending requests?",
-    "Want to check scheduling conflicts?",
-    "Would you like to analyze coverage patterns?",
+  'swap-requests': [
+    "Need help reviewing swap requests?",
+    "Want to submit a new swap request?",
+    "Would you like to check the status of your requests?",
+  ],
+  'time-off': [
+    "Need to submit a time-off request?",
+    "Want to check your time-off balance?",
+    "Would you like to view approved time-off dates?",
+  ],
+  preferences: [
+    "Want to update your scheduling preferences?",
+    "Need to set your availability?",
+    "Would you like to review your current settings?",
+  ],
+  users: [
+    "Need help managing user accounts?",
+    "Want to review user permissions?",
+    "Would you like to update user schedules?",
+  ],
+  schedule: [
+    "Need help with schedule conflicts?",
+    "Want to review coverage patterns?",
+    "Would you like to generate a new schedule?",
+  ],
+  analytics: [
+    "Need help analyzing scheduling patterns?",
+    "Want to review coverage metrics?",
+    "Would you like to generate a report?",
   ],
 };
 
@@ -43,17 +68,19 @@ export function AIScheduleAssistant({ currentPage }: { currentPage: string }) {
   const { user } = useUser();
 
   useEffect(() => {
-    // Add initial context-aware greeting
-    const pageSuggestions = pageContextSuggestions[currentPage] || [];
+    const currentContext = currentPage.split('/').pop() || 'dashboard';
+    const pageSuggestions = pageContextSuggestions[currentContext] || pageContextSuggestions['dashboard'];
+    
+    // Clear existing messages and set new context-aware ones
     setMessages([
       {
-        id: 1,
-        content: `Hello! I'm your schedule assistant. How can I help you with ${currentPage}?`,
+        id: Date.now(),
+        content: `Hello! I'm your schedule assistant. How can I help you with ${currentContext}?`,
         type: 'assistant',
         createdAt: new Date().toISOString(),
       },
       ...pageSuggestions.map((suggestion, index) => ({
-        id: index + 2,
+        id: Date.now() + index + 1,
         content: suggestion,
         type: 'assistant',
         suggestion: true,

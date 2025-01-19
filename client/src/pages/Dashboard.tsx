@@ -42,22 +42,10 @@ export function Dashboard() {
     );
   }
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div>Loading...</div>
-      </div>
-    );
-  }
-
   if (hasError) {
-    console.error('Shifts error:', shiftsError);
-    console.error('Users error:', usersError);
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="text-destructive">
-          {shiftsError?.message || usersError?.message || "Error loading schedule data. Please try again later."}
-        </div>
+        <div className="text-destructive">Error loading schedule data. Please try again later.</div>
       </div>
     );
   }

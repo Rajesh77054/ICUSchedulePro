@@ -212,14 +212,10 @@ export function AIScheduleAssistant({ currentPage, pageContext = defaultPageCont
   const handleSendMessage = async (content: string) => {
     if (!content.trim()) return;
 
-    // Run test when "test" message is sent
-    if (content.toLowerCase() === "test") {
-      console.log("PageContext:", pageContext);
-      const shifts = debugShiftData(pageContext?.shifts || []);
-      const testResult = testAIResponse(shifts);
-      console.log(testResult);
-    }
-
+    // Get last message for context
+    const lastMessage = messages[messages.length - 1];
+    const input = content.toLowerCase();
+    
     setMessages(prev => [...prev, {
       id: Date.now(),
       content,
@@ -228,9 +224,35 @@ export function AIScheduleAssistant({ currentPage, pageContext = defaultPageCont
     }]);
     setMessage('');
 
-    // Match input with relevant context
-    const input = content.toLowerCase();
+    // Handle conversation flow
     let contextualResponse = '';
+    
+    if (lastMessage?.content.includes("Would you like to review your upcoming shifts?") && 
+        (input.includes("yes") || input.includes("sure") || input.includes("okay"))) {
+      const upcomingShifts = (pageContext?.shifts || []).filter(shift => {
+        if (!shift?.endDate) return false;
+        return new Date(shift.endDate) > new Date();
+      });
+
+      if (upcomingShifts.length > 0) {
+        contextualResponse = `Here are your upcoming shifts:\n`;
+        upcomingShifts.forEach(shift => {
+          const startDate = format(new Date(shift.startDate), 'MMM d, yyyy');
+          const endDate = format(new Date(shift.endDate), 'MMM d, yyyy');
+          contextualResponse += `\n• ${startDate} - ${endDate} (${shift.status})`;
+        });
+      } else {
+        contextualResponse = "You don't have any upcoming shifts scheduled.";
+      }
+    } else if (input === "test") {
+      console.log("PageContext:", pageContext);
+      const shifts = debugShiftData(pageContext?.shifts || []);
+      const testResult = testAIResponse(shifts);
+      console.log(testResult);
+      contextualResponse = testResult;
+    } else {
+      // Default context matching
+      if (input.includes('shift') || input.includes('schedule')) {
 
     // Match input with relevant context
     if (input.toLowerCase().includes('shift') || input.toLowerCase().includes('schedule')) {

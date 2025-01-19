@@ -55,19 +55,16 @@ export function PersonalDashboard() {
   const handleShiftActions = (shift: Shift) => {
     console.log('handleShiftActions - shift:', shift);
 
-    // Show actions for any pending swap request, regardless of shift status
-    const pendingRequest = shift.swapRequests?.find(req => req.status === 'pending');
+    // Show actions for any pending swap request for this user
+    const pendingRequests = shift.swapRequests?.filter(req => 
+      req.status === 'pending' && 
+      (req.recipientId === userId || req.requestorId === userId)
+    );
     
-    if (pendingRequest) {
-      // If user is recipient or admin, show accept/reject buttons
-      if (pendingRequest.recipientId === userId || user?.userType === 'physician') {
-        return <SwapRequestActions request={pendingRequest} />;
-      }
-      
-      // If user is requestor, show cancel button
-      if (pendingRequest.requestorId === userId) {
-        return <SwapRequestActions request={pendingRequest} />;
-      }
+    if (pendingRequests && pendingRequests.length > 0) {
+      return pendingRequests.map(request => (
+        <SwapRequestActions key={request.id} request={request} />
+      ));
     }
 
     return null;

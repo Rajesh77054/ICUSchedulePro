@@ -16,6 +16,7 @@ import {
   Database,
   BarChart,
   MessageSquare,
+  User,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -41,9 +42,15 @@ interface NavItemProps {
   label: string;
   tooltip?: string;
   active?: boolean;
+  indent?: boolean; // Added for indentation
 }
 
-function NavItem({ href, icon, label, tooltip, active }: NavItemProps) {
+function NavItem({ href, icon, label, tooltip, active, indent }: NavItemProps) {
+  const buttonClass = cn(
+    "w-full justify-start gap-2 transition-colors",
+    active && "bg-accent text-accent-foreground hover:bg-accent/90",
+    indent && "pl-8" // Apply indentation if needed
+  );
   return (
     <TooltipProvider>
       <Tooltip>
@@ -51,10 +58,7 @@ function NavItem({ href, icon, label, tooltip, active }: NavItemProps) {
           <Link href={href}>
             <Button
               variant="ghost"
-              className={cn(
-                "w-full justify-start gap-2 transition-colors",
-                active && "bg-accent text-accent-foreground hover:bg-accent/90"
-              )}
+              className={buttonClass}
             >
               {icon}
               {label}
@@ -83,8 +87,22 @@ export function Sidebar() {
       {
         href: "/",
         icon: <Calendar className="h-4 w-4" />,
-        label: "Schedule",
+        label: "Main Schedule",
         tooltip: "View and manage the main schedule",
+      },
+      {
+        href: "/personal",
+        icon: <User className="h-4 w-4" />,
+        label: "My Schedule",
+        tooltip: "View and manage your personal schedule",
+        indent: true,
+      },
+      {
+        href: "/swap-requests",
+        icon: <Repeat className="h-4 w-4" />,
+        label: "Swap Requests",
+        tooltip: "Review and manage shift swap requests",
+        indent: true,
       },
       {
         href: "/chat",
@@ -121,12 +139,6 @@ export function Sidebar() {
         icon: <Database className="h-4 w-4" />,
         label: "Schedule Rules",
         tooltip: "Manage calendar data and scheduling rules",
-      },
-      {
-        href: "/swap-requests",
-        icon: <Repeat className="h-4 w-4" />,
-        label: "Shift Swaps",
-        tooltip: "Review and manage shift swap requests",
       },
       {
         href: "/admin/time-off",

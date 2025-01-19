@@ -55,6 +55,10 @@ export function Dashboard() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <h1 className="text-2xl md:text-3xl font-bold">ICU Shift Schedule</h1>
         <div className="flex items-center gap-2 md:gap-4">
+          <Button variant="outline" className="gap-2">
+            <UserPlus className="h-4 w-4" />
+            Request Time Off
+          </Button>
           <Link href="/swap-requests" className="w-full md:w-auto">
             <Button variant="outline" className="w-full md:w-auto">
               <ListFilter className="mr-2 h-4 w-4" />

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Bot } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -35,17 +34,13 @@ export function ChatDialog({ trigger, className, currentPage, pageContext = {} }
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>Schedule Assistant</DialogTitle>
-        </DialogHeader>
+      <DialogContent className="sm:max-w-[425px]">
         <AIScheduleAssistant 
           currentPage={currentPage} 
           pageContext={{
-            shifts: pageContext?.shifts || [],
-            requests: pageContext?.requests || [],
-            userId: pageContext?.userId,
-          }}
+            ...pageContext,
+            shifts: Array.isArray(pageContext?.shifts) ? pageContext.shifts : []
+          }} 
         />
       </DialogContent>
     </Dialog>

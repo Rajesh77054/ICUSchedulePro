@@ -14,6 +14,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { BreadcrumbNavigation } from "@/components/layout/BreadcrumbNavigation";
 import { Sidebar } from "@/components/layout/Sidebar";
+import { useQuery } from "@tanstack/react-query";
 import { ChatDialog } from "@/components/scheduler/ChatDialog";
 
 function App() {

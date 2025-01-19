@@ -114,8 +114,9 @@ export function SwapRequests({ userId, variant = 'dashboard' }: Props) {
     if (!userId) return true; // Show all if no userId
     if (variant === 'dashboard') {
       // For dashboard, show pending requests where user is either recipient or requestor
-      return (request.recipientId === userId || request.requestorId === userId) && 
-             request.status === 'pending';
+      const isParticipant = request.recipientId === userId || request.requestorId === userId;
+      const isPending = request.status === 'pending';
+      return isParticipant && isPending;
     }
     // For sidebar, show all requests involving the user, regardless of status
     return request.recipientId === userId || request.requestorId === userId;

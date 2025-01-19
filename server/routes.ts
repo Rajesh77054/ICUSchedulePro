@@ -1,5 +1,6 @@
 import express, { Express } from 'express';
 import { createServer, Server } from 'http';
+import OpenAI from 'openai';
 import { db } from '../db';
 import { users, shifts, userPreferences, timeOffRequests, swapRequests } from '@db/schema';
 import { and, eq, sql, or } from 'drizzle-orm';

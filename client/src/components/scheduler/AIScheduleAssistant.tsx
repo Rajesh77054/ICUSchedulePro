@@ -175,7 +175,8 @@ export function AIScheduleAssistant({ currentPage, pageContext = {} }: AISchedul
       } else {
         contextualResponse = "You don't have any shifts scheduled yet. Would you like to add some?";
       }
-    } else if (input.includes('swap') || input.includes('trade')) {
+    }
+    else if (input.includes('swap') || input.includes('trade')) {
       if (pageContext.requests?.length) {
         contextualResponse = `You have ${pageContext.requests.length} pending swap requests. Would you like to review them?`;
       } else {

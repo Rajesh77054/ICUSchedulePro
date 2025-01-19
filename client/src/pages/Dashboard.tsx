@@ -2,7 +2,7 @@ import { Calendar } from "@/components/scheduler/Calendar";
 import { ProviderList } from "@/components/scheduler/ProviderList";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
-import { ListFilter } from "lucide-react";
+import { ListFilter, UserPlus } from "lucide-react";
 import { Loader } from "@/components/ui/loader";
 import { useQuery } from "@tanstack/react-query";
 import type { Shift, User } from "@/lib/types";

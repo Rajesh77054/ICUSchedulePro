@@ -31,17 +31,20 @@ export function PersonalChatDialog({ pathname }: { pathname: string }) {
   });
 
   // Convert swapRequests to requests for consistency
+  // Only include future shifts
+  const upcomingShifts = shifts?.filter(shift => new Date(shift.endDate) > new Date()) || [];
+  
   const pageContext = {
-    shifts: shifts?.map(shift => ({
+    shifts: upcomingShifts.map(shift => ({
       ...shift,
       startDate: new Date(shift.startDate).toISOString(),
       endDate: new Date(shift.endDate).toISOString()
-    })) || [],
+    })),
     requests: swapRequests || [],
     userId
   };
-  
-  console.log("PersonalChatDialog pageContext:", pageContext);
+
+  console.log("PersonalChatDialog pageContext with shifts:", pageContext);
 
   return (
     <ChatDialog 

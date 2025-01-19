@@ -17,6 +17,14 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { ChatDialog } from "@/components/scheduler/ChatDialog";
 
 function App() {
+  const { data: shifts } = useQuery({
+    queryKey: ['/api/shifts'],
+    queryFn: async () => {
+      const response = await fetch('/api/shifts');
+      if (!response.ok) throw new Error('Failed to fetch shifts');
+      return response.json();
+    }
+  });
   return (
     <TooltipProvider>
       <div className="min-h-screen bg-background">
@@ -45,7 +53,10 @@ function App() {
             ) : (
               <ChatDialog 
                 currentPage={location.pathname.split('/')[1] || 'dashboard'}
-                pageContext={{}}
+                pageContext={{
+                  shifts: shifts || [],
+                  requests: []
+                }}
               />
             )}
           </div>

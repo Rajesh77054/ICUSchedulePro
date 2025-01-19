@@ -83,19 +83,19 @@ export function PersonalDashboard() {
   ) || [];
 
   // Get all shifts including incoming swap requests
-  const allShifts = [
-    ...(shifts || []),
-    ...incomingSwapRequests.map(req => ({
-      ...req.shift,
-      swapRequests: [req],
-      swapRequest: req
-    }))
-  ];
+  const incomingSwapShifts = incomingSwapRequests.map(req => ({
+    ...req.shift,
+    status: 'pending_swap',
+    swapRequests: [req],
+    swapRequest: req,
+    isIncomingRequest: true
+  }));
 
-  // Remove duplicates and ensure all shifts are shown
-  const shiftsToDisplay = allShifts.filter((shift, index, self) => 
-    index === self.findIndex(s => s.id === shift.id)
-  );
+  // Combine user's shifts with incoming swap request shifts
+  const shiftsToDisplay = [
+    ...(shifts || []),
+    ...incomingSwapShifts
+  ];
 
   if (!user) {
     return (

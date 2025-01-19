@@ -18,9 +18,10 @@ interface ChatDialogProps {
   pageContext?: Record<string, any>;
 }
 
-export function ChatDialog({ trigger, className, currentPage, pageContext }: ChatDialogProps) {
+export function ChatDialog({ trigger, className, currentPage, pageContext = {} }: ChatDialogProps) {
   const [open, setOpen] = useState(false);
-  
+  const [dialogContext] = useState(pageContext);
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>

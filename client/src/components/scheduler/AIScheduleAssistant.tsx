@@ -23,7 +23,7 @@ const pageContextSuggestions: Record<string, string[]> = {
     "Need help with a shift swap request?",
     "Want to check available coverage options?",
   ],
-  provider: [
+  'my-schedule': [
     "Want to update your schedule preferences?",
     "Need to request time off?",
     "Would you like to see your monthly schedule summary?",
@@ -48,16 +48,37 @@ const pageContextSuggestions: Record<string, string[]> = {
     "Want to review user permissions?",
     "Would you like to update user schedules?",
   ],
-  schedule: [
-    "Need help with schedule conflicts?",
-    "Want to review coverage patterns?",
-    "Would you like to generate a new schedule?",
-  ],
   analytics: [
     "Need help analyzing scheduling patterns?",
     "Want to review coverage metrics?",
     "Would you like to generate a report?",
   ],
+  schedule: [
+    "Need help with schedule conflicts?",
+    "Want to review coverage patterns?",
+    "Would you like to generate a new schedule?",
+  ],
+  provider: [
+    "Want to view your upcoming shifts?",
+    "Need to request a schedule change?",
+    "Would you like to check your work hours?",
+  ]
+};
+
+const generatePageGreeting = (page: string) => {
+  const greetings: Record<string, string> = {
+    dashboard: "Hello! I'm your schedule assistant. How can I help you manage your schedule today?",
+    'my-schedule': "Welcome to your personal schedule! How can I assist you with your shifts?",
+    'swap-requests': "Looking to manage shift swaps? I can help you review and handle requests.",
+    'time-off': "Need help with time-off management? I'm here to assist!",
+    preferences: "Let's help you customize your scheduling preferences.",
+    users: "Need help with user management? I can assist with that!",
+    analytics: "Ready to analyze scheduling data? What metrics would you like to explore?",
+    schedule: "Let's help you manage the schedule. What would you like to do?",
+    provider: "Welcome to your provider dashboard! How can I assist you today?"
+  };
+
+  return greetings[page] || "Hello! I'm your schedule assistant. How can I help you today?";
 };
 
 export function AIScheduleAssistant({ currentPage }: { currentPage: string }) {
@@ -66,16 +87,16 @@ export function AIScheduleAssistant({ currentPage }: { currentPage: string }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const { user } = useUser();
+  const currentContext = currentPage.toLowerCase().split('/').pop() || 'dashboard';
 
   useEffect(() => {
-    const currentContext = currentPage.split('/').pop() || 'dashboard';
     const pageSuggestions = pageContextSuggestions[currentContext] || pageContextSuggestions['dashboard'];
+    const greeting = generatePageGreeting(currentContext);
     
-    // Clear existing messages and set new context-aware ones
     setMessages([
       {
         id: Date.now(),
-        content: `Hello! I'm your schedule assistant. How can I help you with ${currentContext}?`,
+        content: greeting,
         type: 'assistant',
         createdAt: new Date().toISOString(),
       },
@@ -87,7 +108,7 @@ export function AIScheduleAssistant({ currentPage }: { currentPage: string }) {
         createdAt: new Date().toISOString(),
       })),
     ]);
-  }, [currentPage]);
+  }, [currentPage, currentContext]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -101,7 +122,6 @@ export function AIScheduleAssistant({ currentPage }: { currentPage: string }) {
   const handleSendMessage = async (content: string) => {
     if (!content.trim()) return;
 
-    // Add user message
     setMessages(prev => [...prev, {
       id: Date.now(),
       content,
@@ -110,51 +130,17 @@ export function AIScheduleAssistant({ currentPage }: { currentPage: string }) {
     }]);
     setMessage('');
 
-    // Show typing indicator
-    setMessages(prev => [...prev, {
-      id: Date.now(),
-      content: "Thinking...",
-      type: 'assistant',
-      createdAt: new Date().toISOString(),
-    }]);
+    // Generate contextual response based on current page
+    const responses = pageContextSuggestions[currentContext] || pageContextSuggestions['dashboard'];
+    const response = responses[Math.floor(Math.random() * responses.length)];
 
-    // Generate contextual response based on current page and query
-    const generateResponse = (query: string) => {
-      const responses: Record<string, string[]> = {
-        dashboard: [
-          "I can help you review your upcoming shifts. Would you like to see your schedule for this week?",
-          "I can assist with submitting a shift swap request. Would you like to proceed?",
-          "Let me check the available coverage options for you.",
-        ],
-        personal: [
-          "I can help update your schedule preferences. What would you like to modify?",
-          "Would you like to submit a time-off request?",
-          "I can show you a summary of your monthly schedule.",
-        ],
-        admin: [
-          "I can help you review pending requests. How many would you like to see?",
-          "Let me check for any scheduling conflicts.",
-          "I can analyze coverage patterns for you.",
-        ],
-      };
-
-      const pageResponses = responses[currentPage] || responses['dashboard'];
-      const response = pageResponses[Math.floor(Math.random() * pageResponses.length)];
-      
-      return response + "\n\nIs there anything specific you'd like to know about this?";
-    };
-
-    // Remove typing indicator and add actual response
     setTimeout(() => {
-      setMessages(prev => {
-        const withoutTyping = prev.filter(msg => msg.content !== "Thinking...");
-        return [...withoutTyping, {
-          id: Date.now(),
-          content: generateResponse(content),
-          type: 'assistant',
-          createdAt: new Date().toISOString(),
-        }];
-      });
+      setMessages(prev => [...prev, {
+        id: Date.now(),
+        content: `Based on your current page (${currentContext}): ${response}`,
+        type: 'assistant',
+        createdAt: new Date().toISOString(),
+      }]);
     }, 1000);
   };
 

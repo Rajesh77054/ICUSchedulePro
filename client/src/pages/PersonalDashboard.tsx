@@ -131,7 +131,14 @@ export function PersonalDashboard() {
 
   return (
     <div className="container mx-auto py-6 space-y-6 relative">
-      <ChatDialog currentPage="personal-dashboard" />
+      <ChatDialog 
+        currentPage="personal-dashboard" 
+        pageContext={{
+          shifts: userShifts,
+          timeOffRequests: timeOffRequests,
+          swapRequests: swapRequests
+        }} 
+      />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold mb-2">

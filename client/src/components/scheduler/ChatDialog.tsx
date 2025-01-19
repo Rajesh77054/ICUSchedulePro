@@ -15,6 +15,7 @@ interface ChatDialogProps {
   trigger?: React.ReactNode;
   className?: string;
   currentPage: string;
+  pageContext?: Record<string, any>;
 }
 
 export function ChatDialog({ trigger, className, currentPage }: ChatDialogProps) {
@@ -38,7 +39,7 @@ export function ChatDialog({ trigger, className, currentPage }: ChatDialogProps)
         <DialogHeader>
           <DialogTitle>Schedule Assistant</DialogTitle>
         </DialogHeader>
-        <AIScheduleAssistant currentPage={currentPage} />
+        <AIScheduleAssistant currentPage={currentPage} pageContext={pageContext} />
       </DialogContent>
     </Dialog>
   );

@@ -67,8 +67,6 @@ function App() {
 }
 
 // fallback 404 not found page
-import { useQuery } from '@tanstack/react-query';
-
 function NotFound() {
   return (
     <div className="min-h-[calc(100vh-4rem)] w-full flex items-center justify-center">

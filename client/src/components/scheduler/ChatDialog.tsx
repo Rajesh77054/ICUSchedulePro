@@ -41,7 +41,11 @@ export function ChatDialog({ trigger, className, currentPage, pageContext = {} }
         </DialogHeader>
         <AIScheduleAssistant 
           currentPage={currentPage} 
-          pageContext={pageContext}
+          pageContext={{
+            shifts: pageContext?.shifts || [], 
+            requests: pageContext?.requests || [],
+            userId: pageContext?.userId
+          }}
         />
       </DialogContent>
     </Dialog>

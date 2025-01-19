@@ -12,9 +12,12 @@ export function PersonalChatDialog({ pathname }: { pathname: string }) {
     queryFn: async () => {
       const res = await fetch(`/api/shifts?userId=${userId}`);
       if (!res.ok) throw new Error("Failed to fetch shifts");
-      return res.json();
+      const data = await res.json();
+      console.log("Fetched shifts:", data);
+      return data;
     },
-    enabled: !!userId
+    enabled: !!userId,
+    staleTime: 1000 * 60 * 5 // Cache for 5 minutes
   });
 
   const { data: swapRequests } = useQuery({

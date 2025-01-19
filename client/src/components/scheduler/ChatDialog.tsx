@@ -40,12 +40,9 @@ export function ChatDialog({ trigger, className, currentPage, pageContext }: Cha
           <DialogTitle>Schedule Assistant</DialogTitle>
         </DialogHeader>
         <AIScheduleAssistant 
-        currentPage={currentPage} 
-        pageContext={{
-          ...pageContext,
-          shifts: Array.isArray(pageContext?.shifts) ? pageContext.shifts.filter(Boolean) : []
-        }} 
-      />
+          currentPage={currentPage} 
+          pageContext={pageContext}
+        />
       </DialogContent>
     </Dialog>
   );

@@ -161,13 +161,13 @@ export function AIScheduleAssistant({ currentPage, pageContext = {} }: AISchedul
 
     // Match input with relevant context
     if (input.toLowerCase().includes('shift') || input.toLowerCase().includes('schedule')) {
-      const shifts = pageContext?.shifts || [];
-      const upcomingShifts = shifts.filter(shift => 
-        shift && 
-        shift.endDate && 
-        new Date(shift.endDate) > new Date()
-      );
+      const shifts = Array.isArray(pageContext?.shifts) ? pageContext.shifts : [];
+      const upcomingShifts = shifts.filter(shift => {
+        if (!shift || !shift.endDate) return false;
+        return new Date(shift.endDate) > new Date();
+      });
 
+      console.log('Raw pageContext:', pageContext);
       console.log('Available shifts:', shifts);
       console.log('Filtered upcoming shifts:', upcomingShifts);
 

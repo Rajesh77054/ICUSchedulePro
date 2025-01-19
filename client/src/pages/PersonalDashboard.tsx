@@ -64,34 +64,36 @@ export function PersonalDashboard() {
 
   const handleShiftActions = (shift: Shift) => {
     console.log('handleShiftActions - shift:', shift);
-
-    // Show all pending requests related to this shift where user is either requestor or recipient
-    const relevantRequests = swapRequests?.filter(req => 
+    
+    // Get pending requests for this shift
+    const requests = swapRequests?.filter(req => 
       req.shiftId === shift.id && 
-      req.status === 'pending' &&
-      (req.requestorId === userId || req.recipientId === userId)
-    );
+      req.status === 'pending'
+    ) || [];
 
-    if (relevantRequests?.length > 0) {
-      return relevantRequests.map(request => (
-        <SwapRequestActions key={request.id} request={request} />
-      ));
-    }
-
-    return null;
+    return requests.map(request => (
+      <SwapRequestActions key={request.id} request={request} />
+    ));
   };
 
-  // Get all shifts that have pending requests where user is recipient
-  const incomingSwapShifts = swapRequests
-    ?.filter(req => req.status === 'pending' && req.recipientId === userId)
-    .map(req => req.shift) || [];
+  // Get incoming swap shifts where user is recipient
+  const incomingSwapRequests = swapRequests?.filter(req => 
+    req.status === 'pending' && 
+    req.recipientId === userId
+  ) || [];
 
-  // Combine user's shifts with incoming swap request shifts
-  const shiftsToDisplay = [
+  // Get all shifts including incoming swap requests
+  const allShifts = [
     ...(shifts || []),
-    ...incomingSwapShifts
-  ].filter((shift, index, self) => 
-    // Remove duplicates
+    ...incomingSwapRequests.map(req => ({
+      ...req.shift,
+      swapRequests: [req],
+      swapRequest: req
+    }))
+  ];
+
+  // Remove duplicates and ensure all shifts are shown
+  const shiftsToDisplay = allShifts.filter((shift, index, self) => 
     index === self.findIndex(s => s.id === shift.id)
   );
 

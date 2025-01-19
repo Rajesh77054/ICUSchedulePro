@@ -1,30 +1,40 @@
-
 // Debug testing utility
 const testAIResponse = (shifts: any[], message: string = "show my shifts") => {
   console.log("=== AI Assistant Test ===");
   console.log("Input context:", { shifts });
   console.log("Test message:", message);
-  
+
   const upcomingShifts = shifts.filter(shift => {
     if (!shift?.endDate) return false;
     const endDate = new Date(shift.endDate);
     return endDate > new Date();
   });
-  
+
   console.log("Processed shifts:", upcomingShifts);
-  
+
   let response = "";
   if (upcomingShifts?.length > 0) {
     response = `Test passed: Found ${upcomingShifts.length} upcoming shifts`;
   } else {
     response = "Test failed: No upcoming shifts found in context";
   }
-  
+
   console.log("AI Response:", response);
   console.log("=== Test Complete ===");
   return response;
 };
 
+
+const debugShiftData = (shifts: any[]) => {
+  console.log("=== Debug Shift Data ===");
+  console.log("Raw shifts:", shifts);
+  const validShifts = shifts.filter(shift => shift && shift.startDate && shift.endDate);
+  console.log("Valid shifts:", validShifts);
+  const upcomingShifts = validShifts.filter(shift => new Date(shift.endDate) > new Date());
+  console.log("Upcoming shifts:", upcomingShifts);
+  console.log("=== End Debug ===");
+  return upcomingShifts;
+};
 
 import { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -172,17 +182,27 @@ export function AIScheduleAssistant({ currentPage, pageContext = {} }: AISchedul
     }
   }, [messages]);
 
+  const debugShiftData = (shifts: any[]) => {
+    console.log("=== Debug Shift Data ===");
+    console.log("Raw shifts:", shifts);
+    const validShifts = shifts.filter(shift => shift && shift.startDate && shift.endDate);
+    console.log("Valid shifts:", validShifts);
+    const upcomingShifts = validShifts.filter(shift => new Date(shift.endDate) > new Date());
+    console.log("Upcoming shifts:", upcomingShifts);
+    console.log("=== End Debug ===");
+    return upcomingShifts;
+  };
+
   const handleSendMessage = async (content: string) => {
     if (!content.trim()) return;
-    
+
     // Run test when "test" message is sent
     if (content.toLowerCase() === "test") {
-      const testResult = testAIResponse(pageContext?.shifts || []);
+      console.log("PageContext:", pageContext);
+      const shifts = debugShiftData(pageContext?.shifts || []);
+      const testResult = testAIResponse(shifts);
       console.log(testResult);
     }
-
-    // Get shifts from pageContext
-    const shifts = Array.isArray(pageContext?.shifts) ? pageContext.shifts : [];
 
     setMessages(prev => [...prev, {
       id: Date.now(),
@@ -198,13 +218,13 @@ export function AIScheduleAssistant({ currentPage, pageContext = {} }: AISchedul
 
     // Match input with relevant context
     if (input.toLowerCase().includes('shift') || input.toLowerCase().includes('schedule')) {
-      console.log('Processing shifts from context:', shifts);
+      console.log('Processing shifts from context:', pageContext?.shifts);
 
-      const upcomingShifts = shifts.filter(shift => {
+      const upcomingShifts = (pageContext?.shifts || []).filter(shift => {
         if (!shift || !shift.endDate) return false;
         const endDate = new Date(shift.endDate);
         const isUpcoming = endDate > new Date();
-        console.log(`Shift ${shift.id} end date:`, endDate, 'is upcoming:', isUpcoming);
+        console.log(`Shift ${shift?.id} end date:`, endDate, 'is upcoming:', isUpcoming);
         return isUpcoming;
       });
 

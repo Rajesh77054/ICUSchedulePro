@@ -168,10 +168,6 @@ export function AIScheduleAssistant({ currentPage, pageContext = {} }: AISchedul
         upcomingShifts.forEach(shift => {
           contextualResponse += `\n• ${format(new Date(shift.startDate), 'MMM d, yyyy')} - ${format(new Date(shift.endDate), 'MMM d, yyyy')} (${shift.status})`;
         });
-          contextualResponse += '\n' + upcomingShifts.map(shift => 
-            `\n• ${format(new Date(shift.startDate), 'MMM d, yyyy')} - ${format(new Date(shift.endDate), 'MMM d, yyyy')} (${shift.status})`
-          ).join('');
-        }
       } else {
         contextualResponse = "You don't have any shifts scheduled yet. Would you like to add some?";
       }

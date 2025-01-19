@@ -93,8 +93,8 @@ export function Sidebar() {
       {
         href: "/provider/1",
         icon: <User className="h-4 w-4" />,
-        label: "Personal Schedule",
-        tooltip: "View and manage your personal schedule",
+        label: "My Schedule",
+        tooltip: "View and manage your schedule",
         indent: true,
       },
       {

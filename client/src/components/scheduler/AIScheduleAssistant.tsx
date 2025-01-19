@@ -64,7 +64,10 @@ export function AIScheduleAssistant({ currentPage }: { currentPage: string }) {
 
   useEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      const scrollArea = scrollRef.current.querySelector('[data-radix-scroll-area-viewport]');
+      if (scrollArea) {
+        scrollArea.scrollTop = scrollArea.scrollHeight;
+      }
     }
   }, [messages]);
 

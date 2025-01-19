@@ -533,7 +533,10 @@ export function registerRoutes(app: Express): Server {
         }
       };
 
-      const result = await db.query.shifts.findMany(baseQuery);
+      const result = await db.query.shifts.findMany(baseQuery).catch(err => {
+        console.error('Database query error:', err);
+        throw new Error('Failed to fetch shifts from database');
+      });
 
       // Map the shifts to include the latest swap request
       const shiftsWithSwapRequests = result

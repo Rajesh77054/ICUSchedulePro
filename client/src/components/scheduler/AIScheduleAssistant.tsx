@@ -155,16 +155,16 @@ export function AIScheduleAssistant({ currentPage, pageContext = {} }: AISchedul
     }]);
     setMessage('');
 
-    // Analyze user input for keywords
+    // Match input with relevant context
     const input = content.toLowerCase();
     let contextualResponse = '';
 
     // Match input with relevant context
     if (input.toLowerCase().includes('shift') || input.toLowerCase().includes('schedule')) {
-      // Ensure we're getting the latest shifts data
-      const shifts = pageContext?.shifts || [];
-      console.log('Raw shifts from context:', shifts);
-      
+      console.log('Current page context:', pageContext);
+      const shifts = Array.isArray(pageContext?.shifts) ? pageContext.shifts : [];
+      console.log('Parsed shifts:', shifts);
+
       const upcomingShifts = shifts.filter(shift => {
         if (!shift || !shift.endDate) return false;
         const endDate = new Date(shift.endDate);

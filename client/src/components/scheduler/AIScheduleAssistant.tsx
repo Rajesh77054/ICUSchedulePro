@@ -215,10 +215,23 @@ export function AIScheduleAssistant({ currentPage, pageContext = defaultPageCont
         if (conflicts) {
           contextualResponse = "There appears to be a scheduling conflict with existing shifts. Please check the calendar for available dates.";
         } else {
-          contextualResponse = `I can help you schedule a shift from ${startMonth}/${startDay} to ${startMonth}/${endDay}/${year}. Click the 'Schedule' button below or use the calendar interface to create this shift.`;
+          contextualResponse = `I can help you schedule a shift from ${startMonth}/${startDay} to ${startMonth}/${endDay}/${year}.`;
+          setTimeout(() => {
+            setMessages(prev => [...prev, {
+              id: Date.now(),
+              content: "",
+              type: 'assistant',
+              createdAt: new Date().toISOString(),
+              action: {
+                type: 'schedule',
+                startDate: new Date(parseInt(year), parseInt(startMonth) - 1, parseInt(startDay)),
+                endDate: new Date(parseInt(year), parseInt(startMonth) - 1, parseInt(endDay))
+              }
+            }]);
+          }, 600);
         }
       } else {
-        contextualResponse = "I'll help you schedule a new shift. Please use the calendar interface to select your preferred dates, or specify the dates in the format MM/DD-DD/YYYY.";
+        contextualResponse = "I'll help you schedule a new shift. Please specify the dates in the format MM/DD-DD/YYYY.";
       }
     } else if (input.includes('shift') || input.includes('schedule')) {
       console.log('Processing shifts from context:', pageContext?.shifts);
@@ -297,6 +310,22 @@ export function AIScheduleAssistant({ currentPage, pageContext = defaultPageCont
                   <Bot className="h-4 w-4 mb-1" />
                 )}
                 <p className="text-sm">{msg.content}</p>
+                {msg.action?.type === 'schedule' && (
+                  <Button 
+                    className="mt-2"
+                    onClick={() => {
+                      if (msg.action?.startDate && msg.action?.endDate) {
+                        setDialogOpen(true);
+                        setSelectedDates({
+                          start: msg.action.startDate,
+                          end: msg.action.endDate
+                        });
+                      }
+                    }}
+                  >
+                    Schedule Shift
+                  </Button>
+                )}
                 <span className="text-xs opacity-70">
                   {format(new Date(msg.createdAt), 'HH:mm')}
                 </span>

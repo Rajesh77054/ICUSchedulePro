@@ -196,7 +196,7 @@ export function AIScheduleAssistant({ currentPage, pageContext = defaultPageCont
         contextualResponse = "You don't have any upcoming shifts scheduled.";
       }
     } else if (input.toLowerCase().includes('schedule a new shift') || input.toLowerCase().includes("let's schedule")) {
-      contextualResponse = "I'll help you schedule a new shift. Click the calendar icon to open the scheduling interface, or you can click any empty time slot on the calendar to start scheduling.";
+      contextualResponse = "I'll help you schedule a new shift. Go to the main schedule view using the 'Main Schedule' link in the sidebar to access the calendar interface. There, you can click any empty time slot to start scheduling a new shift.";
     } else if (input.includes('shift') || input.includes('schedule')) {
       console.log('Processing shifts from context:', pageContext?.shifts);
 

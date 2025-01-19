@@ -83,14 +83,51 @@ export function AIScheduleAssistant({ currentPage }: { currentPage: string }) {
     }]);
     setMessage('');
 
-    // Simulate AI response
+    // Show typing indicator
+    setMessages(prev => [...prev, {
+      id: Date.now(),
+      content: "Thinking...",
+      type: 'assistant',
+      createdAt: new Date().toISOString(),
+    }]);
+
+    // Generate contextual response based on current page and query
+    const generateResponse = (query: string) => {
+      const responses: Record<string, string[]> = {
+        dashboard: [
+          "I can help you review your upcoming shifts. Would you like to see your schedule for this week?",
+          "I can assist with submitting a shift swap request. Would you like to proceed?",
+          "Let me check the available coverage options for you.",
+        ],
+        personal: [
+          "I can help update your schedule preferences. What would you like to modify?",
+          "Would you like to submit a time-off request?",
+          "I can show you a summary of your monthly schedule.",
+        ],
+        admin: [
+          "I can help you review pending requests. How many would you like to see?",
+          "Let me check for any scheduling conflicts.",
+          "I can analyze coverage patterns for you.",
+        ],
+      };
+
+      const pageResponses = responses[currentPage] || responses['dashboard'];
+      const response = pageResponses[Math.floor(Math.random() * pageResponses.length)];
+      
+      return response + "\n\nIs there anything specific you'd like to know about this?";
+    };
+
+    // Remove typing indicator and add actual response
     setTimeout(() => {
-      setMessages(prev => [...prev, {
-        id: Date.now(),
-        content: `I understand you want to ${content}. Let me help you with that...`,
-        type: 'assistant',
-        createdAt: new Date().toISOString(),
-      }]);
+      setMessages(prev => {
+        const withoutTyping = prev.filter(msg => msg.content !== "Thinking...");
+        return [...withoutTyping, {
+          id: Date.now(),
+          content: generateResponse(content),
+          type: 'assistant',
+          createdAt: new Date().toISOString(),
+        }];
+      });
     }, 1000);
   };
 

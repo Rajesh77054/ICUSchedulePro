@@ -160,9 +160,10 @@ export function AIScheduleAssistant({ currentPage, pageContext = {} }: AISchedul
     let contextualResponse = '';
 
     // Match input with relevant context
-    if (input.includes('shift') || input.includes('schedule')) {
+    if (input.toLowerCase().includes('shift') || input.toLowerCase().includes('schedule')) {
       const shifts = pageContext?.shifts || [];
       const upcomingShifts = shifts.filter(shift => new Date(shift.endDate) > new Date());
+
       if (upcomingShifts.length > 0) {
         contextualResponse = `You have ${upcomingShifts.length} upcoming shifts:\n`;
         upcomingShifts.forEach(shift => {

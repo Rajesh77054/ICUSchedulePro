@@ -1426,7 +1426,7 @@ export function registerRoutes(app: Express): Server {
 
   app.post('/api/chat', async (req, res) => {
     try {
-      const { messages } = await req.json();
+      const { messages } = req.body;
       
       const response = await openai.chat.completions.create({
         model: 'gpt-3.5-turbo',

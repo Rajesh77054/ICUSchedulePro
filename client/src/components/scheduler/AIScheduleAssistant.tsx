@@ -160,9 +160,25 @@ export function AIScheduleAssistant({ currentPage, pageContext = {} }: AISchedul
     const response = responses[Math.floor(Math.random() * responses.length)];
 
     setTimeout(() => {
+      let contextualResponse = `Based on your current page (${currentContext}): `;
+
+      // Add contextual information based on pageContext
+      if (pageContext.shifts?.length) {
+        contextualResponse += `You have ${pageContext.shifts.length} shifts scheduled. `;
+      }
+      if (pageContext.requests?.length) {
+        contextualResponse += `You have ${pageContext.requests.length} pending requests. `;
+      }
+      if (pageContext.users?.length) {
+        contextualResponse += `There are ${pageContext.users.length} users to manage. `;
+      }
+
+      // Add the suggested action
+      contextualResponse += response;
+
       setMessages(prev => [...prev, {
         id: Date.now(),
-        content: `Based on your current page (${currentContext}): ${response}`,
+        content: contextualResponse,
         type: 'assistant',
         createdAt: new Date().toISOString(),
       }]);

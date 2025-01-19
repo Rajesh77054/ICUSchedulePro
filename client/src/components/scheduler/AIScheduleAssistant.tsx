@@ -161,8 +161,8 @@ export function AIScheduleAssistant({ currentPage, pageContext = {} }: AISchedul
 
     // Match input with relevant context
     if (input.includes('shift') || input.includes('schedule')) {
-      const shifts = pageContext?.shifts || [];
-      if (shifts.length > 0) {
+      if (pageContext?.shifts?.length > 0) {
+        const shifts = pageContext.shifts;
         const upcomingShifts = shifts.filter(shift => new Date(shift.endDate) > new Date());
         contextualResponse = `You have ${upcomingShifts.length} upcoming shifts. Would you like me to review them for you?`;
         if (upcomingShifts.length > 0) {
@@ -172,6 +172,7 @@ export function AIScheduleAssistant({ currentPage, pageContext = {} }: AISchedul
         }
       } else {
         contextualResponse = "You don't have any shifts scheduled yet. Would you like to add some?";
+      }
       }
     } else if (input.includes('swap') || input.includes('trade')) {
       if (pageContext.requests?.length) {

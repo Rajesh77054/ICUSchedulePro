@@ -178,7 +178,6 @@ export function AIScheduleAssistant({ currentPage, pageContext = {} }: AISchedul
           const endDate = format(new Date(shift.endDate), 'MMM d, yyyy');
           contextualResponse += `\n• ${startDate} - ${endDate} (${shift.status})`;
         });
-        });
       } else {
         contextualResponse = "You don't have any shifts scheduled yet. Would you like to add some?";
       }

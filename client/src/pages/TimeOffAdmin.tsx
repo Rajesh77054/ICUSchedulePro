@@ -115,7 +115,8 @@ export function TimeOffAdmin() {
   const otherRequests = requests.filter(req => req.status !== 'pending');
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background relative">
+      <ChatDialog currentPage="time-off-admin" />
       <div className="container mx-auto py-8 space-y-8">
         <div className="flex justify-between items-center">
           <h2 className="text-2xl font-semibold">Manage Time Off Requests</h2>

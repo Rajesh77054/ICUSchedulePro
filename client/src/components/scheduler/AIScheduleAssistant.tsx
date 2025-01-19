@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
@@ -58,10 +57,22 @@ const pageContextSuggestions: Record<string, string[]> = {
     "Want to review coverage patterns?",
     "Would you like to generate a new schedule?",
   ],
-  provider: [
-    "Want to view your upcoming shifts?",
-    "Need to request a schedule change?",
-    "Would you like to check your work hours?",
+  'personal-dashboard': [
+    "Want to review your upcoming shifts?",
+    "Need help with shift swaps?",
+    "Would you like to request time off?",
+    "Want to check your schedule progress?",
+  ],
+  'time-off-admin': [
+    "Need to review pending time-off requests?",
+    "Want to check coverage during time-off periods?",
+    "Would you like to create a time-off request for someone?",
+    "Need to analyze time-off patterns?",
+  ],
+  'provider': [
+    "Want to update your schedule preferences?",
+    "Need to request time off?",
+    "Would you like to see your monthly schedule summary?",
   ]
 };
 
@@ -75,7 +86,9 @@ const generatePageGreeting = (page: string) => {
     users: "Need help with user management? I can assist with that!",
     analytics: "Ready to analyze scheduling data? What metrics would you like to explore?",
     schedule: "Let's help you manage the schedule. What would you like to do?",
-    provider: "Welcome to your provider dashboard! How can I assist you today?"
+    provider: "Welcome to your provider dashboard! How can I assist you today?",
+    'personal-dashboard': "Welcome to your personal dashboard! How can I help you today?",
+    'time-off-admin': "Welcome to the time-off admin panel. How can I assist you?"
   };
 
   return greetings[page] || "Hello! I'm your schedule assistant. How can I help you today?";
@@ -92,7 +105,7 @@ export function AIScheduleAssistant({ currentPage }: { currentPage: string }) {
   useEffect(() => {
     const pageSuggestions = pageContextSuggestions[currentContext] || pageContextSuggestions['dashboard'];
     const greeting = generatePageGreeting(currentContext);
-    
+
     setMessages([
       {
         id: Date.now(),

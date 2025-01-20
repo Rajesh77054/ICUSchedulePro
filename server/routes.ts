@@ -1442,13 +1442,6 @@ export function registerRoutes(app: Express): Server {
       }
 
       console.log('Attempting OpenAI chat completion with API key:', process.env.OPENAI_API_KEY ? 'Present' : 'Missing');
-        return res.status(500).json({ error: 'OpenAI API key not configured' });
-      }
-
-      const { messages, pageContext } = req.body;
-      if (!messages || !Array.isArray(messages)) {
-        return res.status(400).json({ error: 'Invalid messages format' });
-      }
 
       // Ensure messages have required properties
       const formattedMessages = messages.map(msg => ({

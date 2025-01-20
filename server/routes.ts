@@ -1549,12 +1549,26 @@ based on the provided context. Always format dates in a clear, readable format.`
                 throw new Error(`User ${args.userName} not found`);
               }
 
-              // Parse dates in MM/DD/YYYY format
-              const [startMonth, startDay, startYear] = args.startDate.split('/');
-              const [endMonth, endDay, endYear] = args.endDate.split('/');
+              // Handle date ranges with various formats
+              const parseDate = (dateStr: string) => {
+                // Remove any whitespace and handle various separators
+                dateStr = dateStr.trim();
+                const parts = dateStr.split(/[/-]/);
+                if (parts.length !== 3) throw new Error('Date must be in MM/DD/YYYY format');
+                
+                const month = parseInt(parts[0]);
+                const day = parseInt(parts[1]);
+                const year = parseInt(parts[2]);
+                
+                if (isNaN(month) || isNaN(day) || isNaN(year)) {
+                  throw new Error('Invalid date numbers');
+                }
+                
+                return new Date(year, month - 1, day);
+              };
 
-              const startDate = new Date(parseInt(startYear), parseInt(startMonth) - 1, parseInt(startDay));
-              const endDate = new Date(parseInt(endYear), parseInt(endMonth) - 1, parseInt(endDay));
+              const startDate = parseDate(args.startDate);
+              const endDate = parseDate(args.endDate);
 
               if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
                 throw new Error('Invalid date format');

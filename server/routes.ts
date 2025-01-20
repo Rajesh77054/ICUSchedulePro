@@ -1457,11 +1457,11 @@ based on the provided context. Always format dates in a clear, readable format.`
       };
       
       // Format current state information
-      const shiftsContext = shifts.length > 0 
-        ? "Current shifts:\n" + shifts
+      const shiftsContext = pageContext?.shifts?.length > 0 
+        ? "Current shifts:\n" + pageContext.shifts
             .filter((s: any) => new Date(s.startDate) > new Date())
             .sort((a: any, b: any) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
-            .map((s: any) => `- ${new Date(s.startDate).toLocaleDateString()} to ${new Date(s.endDate).toLocaleDateString()} (${s.status})`)
+            .map((s: any) => `- ${s.user.name}: ${new Date(s.startDate).toLocaleDateString()} to ${new Date(s.endDate).toLocaleDateString()} (${s.status})`)
             .join("\n")
         : "No upcoming shifts scheduled.";
 

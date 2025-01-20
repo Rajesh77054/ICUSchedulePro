@@ -1550,9 +1550,15 @@ based on the provided context. Always format dates in a clear, readable format.`
                 }
               });
 
-              if (!user) {
-                console.error('User not found:', userName);
-                throw new Error(`User ${userName} not found`);
+              if (!user || typeof user.id === 'undefined') {
+                console.error('User not found or invalid:', userName);
+                throw new Error(`Valid user not found for name: ${userName}`);
+              }
+
+              // Ensure we have a valid user ID before proceeding
+              const userId = user.id;
+              if (!userId) {
+                throw new Error('Invalid user ID');
               }
 
               // Handle date ranges with various formats

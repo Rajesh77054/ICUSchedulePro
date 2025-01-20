@@ -1541,10 +1541,10 @@ based on the provided context. Always format dates in a clear, readable format.`
         if (choice.message.function_call) {
           const functionCall = choice.message.function_call;
 
-          try {
-            const args = JSON.parse(functionCall.arguments || '{}');
+          const args = JSON.parse(functionCall.arguments || '{}');
 
-            if (functionCall.name === 'createShift') {
+          if (functionCall.name === 'createShift') {
+            try {
               if (!args.userName) {
                 throw new Error('userName is required');
               }

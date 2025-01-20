@@ -1420,12 +1420,19 @@ export function registerRoutes(app: Express): Server {
   });
 
   // Chat endpoint
-  const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-    dangerouslyAllowBrowser: true
-  });
+  let openai: OpenAI;
+  try {
+    openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY
+    });
+  } catch (error) {
+    console.error('Failed to initialize OpenAI:', error);
+  }
 
   app.post('/api/chat', async (req, res) => {
+    if (!openai) {
+      return res.status(500).json({ error: 'OpenAI client not initialized' });
+    }
     try {
       if (!process.env.OPENAI_API_KEY) {
         return res.status(500).json({ error: 'OpenAI API key not configured' });

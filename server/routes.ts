@@ -1541,19 +1541,19 @@ based on the provided context. Always format dates in a clear, readable format.`
               // Find user by name with exact match
               const userName = args.userName;
               // Handle common name variations (full name, first name, etc)
-              const user = await db.query.users.findFirst({
-                where: sql`LOWER(name) LIKE LOWER(${`%${userName}%`})`,
-                columns: {
-                  id: true,
-                  name: true,
-                  title: true,
-                  userType: true
-                }
-              });
+              const [user] = await db
+                .select({
+                  id: users.id,
+                  name: users.name,
+                  title: users.title,
+                  userType: users.userType
+                })
+                .from(users)
+                .where(sql`LOWER(name) LIKE LOWER(${`%${userName}%`})`);
 
-              if (!user || typeof user.id === 'undefined') {
-                console.error('User not found or invalid:', userName);
-                throw new Error(`Valid user not found for name: ${userName}`);
+              if (!user) {
+                console.error('User not found:', userName);
+                throw new Error(`User ${userName} not found`);
               }
 
               // Ensure we have a valid user ID before proceeding

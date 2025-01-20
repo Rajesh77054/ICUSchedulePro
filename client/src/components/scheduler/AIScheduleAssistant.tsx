@@ -36,10 +36,17 @@ export function AIScheduleAssistant({ currentPage, pageContext }: AIScheduleAssi
     e.preventDefault();
     if (!input.trim() || isLoading) return;
 
-    const userMessage = { role: 'user', content: input };
+    const userMessage = { 
+      id: Date.now().toString(),
+      role: 'user', 
+      content: input,
+      createdAt: new Date().toISOString()
+    };
+    
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     setError('');
+    setIsLoading(true);
 
     try {
       const response = await fetch('/api/chat', {
@@ -49,24 +56,32 @@ export function AIScheduleAssistant({ currentPage, pageContext }: AIScheduleAssi
         },
         body: JSON.stringify({
           messages: [...messages, userMessage],
-          pageContext,
+          pageContext: {
+            ...pageContext,
+            currentPage
+          }
         }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to fetch response');
+        throw new Error(`Failed to fetch response: ${response.status}`);
       }
 
       const data = await response.json();
+      
       if (!data.content) {
-        throw new Error('Invalid response format');
+        throw new Error('Invalid response format - missing content');
       }
 
-      setMessages(prev => [...prev, { role: 'assistant', content: data.content }]);
-    } catch (error) {
+      setMessages(prev => [...prev, {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: data.content,
+        createdAt: new Date().toISOString()
+      }]);
+    } catch (error: any) {
       console.error('Chat error:', error);
-      setError('Sorry, I encountered an error. Please try again.');
-      setMessages(prev => prev.slice(0, -1)); // Remove the user message if there was an error
+      setError(error.message || 'Failed to get response. Please try again.');
     } finally {
       setIsLoading(false);
     }

@@ -1,24 +1,32 @@
+
 import { useState, useEffect, useRef } from 'react';
 import { Bot, Send } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useUser } from "@/hooks/use-user";
-import { ShiftDialog } from "./ShiftDialog";
-import { format } from 'date-fns';
+
+interface Message {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  createdAt?: string;
+}
 
 interface AIScheduleAssistantProps {
   currentPage: string;
   pageContext?: Record<string, any>;
 }
 
-export function AIScheduleAssistant({ currentPage, pageContext = {} }: AIScheduleAssistantProps) {
-  const [messages, setMessages] = useState([{
-    id: '1',
+export function AIScheduleAssistant({ currentPage, pageContext }: AIScheduleAssistantProps) {
+  const [messages, setMessages] = useState<Message[]>([{
+    id: '0',
     role: 'assistant',
-    content: `Hello! I'm your schedule assistant. How can I help you manage your schedule today?`
+    content: "Hello! I'm your schedule assistant. How can I help you manage your schedule today?",
+    createdAt: new Date().toISOString()
   }]);
   const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInput(e.target.value);
@@ -26,36 +34,56 @@ export function AIScheduleAssistant({ currentPage, pageContext = {} }: AISchedul
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim()) return;
+    if (!input.trim() || isLoading) return;
 
-    const userMessage = { id: Date.now().toString(), role: 'user', content: input };
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: input.trim(),
+      createdAt: new Date().toISOString()
+    };
+
     setMessages(prev => [...prev, userMessage]);
     setInput('');
+    setIsLoading(true);
 
     try {
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           messages: [...messages, userMessage],
-          pageContext
+          pageContext: {
+            ...pageContext,
+            currentPage
+          }
         })
       });
-      
+
+      if (!response.ok) {
+        throw new Error('Failed to get response');
+      }
+
       const data = await response.json();
+      
       setMessages(prev => [...prev, {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: data.content
+        content: data.content,
+        createdAt: new Date().toISOString()
       }]);
     } catch (error) {
       console.error('Chat error:', error);
+      setMessages(prev => [...prev, {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: 'Sorry, I encountered an error. Please try again.',
+        createdAt: new Date().toISOString()
+      }]);
+    } finally {
+      setIsLoading(false);
     }
   };
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [selectedDates, setSelectedDates] = useState<{start: Date, end: Date} | null>(null);
-  const scrollRef = useRef<HTMLDivElement>(null);
-
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -68,14 +96,6 @@ export function AIScheduleAssistant({ currentPage, pageContext = {} }: AISchedul
 
   return (
     <div className="flex flex-col h-[500px]">
-      {selectedDates && (
-        <ShiftDialog
-          open={dialogOpen}
-          onOpenChange={setDialogOpen}
-          startDate={selectedDates.start}
-          endDate={selectedDates.end}
-        />
-      )}
       <ScrollArea ref={scrollRef} className="flex-1 p-4">
         <div className="space-y-4">
           {messages.map((message) => (
@@ -95,11 +115,7 @@ export function AIScheduleAssistant({ currentPage, pageContext = {} }: AISchedul
                 {message.role === 'assistant' && (
                   <Bot className="h-4 w-4 mb-1" />
                 )}
-                <p className="text-sm">{message.content}</p>
-                {/* Removed unnecessary action handling  */}
-                <span className="text-xs opacity-70">
-                  {message.createdAt && format(new Date(message.createdAt), 'HH:mm')}
-                </span>
+                <p className="text-sm whitespace-pre-wrap">{message.content}</p>
               </div>
             </div>
           ))}
@@ -110,10 +126,10 @@ export function AIScheduleAssistant({ currentPage, pageContext = {} }: AISchedul
           <Input
             value={input}
             onChange={handleInputChange}
-            placeholder="Ask me anything about scheduling..."
-            className="flex-1"
+            placeholder="Type your message..."
+            disabled={isLoading}
           />
-          <Button type="submit" size="icon">
+          <Button type="submit" size="icon" disabled={isLoading}>
             <Send className="h-4 w-4" />
           </Button>
         </div>

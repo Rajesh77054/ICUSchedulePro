@@ -1580,6 +1580,7 @@ based on the provided context. Always format dates in a clear, readable format.`
                   content: `Did you mean "${fuzzyMatch.name}"? Please confirm the exact name.`
                 });
               }
+            }
 
               if (!user) {
                 console.error('User not found:', userName);

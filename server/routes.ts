@@ -1475,12 +1475,19 @@ based on the provided context. Always format dates in a clear, readable format.`
       try {
         console.log('Sending messages to OpenAI:', formattedMessages);
         
+        // Extract action intent from user message
+        const lastUserMessage = formattedMessages.findLast(msg => msg.role === 'user')?.content.toLowerCase() || '';
+        const isCreatingShift = lastUserMessage.includes('create shift') || lastUserMessage.includes('add shift');
+        const isUpdatingShift = lastUserMessage.includes('update shift') || lastUserMessage.includes('modify shift');
+        
         const response = await openai.chat.completions.create({
           model: 'gpt-3.5-turbo',
           messages: [
             {
               role: 'system',
-              content: 'You are an AI schedule assistant helping with medical staff scheduling.'
+              content: `You are an AI schedule assistant helping with medical staff scheduling. 
+                       You can create and modify shifts. When creating shifts, extract the date range 
+                       and user information from the request.`
             },
             {
               role: 'system',
@@ -1492,8 +1499,67 @@ based on the provided context. Always format dates in a clear, readable format.`
             }))
           ],
           temperature: 0.7,
-          max_tokens: 500
+          max_tokens: 500,
+          function_call: isCreatingShift || isUpdatingShift ? 'auto' : 'none',
+          functions: [
+            {
+              name: 'createShift',
+              description: 'Create a new shift',
+              parameters: {
+                type: 'object',
+                properties: {
+                  userId: { type: 'number' },
+                  startDate: { type: 'string', format: 'date' },
+                  endDate: { type: 'string', format: 'date' }
+                },
+                required: ['userId', 'startDate', 'endDate']
+              }
+            },
+            {
+              name: 'updateShift',
+              description: 'Update an existing shift',
+              parameters: {
+                type: 'object',
+                properties: {
+                  shiftId: { type: 'number' },
+                  status: { type: 'string', enum: ['confirmed', 'pending_swap'] },
+                  startDate: { type: 'string', format: 'date' },
+                  endDate: { type: 'string', format: 'date' }
+                },
+                required: ['shiftId']
+              }
+            }
+          ]
         });
+
+        if (response.choices[0]?.message?.function_call) {
+          const functionCall = response.choices[0].message.function_call;
+          const args = JSON.parse(functionCall.arguments);
+
+          if (functionCall.name === 'createShift') {
+            const newShift = await db.insert(shifts)
+              .values({
+                userId: args.userId,
+                startDate: args.startDate,
+                endDate: args.endDate,
+                status: 'confirmed',
+                source: 'ai_assistant'
+              })
+              .returning();
+            
+            console.log('Created new shift:', newShift);
+          } else if (functionCall.name === 'updateShift') {
+            const updatedShift = await db.update(shifts)
+              .set({
+                ...args,
+                updatedAt: new Date()
+              })
+              .where(eq(shifts.id, args.shiftId))
+              .returning();
+            
+            console.log('Updated shift:', updatedShift);
+          }
+        }
 
         if (!response?.choices?.[0]?.message) {
           throw new Error('Invalid response structure from OpenAI API');

@@ -1550,15 +1550,9 @@ based on the provided context. Always format dates in a clear, readable format.`
               }
 
               // Find user by name with exact match
-              const [user] = await db
-                .select({
-                  id: users.id,
-                  name: users.name,
-                  title: users.title,
-                  userType: users.userType
-                })
-                .from(users)
-                .where(eq(users.name, args.userName));
+              const user = await db.query.users.findFirst({
+                where: eq(users.name, args.userName)
+              });
 
               if (!user) {
                 // Try fuzzy match if exact match fails

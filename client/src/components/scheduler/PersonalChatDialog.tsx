@@ -1,4 +1,3 @@
-
 import { useParams } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { ChatDialog } from "./ChatDialog";
@@ -33,7 +32,7 @@ export function PersonalChatDialog({ pathname }: { pathname: string }) {
   // Convert swapRequests to requests for consistency
   // Only include future shifts
   const upcomingShifts = shifts?.filter(shift => new Date(shift.endDate) > new Date()) || [];
-  
+
   const pageContext = {
     shifts: upcomingShifts.map(shift => ({
       ...shift,
@@ -50,26 +49,6 @@ export function PersonalChatDialog({ pathname }: { pathname: string }) {
     <ChatDialog 
       currentPage="provider"
       pageContext={pageContext}
-    />
-  );
-}
-import { ChatDialog } from "./ChatDialog";
-
-interface PersonalChatDialogProps {
-  pathname: string;
-}
-
-export function PersonalChatDialog({ pathname }: PersonalChatDialogProps) {
-  const userId = pathname.split('/')[2];
-  
-  return (
-    <ChatDialog
-      currentPage="personal"
-      pageContext={{
-        userId,
-        shifts: [],
-        requests: []
-      }}
     />
   );
 }

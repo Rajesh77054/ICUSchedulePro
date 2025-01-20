@@ -53,3 +53,23 @@ export function PersonalChatDialog({ pathname }: { pathname: string }) {
     />
   );
 }
+import { ChatDialog } from "./ChatDialog";
+
+interface PersonalChatDialogProps {
+  pathname: string;
+}
+
+export function PersonalChatDialog({ pathname }: PersonalChatDialogProps) {
+  const userId = pathname.split('/')[2];
+  
+  return (
+    <ChatDialog
+      currentPage="personal"
+      pageContext={{
+        userId,
+        shifts: [],
+        requests: []
+      }}
+    />
+  );
+}

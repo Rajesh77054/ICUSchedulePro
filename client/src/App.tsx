@@ -16,6 +16,7 @@ import { BreadcrumbNavigation } from "@/components/layout/BreadcrumbNavigation";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { useQuery } from "@tanstack/react-query";
 import { ChatDialog } from "@/components/scheduler/ChatDialog";
+import { PersonalChatDialog } from "@/components/scheduler/PersonalChatDialog";
 
 function App() {
   const { data: shifts } = useQuery({

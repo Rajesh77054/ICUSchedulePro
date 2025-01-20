@@ -1426,10 +1426,16 @@ export function registerRoutes(app: Express): Server {
 
   app.post('/api/chat', async (req, res) => {
     try {
-      if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY.trim() === '') {
+      const apiKey = process.env.OPENAI_API_KEY;
+      
+      if (!apiKey || apiKey.trim() === '') {
         console.error('OpenAI API key missing or empty');
         return res.status(500).json({ error: 'OpenAI API key not properly configured' });
       }
+
+      const openai = new OpenAI({
+        apiKey: apiKey
+      });
 
       if (!openai) {
         console.error('OpenAI client not initialized');

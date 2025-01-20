@@ -19,7 +19,7 @@ interface ChatDialogProps {
 
 export function ChatDialog({ trigger, className, currentPage, pageContext = {} }: ChatDialogProps) {
   const [open, setOpen] = useState(false);
-  
+
   useEffect(() => {
     console.log("ChatDialog received pageContext:", pageContext);
   }, [pageContext]);
@@ -39,6 +39,7 @@ export function ChatDialog({ trigger, className, currentPage, pageContext = {} }
         )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
+        <DialogTitle className="sr-only">Chat Assistant</DialogTitle>
         <AIScheduleAssistant 
           currentPage={currentPage} 
           pageContext={{

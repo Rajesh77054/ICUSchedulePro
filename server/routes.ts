@@ -1561,20 +1561,22 @@ based on the provided context. Always format dates in a clear, readable format.`
                 });
               }
 
-              // Create new shift with explicit user ID
-              const [newShift] = await db.insert(shifts)
-                .values({
-                  userId: user.id,
-                  startDate: new Date(args.startDate),
-                  endDate: new Date(args.endDate),
-                  status: 'confirmed',
-                  source: 'ai_assistant'
-                })
-                .returning();
+              try {
+                // Create new shift with explicit user ID
+                const [newShift] = await db.insert(shifts)
+                  .values({
+                    userId: user.id,
+                    startDate: new Date(args.startDate),
+                    endDate: new Date(args.endDate),
+                    status: 'confirmed',
+                    source: 'ai_assistant'
+                  })
+                  .returning();
 
-              if (!newShift) {
-                throw new Error('Failed to create shift');
-              }
+                if (!newShift) {
+                  throw new Error('Failed to create shift');
+                }
+              } finally {
                 const [fuzzyMatch] = await db
                   .select({
                     id: users.id,

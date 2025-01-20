@@ -1540,8 +1540,9 @@ based on the provided context. Always format dates in a clear, readable format.`
             try {
               // Find user by name with exact match
               const userName = args.userName;
+              // Handle common name variations (full name, first name, etc)
               const user = await db.query.users.findFirst({
-                where: sql`name = ${userName}`,
+                where: sql`LOWER(name) LIKE LOWER(${`%${userName}%`})`,
                 columns: {
                   id: true,
                   name: true,

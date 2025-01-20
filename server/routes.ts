@@ -1036,7 +1036,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  app.get("/api/chat/rooms/:id/messages", async (req, res) => {
+app.get("/api/chat/rooms/:id/messages", async (req, res) => {
     try {
       const { id } = req.params;
 
@@ -1540,7 +1540,7 @@ based on the provided context. Always format dates in a clear, readable format.`
         // Handle function calls if present
         if (choice.message.function_call) {
           const functionCall = choice.message.function_call;
-          
+
           try {
             const args = JSON.parse(functionCall.arguments || '{}');
 
@@ -1580,17 +1580,12 @@ based on the provided context. Always format dates in a clear, readable format.`
                   content: `Did you mean "${fuzzyMatch.name}"? Please confirm the exact name.`
                 });
               }
-            }
-
-              if (!user) {
-                console.error('User not found:', userName);
-                throw new Error(`User ${userName} not found`);
-              }
 
               // Ensure we have a valid user ID before proceeding
               const userId = user.id;
               if (!userId) {
-                throw new Error('Invalid user ID');
+                console.error('Invalid user ID for:', args.userName);
+                throw new Error(`Invalid user ID for ${args.userName}`);
               }
 
               // Handle date ranges with various formats
@@ -1599,15 +1594,15 @@ based on the provided context. Always format dates in a clear, readable format.`
                 dateStr = dateStr.trim();
                 const parts = dateStr.split(/[/-]/);
                 if (parts.length !== 3) throw new Error('Date must be in MM/DD/YYYY format');
-                
+
                 const month = parseInt(parts[0]);
                 const day = parseInt(parts[1]);
                 const year = parseInt(parts[2]);
-                
+
                 if (isNaN(month) || isNaN(day) || isNaN(year)) {
                   throw new Error('Invalid date numbers');
                 }
-                
+
                 return new Date(year, month - 1, day);
               };
 

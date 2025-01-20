@@ -1426,6 +1426,10 @@ export function registerRoutes(app: Express): Server {
 
   app.post('/api/chat', async (req, res) => {
     try {
+      if (!process.env.OPENAI_API_KEY) {
+        return res.status(500).json({ error: 'OpenAI API key not configured' });
+      }
+
       const { messages, pageContext } = req.body;
       if (!messages || !Array.isArray(messages)) {
         return res.status(400).json({ error: 'Invalid messages format' });

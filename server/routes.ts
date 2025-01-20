@@ -1532,15 +1532,24 @@ based on the provided context. Always format dates in a clear, readable format.`
           ]
         });
 
-        if (response.choices[0]?.message?.function_call) {
-          const functionCall = response.choices[0].message.function_call;
-          const args = JSON.parse(functionCall.arguments);
+        const choice = response.choices[0];
+        if (!choice?.message) {
+          throw new Error('Invalid response from OpenAI');
+        }
 
-          if (functionCall.name === 'createShift') {
-            try {
+        // Handle function calls if present
+        if (choice.message.function_call) {
+          const functionCall = choice.message.function_call;
+          
+          try {
+            const args = JSON.parse(functionCall.arguments || '{}');
+
+            if (functionCall.name === 'createShift') {
+              if (!args.userName) {
+                throw new Error('userName is required');
+              }
+
               // Find user by name with exact match
-              const userName = args.userName;
-              // Handle common name variations (full name, first name, etc)
               const [user] = await db
                 .select({
                   id: users.id,
@@ -1549,7 +1558,28 @@ based on the provided context. Always format dates in a clear, readable format.`
                   userType: users.userType
                 })
                 .from(users)
-                .where(sql`LOWER(name) LIKE LOWER(${`%${userName}%`})`);
+                .where(eq(users.name, args.userName));
+
+              if (!user) {
+                // Try fuzzy match if exact match fails
+                const [fuzzyMatch] = await db
+                  .select({
+                    id: users.id,
+                    name: users.name,
+                    title: users.title,
+                    userType: users.userType
+                  })
+                  .from(users)
+                  .where(sql`LOWER(name) LIKE LOWER(${`%${args.userName}%`})`);
+
+                if (!fuzzyMatch) {
+                  throw new Error(`User ${args.userName} not found`);
+                }
+                return res.json({
+                  role: 'assistant',
+                  content: `Did you mean "${fuzzyMatch.name}"? Please confirm the exact name.`
+                });
+              }
 
               if (!user) {
                 console.error('User not found:', userName);

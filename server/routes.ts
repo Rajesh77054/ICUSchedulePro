@@ -1427,6 +1427,9 @@ export function registerRoutes(app: Express): Server {
   app.post('/api/chat', async (req, res) => {
     try {
       const { messages, pageContext } = req.body;
+      if (!messages || !Array.isArray(messages)) {
+        return res.status(400).json({ error: 'Invalid messages format' });
+      }
       let shifts = pageContext?.shifts || [];
       let swapRequests = pageContext?.swapRequests || [];
       

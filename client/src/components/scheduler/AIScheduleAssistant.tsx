@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { Bot, Send } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -26,6 +25,7 @@ export function AIScheduleAssistant({ currentPage, pageContext }: AIScheduleAssi
   }]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(''); // Added error state
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -36,50 +36,37 @@ export function AIScheduleAssistant({ currentPage, pageContext }: AIScheduleAssi
     e.preventDefault();
     if (!input.trim() || isLoading) return;
 
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: 'user',
-      content: input.trim(),
-      createdAt: new Date().toISOString()
-    };
-
+    const userMessage = { role: 'user', content: input };
     setMessages(prev => [...prev, userMessage]);
     setInput('');
-    setIsLoading(true);
+    setError('');
 
     try {
       const response = await fetch('/api/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           messages: [...messages, userMessage],
-          pageContext: {
-            ...pageContext,
-            currentPage
-          }
-        })
+          pageContext,
+        }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to get response');
+        throw new Error('Failed to fetch response');
       }
 
       const data = await response.json();
-      
-      setMessages(prev => [...prev, {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: data.content,
-        createdAt: new Date().toISOString()
-      }]);
+      if (!data.content) {
+        throw new Error('Invalid response format');
+      }
+
+      setMessages(prev => [...prev, { role: 'assistant', content: data.content }]);
     } catch (error) {
       console.error('Chat error:', error);
-      setMessages(prev => [...prev, {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: 'Sorry, I encountered an error. Please try again.',
-        createdAt: new Date().toISOString()
-      }]);
+      setError('Sorry, I encountered an error. Please try again.');
+      setMessages(prev => prev.slice(0, -1)); // Remove the user message if there was an error
     } finally {
       setIsLoading(false);
     }
@@ -119,6 +106,7 @@ export function AIScheduleAssistant({ currentPage, pageContext }: AIScheduleAssi
               </div>
             </div>
           ))}
+          {error && <p className="text-red-500 text-center">{error}</p>} {/* Display error message */}
         </div>
       </ScrollArea>
       <form onSubmit={handleSubmit} className="p-4 border-t">

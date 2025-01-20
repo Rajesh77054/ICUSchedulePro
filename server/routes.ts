@@ -1542,9 +1542,6 @@ based on the provided context. Always format dates in a clear, readable format.`
               const userName = args.userName;
               const user = await db.query.users.findFirst({
                 where: sql`name = ${userName}`,
-                with: {
-                  shifts: true
-                },
                 columns: {
                   id: true,
                   name: true,
@@ -1552,6 +1549,10 @@ based on the provided context. Always format dates in a clear, readable format.`
                   userType: true
                 }
               });
+
+              if (!user?.id) {
+                throw new Error(`User ${userName} not found`);
+              }
 
               if (!user) {
                 console.error('User not found:', args.userName);

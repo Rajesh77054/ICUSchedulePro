@@ -1508,11 +1508,11 @@ based on the provided context. Always format dates in a clear, readable format.`
               parameters: {
                 type: 'object',
                 properties: {
-                  userId: { type: 'number' },
+                  userName: { type: 'string', description: 'Name of the user to create shift for' },
                   startDate: { type: 'string', format: 'date' },
                   endDate: { type: 'string', format: 'date' }
                 },
-                required: ['userId', 'startDate', 'endDate']
+                required: ['userName', 'startDate', 'endDate']
               }
             },
             {
@@ -1537,17 +1537,33 @@ based on the provided context. Always format dates in a clear, readable format.`
           const args = JSON.parse(functionCall.arguments);
 
           if (functionCall.name === 'createShift') {
+            // Find user by name
+            const userName = args.userName.toLowerCase();
+            const user = await db.query.users.findFirst({
+              where: sql`LOWER(name) LIKE ${`%${userName}%`}`
+            });
+
+            if (!user) {
+              console.error('User not found:', args.userName);
+              throw new Error(`User ${args.userName} not found`);
+            }
+
             const newShift = await db.insert(shifts)
               .values({
-                userId: args.userId,
-                startDate: args.startDate,
-                endDate: args.endDate,
+                userId: user.id,
+                startDate: new Date(args.startDate), 
+                endDate: new Date(args.endDate),
                 status: 'confirmed',
                 source: 'ai_assistant'
               })
               .returning();
             
             console.log('Created new shift:', newShift);
+            // Update the messages context with the new shift
+            formattedMessages.push({
+              role: 'assistant',
+              content: `Created shift for ${user.name} from ${new Date(args.startDate).toLocaleDateString()} to ${new Date(args.endDate).toLocaleDateString()}`
+            });
           } else if (functionCall.name === 'updateShift') {
             const updatedShift = await db.update(shifts)
               .set({

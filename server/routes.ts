@@ -1537,33 +1537,55 @@ based on the provided context. Always format dates in a clear, readable format.`
           const args = JSON.parse(functionCall.arguments);
 
           if (functionCall.name === 'createShift') {
-            // Find user by name
-            const userName = args.userName.toLowerCase();
-            const user = await db.query.users.findFirst({
-              where: sql`LOWER(name) LIKE ${`%${userName}%`}`
-            });
+            try {
+              // Find user by name
+              const userName = args.userName.toLowerCase();
+              const user = await db.query.users.findFirst({
+                where: sql`LOWER(name) LIKE ${`%${userName}%`}`
+              });
 
-            if (!user) {
-              console.error('User not found:', args.userName);
-              throw new Error(`User ${args.userName} not found`);
+              if (!user) {
+                console.error('User not found:', args.userName);
+                throw new Error(`User ${args.userName} not found`);
+              }
+
+              // Parse dates and validate
+              const startDate = new Date(args.startDate);
+              const endDate = new Date(args.endDate);
+              
+              if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+                throw new Error('Invalid date format');
+              }
+
+              const [newShift] = await db.insert(shifts)
+                .values({
+                  userId: user.id,
+                  startDate, 
+                  endDate,
+                  status: 'confirmed',
+                  source: 'ai_assistant'
+                })
+                .returning();
+              
+              console.log('Created new shift:', newShift);
+
+              // Broadcast the new shift
+              broadcast(notify.shiftCreated(newShift, {
+                name: user.name,
+                title: user.title
+              }));
+
+              return res.json({
+                role: 'assistant',
+                content: `Successfully created shift for ${user.name} from ${startDate.toLocaleDateString()} to ${endDate.toLocaleDateString()}`
+              });
+            } catch (error) {
+              console.error('Error creating shift:', error);
+              return res.json({
+                role: 'assistant',
+                content: `Failed to create shift: ${error.message}`
+              });
             }
-
-            const newShift = await db.insert(shifts)
-              .values({
-                userId: user.id,
-                startDate: new Date(args.startDate), 
-                endDate: new Date(args.endDate),
-                status: 'confirmed',
-                source: 'ai_assistant'
-              })
-              .returning();
-            
-            console.log('Created new shift:', newShift);
-            // Update the messages context with the new shift
-            formattedMessages.push({
-              role: 'assistant',
-              content: `Created shift for ${user.name} from ${new Date(args.startDate).toLocaleDateString()} to ${new Date(args.endDate).toLocaleDateString()}`
-            });
           } else if (functionCall.name === 'updateShift') {
             const updatedShift = await db.update(shifts)
               .set({

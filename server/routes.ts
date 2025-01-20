@@ -1421,16 +1421,27 @@ export function registerRoutes(app: Express): Server {
 
   // Chat endpoint
   const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY || '',
+    apiKey: process.env.OPENAI_API_KEY
   });
 
   app.post('/api/chat', async (req, res) => {
-    if (!process.env.OPENAI_API_KEY) {
-      console.error('OpenAI API key missing');
-      return res.status(500).json({ error: 'OpenAI API key not configured' });
-    }
     try {
-      if (!process.env.OPENAI_API_KEY) {
+      if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY.trim() === '') {
+        console.error('OpenAI API key missing or empty');
+        return res.status(500).json({ error: 'OpenAI API key not properly configured' });
+      }
+
+      if (!openai) {
+        console.error('OpenAI client not initialized');
+        return res.status(500).json({ error: 'OpenAI client initialization failed' });
+      }
+
+      const { messages, pageContext } = req.body;
+      if (!messages || !Array.isArray(messages)) {
+        return res.status(400).json({ error: 'Invalid messages format' });
+      }
+
+      console.log('Attempting OpenAI chat completion with API key:', process.env.OPENAI_API_KEY ? 'Present' : 'Missing');
         return res.status(500).json({ error: 'OpenAI API key not configured' });
       }
 

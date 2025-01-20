@@ -1541,7 +1541,12 @@ based on the provided context. Always format dates in a clear, readable format.`
               // Find user by name
               const userName = args.userName.toLowerCase();
               const user = await db.query.users.findFirst({
-                where: sql`LOWER(name) LIKE ${`%${userName}%`}`
+                where: sql`LOWER(name) LIKE ${`%${userName}%`}`,
+                columns: {
+                  id: true,
+                  name: true,
+                  title: true
+                }
               });
 
               if (!user) {
@@ -1574,11 +1579,12 @@ based on the provided context. Always format dates in a clear, readable format.`
                 throw new Error('Invalid date format');
               }
 
+              // Create new shift with explicit user ID
               const [newShift] = await db.insert(shifts)
                 .values({
                   userId: user.id,
-                  startDate, 
-                  endDate,
+                  startDate: startDate.toISOString(),
+                  endDate: endDate.toISOString(),
                   status: 'confirmed',
                   source: 'ai_assistant'
                 })

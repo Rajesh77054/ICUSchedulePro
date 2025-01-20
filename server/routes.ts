@@ -1048,7 +1048,7 @@ export function registerRoutes(app: Express): Server {
         orderBy: (messages, { asc }) => [asc(messages.createdAt)]
       });
 
-      res.json(result);});
+      res.json(result);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }

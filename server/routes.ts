@@ -1420,10 +1420,6 @@ export function registerRoutes(app: Express): Server {
   });
 
   // Chat endpoint
-  const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY
-  });
-
   app.post('/api/chat', async (req, res) => {
     try {
       const apiKey = process.env.OPENAI_API_KEY;
@@ -1436,11 +1432,6 @@ export function registerRoutes(app: Express): Server {
       const openai = new OpenAI({
         apiKey: apiKey
       });
-
-      if (!openai) {
-        console.error('OpenAI client not initialized');
-        return res.status(500).json({ error: 'OpenAI client initialization failed' });
-      }
 
       const { messages, pageContext } = req.body;
       if (!messages || !Array.isArray(messages)) {
@@ -1481,21 +1472,30 @@ based on the provided context. Always format dates in a clear, readable format.`
             .join("\n")
         : "\n\nNo pending swap requests.";
       
-      const response = await openai.chat.completions.create({
-        model: 'gpt-3.5-turbo',
-        messages: [
-          systemMessage,
-          {
-            role: 'system',
-            content: `${shiftsContext}${swapsContext}\n\nPlease help the user with their schedule-related query.`
-          },
-          ...formattedMessages
-        ],
-        temperature: 0.7,
-        max_tokens: 500
-      });
+      try {
+        const response = await openai.chat.completions.create({
+          model: 'gpt-3.5-turbo',
+          messages: [
+            systemMessage,
+            {
+              role: 'system',
+              content: `${shiftsContext}${swapsContext}\n\nPlease help the user with their schedule-related query.`
+            },
+            ...formattedMessages
+          ],
+          temperature: 0.7,
+          max_tokens: 500
+        });
 
-      res.json(response.choices[0].message);
+        if (!response.choices?.[0]?.message) {
+          throw new Error('Invalid response from OpenAI API');
+        }
+
+        res.json(response.choices[0].message);
+      } catch (apiError) {
+        console.error('OpenAI API error:', apiError);
+        res.status(500).json({ error: 'Failed to get response from OpenAI API' });
+      }
     } catch (error) {
       console.error('Error in chat endpoint:', error);
       res.status(500).json({ error: 'Internal server error' });

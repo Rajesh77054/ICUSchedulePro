@@ -1475,10 +1475,10 @@ based on the provided context. Always format dates in a clear, readable format.`
       try {
         console.log('Sending messages to OpenAI:', formattedMessages);
 
-        // Extract action intent from user message
+        // Always enable function calling for agent actions
         const lastUserMessage = formattedMessages.findLast(msg => msg.role === 'user')?.content.toLowerCase() || '';
-        const isCreatingShift = lastUserMessage.includes('create shift') || lastUserMessage.includes('add shift');
-        const isUpdatingShift = lastUserMessage.includes('update shift') || lastUserMessage.includes('modify shift');
+        const isCreatingShift = true; // Allow function calling for all messages
+        const isUpdatingShift = true; // Allow function calling for all messages
 
         const response = await openai.chat.completions.create({
           model: 'gpt-3.5-turbo',
@@ -1500,7 +1500,7 @@ based on the provided context. Always format dates in a clear, readable format.`
           ],
           temperature: 0.7,
           max_tokens: 500,
-          function_call: isCreatingShift || isUpdatingShift ? 'auto' : 'none',
+          function_call: 'auto',
           functions: [
             {
               name: 'createShift',

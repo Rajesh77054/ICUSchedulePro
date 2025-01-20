@@ -1048,7 +1048,7 @@ export function registerRoutes(app: Express): Server {
         orderBy: (messages, { asc }) => [asc(messages.createdAt)]
       });
 
-      res.json(result);
+      res.json(result);});
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
@@ -1423,7 +1423,7 @@ export function registerRoutes(app: Express): Server {
   app.post('/api/chat', async (req, res) => {
     try {
       const apiKey = process.env.OPENAI_API_KEY;
-      
+
       if (!apiKey || apiKey.trim() === '') {
         console.error('OpenAI API key missing or empty');
         return res.status(500).json({ error: 'OpenAI API key not properly configured' });
@@ -1447,7 +1447,7 @@ export function registerRoutes(app: Express): Server {
       }));
       let shifts = pageContext?.shifts || [];
       let swapRequests = pageContext?.swapRequests || [];
-      
+
       // Get comprehensive system context
       const systemMessage = {
         role: "system",
@@ -1455,7 +1455,7 @@ export function registerRoutes(app: Express): Server {
 You help users manage their shifts, schedule, and shift swap requests. Respond concisely and accurately 
 based on the provided context. Always format dates in a clear, readable format.`
       };
-      
+
       // Format current state information
       const shiftsContext = pageContext?.shifts?.length > 0 
         ? "Current shifts:\n" + pageContext.shifts
@@ -1471,15 +1471,15 @@ based on the provided context. Always format dates in a clear, readable format.`
             .map((r: any) => `- Shift ${new Date(r.shift.startDate).toLocaleDateString()} to ${new Date(r.shift.endDate).toLocaleDateString()}: ${r.requestor.name} ↔ ${r.recipient.name}`)
             .join("\n")
         : "\n\nNo pending swap requests.";
-      
+
       try {
         console.log('Sending messages to OpenAI:', formattedMessages);
-        
+
         // Extract action intent from user message
         const lastUserMessage = formattedMessages.findLast(msg => msg.role === 'user')?.content.toLowerCase() || '';
         const isCreatingShift = lastUserMessage.includes('create shift') || lastUserMessage.includes('add shift');
         const isUpdatingShift = lastUserMessage.includes('update shift') || lastUserMessage.includes('modify shift');
-        
+
         const response = await openai.chat.completions.create({
           model: 'gpt-3.5-turbo',
           messages: [
@@ -1549,10 +1549,13 @@ based on the provided context. Always format dates in a clear, readable format.`
                 throw new Error(`User ${args.userName} not found`);
               }
 
-              // Parse dates and validate
-              const startDate = new Date(args.startDate);
-              const endDate = new Date(args.endDate);
-              
+              // Parse dates in MM/DD/YYYY format
+              const [startMonth, startDay, startYear] = args.startDate.split('/');
+              const [endMonth, endDay, endYear] = args.endDate.split('/');
+
+              const startDate = new Date(parseInt(startYear), parseInt(startMonth) - 1, parseInt(startDay));
+              const endDate = new Date(parseInt(endYear), parseInt(endMonth) - 1, parseInt(endDay));
+
               if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
                 throw new Error('Invalid date format');
               }
@@ -1566,7 +1569,7 @@ based on the provided context. Always format dates in a clear, readable format.`
                   source: 'ai_assistant'
                 })
                 .returning();
-              
+
               console.log('Created new shift:', newShift);
 
               // Broadcast the new shift
@@ -1594,7 +1597,7 @@ based on the provided context. Always format dates in a clear, readable format.`
               })
               .where(eq(shifts.id, args.shiftId))
               .returning();
-            
+
             console.log('Updated shift:', updatedShift);
           }
         }

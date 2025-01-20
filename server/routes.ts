@@ -1562,12 +1562,15 @@ based on the provided context. Always format dates in a clear, readable format.`
               }
 
               try {
+                const startDate = new Date(args.startDate);
+                const endDate = new Date(args.endDate);
+
                 // Create new shift with explicit user ID
                 const [newShift] = await db.insert(shifts)
                   .values({
                     userId: user.id,
-                    startDate: new Date(args.startDate),
-                    endDate: new Date(args.endDate),
+                    startDate: startDate.toISOString(),
+                    endDate: endDate.toISOString(),
                     status: 'confirmed',
                     source: 'ai_assistant'
                   })
@@ -1576,23 +1579,22 @@ based on the provided context. Always format dates in a clear, readable format.`
                 if (!newShift) {
                   throw new Error('Failed to create shift');
                 }
-              } finally {
-                const [fuzzyMatch] = await db
-                  .select({
-                    id: users.id,
-                    name: users.name,
-                    title: users.title,
-                    userType: users.userType
-                  })
-                  .from(users)
-                  .where(sql`LOWER(name) LIKE LOWER(${`%${args.userName}%`})`);
 
-                if (!fuzzyMatch) {
-                  throw new Error(`User ${args.userName} not found`);
-                }
+                // Broadcast the new shift
+                broadcast(notify.shiftCreated(newShift, {
+                  name: user.name,
+                  title: user.title
+                }));
+
                 return res.json({
                   role: 'assistant',
-                  content: `Did you mean "${fuzzyMatch.name}"? Please confirm the exact name.`
+                  content: `Successfully created shift for ${user.name} from ${startDate.toLocaleDateString()} to ${endDate.toLocaleDateString()}`
+                });
+              } catch (error) {
+                console.error('Error creating shift:', error);
+                return res.json({
+                  role: 'assistant',
+                  content: `Failed to create shift: ${error.message}`
                 });
               }
 

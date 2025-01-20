@@ -39,7 +39,7 @@ export function ChatDialog({ trigger, className, currentPage, pageContext = {} }
         )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
-        <DialogTitle className="sr-only">Chat Assistant</DialogTitle>
+        <DialogTitle>Schedule Assistant</DialogTitle>
         <AIScheduleAssistant 
           currentPage={currentPage} 
           pageContext={{

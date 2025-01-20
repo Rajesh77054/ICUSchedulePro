@@ -1473,28 +1473,40 @@ based on the provided context. Always format dates in a clear, readable format.`
         : "\n\nNo pending swap requests.";
       
       try {
+        console.log('Sending messages to OpenAI:', formattedMessages);
+        
         const response = await openai.chat.completions.create({
           model: 'gpt-3.5-turbo',
           messages: [
-            systemMessage,
             {
               role: 'system',
-              content: `${shiftsContext}${swapsContext}\n\nPlease help the user with their schedule-related query.`
+              content: 'You are an AI schedule assistant helping with medical staff scheduling.'
             },
-            ...formattedMessages
+            {
+              role: 'system',
+              content: `Current context:\n${shiftsContext}\n${swapsContext}`
+            },
+            ...formattedMessages.map(msg => ({
+              role: msg.role === 'system' ? 'user' : msg.role,
+              content: msg.content
+            }))
           ],
           temperature: 0.7,
           max_tokens: 500
         });
 
-        if (!response.choices?.[0]?.message) {
-          throw new Error('Invalid response from OpenAI API');
+        if (!response?.choices?.[0]?.message) {
+          throw new Error('Invalid response structure from OpenAI API');
         }
 
+        console.log('OpenAI response:', response.choices[0].message);
         res.json(response.choices[0].message);
-      } catch (apiError) {
-        console.error('OpenAI API error:', apiError);
-        res.status(500).json({ error: 'Failed to get response from OpenAI API' });
+      } catch (apiError: any) {
+        console.error('OpenAI API error details:', apiError.response?.data || apiError.message);
+        res.status(500).json({ 
+          error: 'OpenAI API error',
+          details: apiError.response?.data?.error?.message || apiError.message
+        });
       }
     } catch (error) {
       console.error('Error in chat endpoint:', error);

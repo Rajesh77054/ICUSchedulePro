@@ -1550,13 +1550,31 @@ based on the provided context. Always format dates in a clear, readable format.`
               }
 
               // Find user by name with exact match
-              const [user] = await db
-                .select()
-                .from(users)
-                .where(eq(users.name, args.userName));
+              const user = await db.query.users.findFirst({
+                where: eq(users.name, args.userName)
+              });
 
               if (!user) {
-                // Try fuzzy match if exact match fails
+                return res.json({
+                  role: 'assistant',
+                  content: `User ${args.userName} not found. Please check the name and try again.`
+                });
+              }
+
+              // Create new shift with explicit user ID
+              const [newShift] = await db.insert(shifts)
+                .values({
+                  userId: user.id,
+                  startDate: new Date(args.startDate),
+                  endDate: new Date(args.endDate),
+                  status: 'confirmed',
+                  source: 'ai_assistant'
+                })
+                .returning();
+
+              if (!newShift) {
+                throw new Error('Failed to create shift');
+              }
                 const [fuzzyMatch] = await db
                   .select({
                     id: users.id,

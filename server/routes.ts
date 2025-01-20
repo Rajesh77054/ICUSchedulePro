@@ -1421,7 +1421,8 @@ export function registerRoutes(app: Express): Server {
 
   // Chat endpoint
   const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY 
+    apiKey: process.env.OPENAI_API_KEY,
+    dangerouslyAllowBrowser: true
   });
 
   app.post('/api/chat', async (req, res) => {
@@ -1434,6 +1435,12 @@ export function registerRoutes(app: Express): Server {
       if (!messages || !Array.isArray(messages)) {
         return res.status(400).json({ error: 'Invalid messages format' });
       }
+
+      // Ensure messages have required properties
+      const formattedMessages = messages.map(msg => ({
+        role: msg.role || 'user',
+        content: msg.content || ''
+      }));
       let shifts = pageContext?.shifts || [];
       let swapRequests = pageContext?.swapRequests || [];
       
@@ -1469,10 +1476,7 @@ based on the provided context. Always format dates in a clear, readable format.`
             role: 'system',
             content: `${shiftsContext}${swapsContext}\n\nPlease help the user with their schedule-related query.`
           },
-          ...messages.map((message: any) => ({
-            content: message.content,
-            role: message.role,
-          }))
+          ...formattedMessages
         ],
         temperature: 0.7,
         max_tokens: 500

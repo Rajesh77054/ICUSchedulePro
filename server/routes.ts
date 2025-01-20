@@ -1539,9 +1539,9 @@ based on the provided context. Always format dates in a clear, readable format.`
           if (functionCall.name === 'createShift') {
             try {
               // Find user by name (exact match)
-              const userName = args.userName.toLowerCase();
+              const userName = args.userName;
               const user = await db.query.users.findFirst({
-                where: sql`LOWER(name) = ${userName}`,
+                where: sql`name = ${userName}`,
                 columns: {
                   id: true,
                   name: true,

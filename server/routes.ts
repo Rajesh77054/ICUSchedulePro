@@ -321,11 +321,9 @@ export function registerRoutes(app: Express) {
         }
       }
 
-      const defaultResponse = {
-        content: `I can help you create a new shift. Please provide the dates in format: MM/DD/YYYY - MM/DD/YYYY`
-      };
-      console.log('Chat response:', defaultResponse);
-      res.json(defaultResponse);
+      const chatResponse = await chatHandler.handleChat(lastMessage.content, chatContext);
+      console.log('Chat response:', { content: chatResponse });
+      res.json({ content: chatResponse });
     } catch (error) {
       console.error('Chat error:', error);
       res.status(500).json({ error: 'Failed to process chat request' });

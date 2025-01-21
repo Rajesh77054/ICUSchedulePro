@@ -30,13 +30,13 @@ export function registerRoutes(app: Express) {
       const lastMessage = messages[messages.length - 1];
       const shifts = pageContext?.shifts || [];
       const users = await db.select().from(schema.users);
-      
+
       // Helper function to format dates consistently
       const formatDate = (date: string) => new Date(date).toLocaleDateString();
-      
+
       // Process natural language queries
       const userMessage = lastMessage.content.toLowerCase();
-      
+
       // Get user context
       const currentUser = users.find(u => u.id === pageContext?.userId);
       const userContext = {
@@ -45,8 +45,16 @@ export function registerRoutes(app: Express) {
         allUsers: users,
       };
 
-      // Enhanced message processing
-      if (userMessage.includes('how many shifts')) {
+      // Handle colleague and team queries
+      if (messageContent.includes('colleague') || messageContent.includes('team') || messageContent.includes('who are my')) {
+        const usersList = users.map(user => `${user.name}, ${user.title} (${user.userType.toUpperCase()})`);
+        return res.json({
+          content: `Your colleagues are:\n${usersList.join('\n')}`
+        });
+      }
+
+      // Handle shift count queries
+      if (messageContent.includes('how many shifts')) {
         const nameMatch = userMessage.match(/how many shifts does (\w+) have/i);
         if (nameMatch) {
           const name = nameMatch[1].toLowerCase();
@@ -65,14 +73,14 @@ export function registerRoutes(app: Express) {
       if (messages.length === 1) {
         const suggestions = [];
         const userShifts = currentUser ? shifts.filter(s => s.userId === currentUser.id) : [];
-        
+
         if (userShifts.length > 0) {
           suggestions.push(
             `- You have ${userShifts.length} upcoming shifts`,
             "- View your schedule details",
             "- Check for schedule conflicts"
           );
-          
+
           const pendingSwaps = userShifts.filter(s => s.status === 'pending_swap');
           if (pendingSwaps.length > 0) {
             suggestions.push(`- You have ${pendingSwaps.length} pending swap requests`);
@@ -88,15 +96,15 @@ export function registerRoutes(app: Express) {
       if (userMessage.includes('delete shift') || userMessage.includes('remove shift')) {
         const datePattern = /(\d{1,2}\/\d{1,2}\/\d{4})\s*-\s*(\d{1,2}\/\d{1,2}\/\d{4})/;
         const namePattern = /(?:for|from)\s+(\w+):/i;
-        
+
         const dateMatch = userMessage.match(datePattern);
         const nameMatch = userMessage.match(namePattern);
-        
+
         if (dateMatch && nameMatch) {
           const [_, startDate, endDate] = dateMatch;
           const name = nameMatch[1];
           const targetUser = users.find(u => u.name.toLowerCase().includes(name.toLowerCase()));
-          
+
           if (!targetUser) {
             return res.json({ content: `I couldn't find a user named ${name}.` });
           }
@@ -129,7 +137,7 @@ export function registerRoutes(app: Express) {
 
       // Handle shift count and holiday queries
       const messageContent = lastMessage.content.toLowerCase();
-      
+
       if (messageContent.includes('holiday')) {
         const nameMatch = messageContent.match(/does (\w+) work/i);
         if (nameMatch) {
@@ -137,13 +145,13 @@ export function registerRoutes(app: Express) {
           const userShifts = shifts.filter(s => 
             s.user?.name.toLowerCase().includes(name)
           );
-          
+
           const holidays = {
             '01-01': 'New Year\'s Day',
             '01-15': 'Martin Luther King Jr. Day',
             '02-19': 'Presidents\' Day'
           };
-          
+
           const holidayShifts = userShifts.filter(shift => {
             const shiftDate = new Date(shift.startDate);
             const monthDay = `${String(shiftDate.getMonth() + 1).padStart(2, '0')}-${String(shiftDate.getDate()).padStart(2, '0')}`;

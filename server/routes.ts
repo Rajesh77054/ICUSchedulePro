@@ -225,20 +225,20 @@ export function registerRoutes(app: Express) {
       if (userMessage.toLowerCase().includes('accept') && userMessage.toLowerCase().includes('swap')) {
         const swapRequests = await db.select().from(schema.swapRequests)
           .where(eq(schema.swapRequests.status, 'pending'));
-        
+
         if (swapRequests.length > 0) {
           const request = swapRequests[0];
           await db.update(schema.swapRequests)
             .set({ status: 'accepted', updatedAt: new Date() })
             .where(eq(schema.swapRequests.id, request.id));
-          
+
           await db.update(schema.shifts)
             .set({ status: 'swapped' })
             .where(eq(schema.shifts.id, request.shiftId));
-          
+
           const requestor = users.find(u => u.id === request.requestorId);
           const recipient = users.find(u => u.id === request.recipientId);
-          
+
           return res.json({
             content: `Shift swap request between ${requestor?.name} and ${recipient?.name} has been accepted.`
           });
@@ -249,7 +249,7 @@ export function registerRoutes(app: Express) {
       if (userMessage.includes('swap') || userMessage.includes('trade')) {
         const nameMatch = userMessage.match(/does (\w+) have/i);
         const swapRequests = await db.select().from(schema.swapRequests).where(eq(schema.swapRequests.status, 'pending'));
-        
+
         if (swapRequests.length > 0) {
           if (nameMatch) {
             const name = nameMatch[1].toLowerCase();
@@ -264,34 +264,43 @@ export function registerRoutes(app: Express) {
                 `No, ${nameMatch[1]} does not have any pending swap requests.`
             });
           }
-          
-          if (userMessage.includes('who') || userMessage.includes('requestor') || userMessage.includes('requestee')) {
-            const swap = swapRequests[0];
+
+          if (userMessage.includes('who') || userMessage.includes('requestor') || userMessage.includes('requestee') || userMessage.includes('other staff')) {
+            const pendingSwaps = await db.select().from(schema.swapRequests)
+              .where(eq(schema.swapRequests.status, 'pending'));
+
+            if (pendingSwaps.length === 0) {
+              return res.json({
+                content: "There are no pending swap requests at the moment."
+              });
+            }
+
+            const swap = pendingSwaps[0];
             const requestor = users.find(u => u.id === swap.requestorId);
             const recipient = users.find(u => u.id === swap.recipientId);
             const shift = shifts.find(s => s.id === swap.shiftId);
-            
+
             if (!requestor || !recipient || !shift) {
               return res.json({
                 content: "Could not find complete information about the swap request."
               });
             }
-            
+
             return res.json({
-              content: `${requestor.name} requested a shift swap with ${recipient.name} for the shift from ${new Date(shift.startDate).toLocaleDateString()} to ${new Date(shift.endDate).toLocaleDateString()}.`
+              content: `${requestor.name} has requested to swap their shift (${new Date(shift.startDate).toLocaleDateString()} to ${new Date(shift.endDate).toLocaleDateString()}) with ${recipient.name}. The request is currently ${swap.status}.`
             });
           } else if (userMessage.includes('date')) {
             const swap = swapRequests[0];
             const shift = shifts.find(s => s.id === swap.shiftId);
             const requestor = users.find(u => u.id === swap.requestorId);
             const recipient = users.find(u => u.id === swap.recipientId);
-            
+
             if (!shift || !requestor || !recipient) {
               return res.json({
                 content: "Could not find complete details for this swap request."
               });
             }
-            
+
             return res.json({
               content: `${requestor.name} has requested to swap their shift (${new Date(shift.startDate).toLocaleDateString()} to ${new Date(shift.endDate).toLocaleDateString()}) with ${recipient.name}. The request is currently ${swap.status}. Would you like to approve, reject, or cancel this swap request?`
             });

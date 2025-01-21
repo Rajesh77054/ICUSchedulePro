@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Bot } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,6 +24,16 @@ export function ChatDialog({ trigger, className, currentPage, pageContext = {} }
     console.log("ChatDialog received pageContext:", pageContext);
   }, [pageContext]);
 
+  const handleSubmit = useCallback(async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!pageContext?.shifts) {
+      console.error('ChatDialog: Missing page context');
+      return;
+    }
+    // Add your form submission logic here.  This was not present in the original code.
+  }, [pageContext]);
+
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -46,6 +56,7 @@ export function ChatDialog({ trigger, className, currentPage, pageContext = {} }
             ...pageContext,
             shifts: Array.isArray(pageContext?.shifts) ? pageContext.shifts : []
           }} 
+          onSubmit={handleSubmit} //Adding the handleSubmit function to AIScheduleAssistant
         />
       </DialogContent>
     </Dialog>

@@ -85,14 +85,17 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
   });
 
   const calendarEvents = useMemo(() => {
-    console.log('Calendar: Recomputing events with shifts:', initialShifts.length);
+    if (!initialShifts?.length) {
+      console.warn('Calendar: Received empty shifts array');
+      return [];
+    }
     return initialShifts.map(shift => {
       // For swapped shifts, find the swap request to determine the new owner
       const swapRequest = swapRequests?.find(req => 
         req.shiftId === shift.id && 
         req.status === 'accepted'
       );
-      
+
       const effectiveUserId = shift.status === 'swapped' && swapRequest ? 
         (shift.userId === swapRequest.requestorId ? swapRequest.recipientId : swapRequest.requestorId) :
         shift.userId;

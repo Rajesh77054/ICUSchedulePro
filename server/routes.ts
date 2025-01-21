@@ -284,9 +284,10 @@ export function registerRoutes(app: Express) {
           }
 
           try {
-            console.log('Creating swap request:', { shiftId: targetShift.id, requestorId: targetShift.userId, recipientId: recipient.id });
-            // Create swap request
-            const swapRequest = await db.insert(schema.swapRequests).values({
+            const transaction = await db.transaction(async (tx) => {
+              console.log('Creating swap request:', { shiftId: targetShift.id, requestorId: targetShift.userId, recipientId: recipient.id });
+              // Create swap request
+              const swapRequest = await tx.insert(schema.swapRequests).values({
               shiftId: targetShift.id,
               requestorId: targetShift.userId,
               recipientId: recipient.id,

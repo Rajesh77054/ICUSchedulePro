@@ -128,8 +128,8 @@ export function registerRoutes(app: Express) {
       }
 
       // Handle shift count queries
-      const userMessage = lastMessage.content.toLowerCase();
-      if (userMessage.includes('how many shifts')) {
+      const messageContent = lastMessage.content.toLowerCase();
+      if (messageContent.includes('how many shifts')) {
         const nameMatch = userMessage.match(/how many shifts does (\w+) have/i);
         if (nameMatch) {
           const name = nameMatch[1].toLowerCase();

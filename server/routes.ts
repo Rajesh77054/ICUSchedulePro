@@ -139,8 +139,6 @@ export function registerRoutes(app: Express) {
       }
 
       // Handle shift count and holiday queries
-      const messageContent = lastMessage.content.toLowerCase();
-
       if (messageContent.includes('holiday')) {
         const nameMatch = messageContent.match(/does (\w+) work/i);
         if (nameMatch) {

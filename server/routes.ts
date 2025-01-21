@@ -55,72 +55,73 @@ export function registerRoutes(app: Express) {
     }
   });
 
-  return app;
-}
-// Chat room endpoints
-app.get('/api/chat/rooms/:roomId', async (req, res) => {
-  try {
-    const roomId = parseInt(req.params.roomId);
-    const room = await db.query.chatRooms.findFirst({
-      where: (rooms, { eq }) => eq(rooms.id, roomId),
-      with: {
-        members: {
-          with: {
-            user: true
+  // Chat room endpoints
+  app.get('/api/chat/rooms/:roomId', async (req, res) => {
+    try {
+      const roomId = parseInt(req.params.roomId);
+      const room = await db.query.chatRooms.findFirst({
+        where: (rooms, { eq }) => eq(rooms.id, roomId),
+        with: {
+          members: {
+            with: {
+              user: true
+            }
           }
         }
+      });
+
+      if (!room) {
+        return res.status(404).json({ error: 'Chat room not found' });
       }
-    });
 
-    if (!room) {
-      return res.status(404).json({ error: 'Chat room not found' });
+      // Format the response
+      const formattedRoom = {
+        id: room.id,
+        name: room.name,
+        type: room.type,
+        members: room.members.map(member => ({
+          id: member.user.id,
+          name: member.user.name,
+          title: member.user.title
+        }))
+      };
+
+      res.json(formattedRoom);
+    } catch (error) {
+      console.error('Error fetching chat room:', error);
+      res.status(500).json({ error: 'Failed to fetch chat room' });
     }
+  });
 
-    // Format the response
-    const formattedRoom = {
-      id: room.id,
-      name: room.name,
-      type: room.type,
-      members: room.members.map(member => ({
-        id: member.user.id,
-        name: member.user.name,
-        title: member.user.title
-      }))
-    };
+  app.get('/api/chat/rooms/:roomId/messages', async (req, res) => {
+    try {
+      const roomId = parseInt(req.params.roomId);
+      const messages = await db.query.messages.findMany({
+        where: (messages, { eq }) => eq(messages.roomId, roomId),
+        with: {
+          sender: true
+        },
+        orderBy: (messages, { asc }) => [asc(messages.createdAt)]
+      });
 
-    res.json(formattedRoom);
-  } catch (error) {
-    console.error('Error fetching chat room:', error);
-    res.status(500).json({ error: 'Failed to fetch chat room' });
-  }
-});
+      const formattedMessages = messages.map(message => ({
+        id: message.id,
+        content: message.content,
+        sender: {
+          name: message.sender.name,
+          title: message.sender.title
+        },
+        messageType: message.type,
+        metadata: message.metadata,
+        createdAt: message.createdAt
+      }));
 
-app.get('/api/chat/rooms/:roomId/messages', async (req, res) => {
-  try {
-    const roomId = parseInt(req.params.roomId);
-    const messages = await db.query.messages.findMany({
-      where: (messages, { eq }) => eq(messages.roomId, roomId),
-      with: {
-        sender: true
-      },
-      orderBy: (messages, { asc }) => [asc(messages.createdAt)]
-    });
+      res.json(formattedMessages);
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+      res.status(500).json({ error: 'Failed to fetch messages' });
+    }
+  });
 
-    const formattedMessages = messages.map(message => ({
-      id: message.id,
-      content: message.content,
-      sender: {
-        name: message.sender.name,
-        title: message.sender.title
-      },
-      messageType: message.type,
-      metadata: message.metadata,
-      createdAt: message.createdAt
-    }));
-
-    res.json(formattedMessages);
-  } catch (error) {
-    console.error('Error fetching messages:', error);
-    res.status(500).json({ error: 'Failed to fetch messages' });
-  }
-});
+  return app;
+}

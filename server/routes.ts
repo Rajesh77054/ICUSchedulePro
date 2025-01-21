@@ -30,6 +30,31 @@ export function registerRoutes(app: Express) {
       const { messages, pageContext } = req.body;
       const lastMessage = messages[messages.length - 1];
       const shifts = pageContext?.shifts || [];
+      
+      // If this is the initial greeting, provide contextual suggestions
+      if (messages.length === 1) {
+        const suggestions = [];
+        if (shifts.length > 0) {
+          suggestions.push(
+            "- Ask about your current shifts",
+            "- Check for schedule conflicts",
+            "- View pending swap requests"
+          );
+        }
+        if (pageContext?.currentPage === 'dashboard') {
+          suggestions.push(
+            "- Create a new shift",
+            "- Request time off",
+            "- View upcoming schedule"
+          );
+        }
+        
+        if (suggestions.length > 0) {
+          return res.json({
+            content: `Hello! I'm your schedule assistant. How can I help you manage your schedule today?\n\nYou can try:\n${suggestions.join('\n')}`
+          });
+        }
+      }
 
       // Handle shift count query
       const userMessage = lastMessage.content.toLowerCase();

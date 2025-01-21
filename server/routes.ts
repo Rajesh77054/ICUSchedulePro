@@ -432,9 +432,15 @@ export function registerRoutes(app: Express) {
       return res.json({
         content: "There are no pending shift swap requests."
       });
+    } catch (error) {
+      console.error('Error handling request:', error);
+      return res.json({
+        content: "An error occurred while processing your request."
+      });
+    }
 
-      // Handle schedule conflict queries
-      if (userMessage.includes('conflict') || userMessage.includes('overlap')) {
+    // Handle schedule conflict queries
+    if (userMessage.includes('conflict') || userMessage.includes('overlap')) {
         const overlappingShifts = shifts.filter(s1 => 
           shifts.some(s2 => 
             s1.id !== s2.id && 

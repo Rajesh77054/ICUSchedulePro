@@ -309,9 +309,8 @@ export function registerRoutes(app: Express) {
             return res.json({
               content: "I encountered an error while creating the swap request. Please try again."
             });
-          }
-        }
-          const nameMatch = userMessage.match(/does (\w+) have/i);
+          } finally {
+            const nameMatch = userMessage.match(/does (\w+) have/i);
         const swapRequests = await db.select().from(schema.swapRequests).where(eq(schema.swapRequests.status, 'pending'));
 
         if (swapRequests.length > 0) {

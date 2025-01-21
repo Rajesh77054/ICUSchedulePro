@@ -261,7 +261,7 @@ export function registerRoutes(app: Express) {
       // Handle math calculations
       const mathRegex = /(?:what\s+is\s+)?(\d+(?:\.\d+)?)\s*([\+\-\*\/])\s*(\d+(?:\.\d+)?)/i;
       const mathMatch = lastMessage.content.match(mathRegex);
-      if (mathMatch) {
+      if (mathMatch && !lastMessage.content.toLowerCase().includes('create new shift')) {
         const [_, num1, operator, num2] = mathMatch;
         try {
           let result = 0;

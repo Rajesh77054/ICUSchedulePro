@@ -37,6 +37,16 @@ export class OpenAIChatHandler {
 
   async handleChat(userMessage: string, context: ChatContext) {
     try {
+      // Handle time-related queries directly
+      const timeRegex = /what (time|day|date) is it/i;
+      if (timeRegex.test(userMessage)) {
+        const now = new Date();
+        const format = userMessage.toLowerCase().includes('time') ? 
+          now.toLocaleTimeString() :
+          now.toLocaleDateString();
+        return `It is currently ${format}`;
+      }
+
       // Add context to the message
       const contextMessage = {
         role: 'system' as const,

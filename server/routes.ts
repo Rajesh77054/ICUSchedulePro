@@ -259,7 +259,17 @@ export function registerRoutes(app: Express) {
         // Create new preferences
         result = await db
           .insert(userPreferences)
-          .values({ ...updates, userId, createdAt: new Date(), updatedAt: new Date() })
+          .values({
+            ...updates,
+            userId,
+            preferredShiftLength: updates.preferredShiftLength || 7,
+            maxShiftsPerWeek: updates.maxShiftsPerWeek || 1,
+            minDaysBetweenShifts: updates.minDaysBetweenShifts || 0,
+            preferredDaysOfWeek: updates.preferredDaysOfWeek || [],
+            avoidedDaysOfWeek: updates.avoidedDaysOfWeek || [],
+            createdAt: new Date(),
+            updatedAt: new Date()
+          })
           .returning();
       }
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -80,7 +80,11 @@ export function PreferencesForm({ userId, onSuccess }: PreferencesFormProps) {
         body: JSON.stringify({
           ...data,
           userId,
-          updatedAt: new Date().toISOString()
+          preferredShiftLength: parseInt(data.preferredShiftLength?.toString() || "7"),
+          maxShiftsPerWeek: parseInt(data.maxShiftsPerWeek?.toString() || "1"),
+          minDaysBetweenShifts: parseInt(data.minDaysBetweenShifts?.toString() || "0"),
+          preferredDaysOfWeek: data.preferredDaysOfWeek || [],
+          avoidedDaysOfWeek: data.avoidedDaysOfWeek || [],
         }),
       });
 

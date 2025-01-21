@@ -1561,35 +1561,33 @@ based on the provided context. Always format dates in a clear, readable format.`
                 });
               }
 
+              // First find the user regardless of confirmation
+              const user = await db.query.users.findFirst({
+                where: eq(users.name, args.userName)
+              });
+
+              if (!user) {
+                return res.json({
+                  role: 'assistant',
+                  content: `Could not find user ${args.userName}`
+                });
+              }
+
+              // If we have confirmation, proceed with creating the shift
               if (messages.some(m => 
                 m.role === 'user' && 
                 m.content.toLowerCase() === 'yes'
               )) {
                 try {
-                  const user = await db.query.users.findFirst({
-                    where: eq(users.name, args.userName)
-                  });
-
-                  if (!user || !user.id) {
-                    return res.json({
-                      role: 'assistant',
-                      content: `Could not find user ${args.userName} or invalid user ID`
-                    });
-                  }
-
                   const startDate = new Date(args.startDate);
                   const endDate = new Date(args.endDate);
 
-                  // Insert shift with explicit userId
-                  // Ensure dates are properly formatted
-                  const formattedStartDate = new Date(startDate).toISOString();
-                  const formattedEndDate = new Date(endDate).toISOString();
-
+                  // Create the shift with the found user ID
                   const [newShift] = await db.insert(shifts)
                     .values({
                       userId: user.id,
-                      startDate: formattedStartDate,
-                      endDate: formattedEndDate,
+                      startDate: startDate.toISOString(),
+                      endDate: endDate.toISOString(),
                       status: 'confirmed',
                       source: 'ai_assistant'
                     })

@@ -86,20 +86,31 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
 
   const calendarEvents = useMemo(() => {
     return initialShifts.map(shift => {
-      // For swapped shifts, show the recipient instead of original user
-      const effectiveUserId = shift.status === 'swapped' ? 
-        swapRequests?.find(req => req.shiftId === shift.id && req.status === 'accepted')?.recipientId || shift.userId :
+      // For swapped shifts, find the swap request to determine the new owner
+      const swapRequest = swapRequests?.find(req => 
+        req.shiftId === shift.id && 
+        req.status === 'accepted'
+      );
+      
+      const effectiveUserId = shift.status === 'swapped' && swapRequest ? 
+        (shift.userId === swapRequest.requestorId ? swapRequest.recipientId : swapRequest.requestorId) :
         shift.userId;
 
+      const effectiveUser = users.find(u => u.id === effectiveUserId);
       return {
         id: shift.id.toString(),
-        title: users.find(u => u.id === effectiveUserId)?.name || 'Unknown',
+        title: effectiveUser?.name || 'Unknown',
         start: shift.startDate,
         end: shift.endDate,
         backgroundColor: getUserColor(effectiveUserId),
         borderColor: getUserColor(effectiveUserId),
         textColor: 'white',
-        extendedProps: { shift },
+        extendedProps: { 
+          shift,
+          swapped: shift.status === 'swapped',
+          originalUserId: shift.userId,
+          effectiveUserId
+        },
         editable: true,
         durationEditable: true,
       };

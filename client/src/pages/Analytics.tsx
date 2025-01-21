@@ -90,7 +90,8 @@ export function Analytics() {
   });
 
   const isLoading = isLoadingWorkload || isLoadingFatigue || isLoadingDistribution;
-  const hasNoData = !workloadData?.hoursDistribution?.length && !fatigueData?.fatigueMetrics?.length && !distributionData?.fairnessMetrics?.length;
+  const hasNoData = !workloadData?.hoursDistribution || !fatigueData?.fatigueMetrics || !distributionData?.fairnessMetrics ||
+                    (workloadData.hoursDistribution.length === 0 && fatigueData.fatigueMetrics.length === 0 && distributionData.fairnessMetrics.length === 0);
 
   if (isLoading) {
     return (

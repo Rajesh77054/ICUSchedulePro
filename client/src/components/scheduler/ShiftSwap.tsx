@@ -106,7 +106,9 @@ export function ShiftSwap({ shift, onClose }: ShiftSwapProps) {
   });
 
   const handleSwapRequest = () => {
-    if (!recipientId) {
+    console.log('ShiftSwap: Initiating swap request');
+    if (!recipientId || !shift) {
+      console.warn('ShiftSwap: Missing required data', { recipientId, shift });
       toast({
         title: "Error",
         description: "Please select a user to swap with",

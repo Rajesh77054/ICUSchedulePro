@@ -85,6 +85,7 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
   });
 
   const calendarEvents = useMemo(() => {
+    console.log('Calendar: Recomputing events with shifts:', initialShifts.length);
     return initialShifts.map(shift => {
       // For swapped shifts, find the swap request to determine the new owner
       const swapRequest = swapRequests?.find(req => 

@@ -129,17 +129,24 @@ export function registerRoutes(app: Express) {
       const timeRange = req.query.timeRange || 'month';
       const allShifts = await db.select().from(shifts);
       
-      const hoursDistribution = allShifts.map(shift => {
+      // Group shifts by user and calculate total hours
+      const userHours = allShifts.reduce((acc, shift) => {
         const startDate = new Date(shift.startDate);
         const endDate = new Date(shift.endDate);
         const hours = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60);
         
-        return {
-          name: `User ${shift.userId}`,
-          hours: hours,
-          target: 40 // Example target hours
-        };
-      });
+        if (!acc[shift.userId]) {
+          acc[shift.userId] = { hours: 0, target: 160 }; // 160 hours per month (40 hours/week)
+        }
+        acc[shift.userId].hours += hours;
+        return acc;
+      }, {});
+
+      const hoursDistribution = Object.entries(userHours).map(([userId, data]) => ({
+        name: `User ${userId}`,
+        hours: Math.round(data.hours),
+        target: data.target
+      }));
 
       res.json({ hoursDistribution });
     } catch (error) {

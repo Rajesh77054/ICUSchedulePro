@@ -43,7 +43,7 @@ app.use((req, res, next) => {
     setupAuth(app);
     
     // Initialize OpenAI handler
-    import { OpenAIChatHandler } from './openai-handler';
+    const { OpenAIChatHandler } = await import('./openai-handler');
     const openaiHandler = new OpenAIChatHandler();
     app.set('openaiHandler', openaiHandler);
     

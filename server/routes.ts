@@ -1434,6 +1434,19 @@ app.get("/api/chat/rooms/:id/messages", async (req, res) => {
       });
 
       const { messages, pageContext } = req.body;
+      
+      // Validate pageContext contains required user info
+      if (!pageContext?.shifts) {
+        console.error('Missing shifts in pageContext');
+        return res.status(400).json({ error: 'Invalid context - missing shifts' });
+      }
+
+      // Extract current user from shifts if available
+      const currentUser = pageContext.shifts[0]?.user;
+      if (!currentUser) {
+        console.error('Could not determine current user');
+        return res.status(400).json({ error: 'Could not determine current user' });
+      }
       if (!messages || !Array.isArray(messages)) {
         return res.status(400).json({ error: 'Invalid messages format' });
       }

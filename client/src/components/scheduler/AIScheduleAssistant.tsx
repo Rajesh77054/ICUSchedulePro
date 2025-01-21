@@ -57,8 +57,9 @@ export function AIScheduleAssistant({ currentPage, pageContext }: AIScheduleAssi
         body: JSON.stringify({
           messages: [...messages, userMessage],
           pageContext: {
-            ...pageContext,
-            currentPage
+            shifts: pageContext?.shifts || [],
+            currentPage,
+            userId: pageContext?.userId
           }
         }),
       });

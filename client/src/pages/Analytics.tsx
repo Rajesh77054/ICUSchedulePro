@@ -89,10 +89,40 @@ export function Analytics() {
     }
   });
 
-  if (isLoadingWorkload || isLoadingFatigue || isLoadingDistribution) {
+  const isLoading = isLoadingWorkload || isLoadingFatigue || isLoadingDistribution;
+  const hasNoData = !workloadData?.hoursDistribution?.length && !fatigueData?.fatigueMetrics?.length && !distributionData?.fairnessMetrics?.length;
+
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
         <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  if (hasNoData) {
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <h1 className="text-3xl font-bold">Workload Analytics</h1>
+          <Select value={timeRange} onValueChange={setTimeRange}>
+            <SelectTrigger className="w-32">
+              <SelectValue placeholder="Select range" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="week">Week</SelectItem>
+              <SelectItem value="month">Month</SelectItem>
+              <SelectItem value="quarter">Quarter</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <Card>
+          <CardContent className="py-8">
+            <div className="text-center text-muted-foreground">
+              No analytics data available for the selected time range
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -126,12 +156,26 @@ export function Analytics() {
           <CardContent>
             <div className="h-[400px]">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={workloadData?.hoursDistribution ?? []}>
+                <BarChart data={workloadData?.hoursDistribution || []}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
+                  <XAxis 
+                    dataKey="name" 
+                    tick={{ fontSize: 12 }}
+                    height={60}
+                    interval={0}
+                    angle={-45}
+                    textAnchor="end"
+                  />
+                  <YAxis 
+                    label={{ 
+                      value: 'Hours', 
+                      angle: -90, 
+                      position: 'insideLeft',
+                      style: { textAnchor: 'middle' }
+                    }}
+                  />
                   <Tooltip />
-                  <Legend />
+                  <Legend verticalAlign="top" height={36} />
                   <Bar dataKey="hours" fill="#8884d8" name="Hours Worked" />
                   <Bar dataKey="target" fill="#82ca9d" name="Target Hours" />
                 </BarChart>
@@ -151,23 +195,52 @@ export function Analytics() {
           <CardContent>
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={fatigueData?.fatigueMetrics ?? []}>
+                <LineChart data={fatigueData?.fatigueMetrics || []}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis />
+                  <XAxis 
+                    dataKey="date" 
+                    tick={{ fontSize: 12 }}
+                    height={60}
+                    interval={0}
+                    angle={-45}
+                    textAnchor="end"
+                  />
+                  <YAxis 
+                    yAxisId="left"
+                    label={{ 
+                      value: 'Consecutive Shifts', 
+                      angle: -90, 
+                      position: 'insideLeft',
+                      style: { textAnchor: 'middle' }
+                    }}
+                  />
+                  <YAxis 
+                    yAxisId="right"
+                    orientation="right"
+                    label={{ 
+                      value: 'Rest Hours', 
+                      angle: 90, 
+                      position: 'insideRight',
+                      style: { textAnchor: 'middle' }
+                    }}
+                  />
                   <Tooltip />
-                  <Legend />
+                  <Legend verticalAlign="top" height={36} />
                   <Line
+                    yAxisId="left"
                     type="monotone"
                     dataKey="consecutiveShifts"
                     stroke="#8884d8"
                     name="Consecutive Shifts"
+                    dot={false}
                   />
                   <Line
+                    yAxisId="right"
                     type="monotone"
                     dataKey="restHours"
                     stroke="#82ca9d"
                     name="Rest Hours"
+                    dot={false}
                   />
                 </LineChart>
               </ResponsiveContainer>

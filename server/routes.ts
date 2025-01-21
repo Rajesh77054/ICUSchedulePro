@@ -382,11 +382,55 @@ export function registerRoutes(app: Express) {
               content: `${requestor.name} has requested to swap their shift (${new Date(shift.startDate).toLocaleDateString()} to ${new Date(shift.endDate).toLocaleDateString()}) with ${recipient.name}. The request is currently ${swap.status}.`
             });
           }
-        } else {
-          return res.json({
-            content: "There are no pending shift swap requests."
-          });
+        } else if (userMessage.toLowerCase().includes('request') && userMessage.toLowerCase().includes('swap')) {
+        const nameMatch = userMessage.match(/with\s+(\w+)/i);
+        if (nameMatch) {
+          const recipientName = nameMatch[1];
+          const recipient = users.find(u => u.name.toLowerCase().includes(recipientName.toLowerCase()));
+          const currentShift = shifts.find(s => s.status !== 'swapped' && new Date(s.startDate) > new Date());
+
+          if (!currentShift) {
+            return res.json({
+              content: "I couldn't find an eligible shift to swap."
+            });
+          }
+
+          if (!recipient) {
+            return res.json({
+              content: `I couldn't find a user named ${recipientName}.`
+            });
+          }
+
+          try {
+            // Create swap request
+            const swapRequest = await db.insert(schema.swapRequests).values({
+              shiftId: currentShift.id,
+              requestorId: currentShift.userId,
+              recipientId: recipient.id,
+              status: 'pending',
+              createdAt: new Date(),
+              updatedAt: new Date()
+            }).returning();
+
+            // Update shift status
+            await db.update(schema.shifts)
+              .set({ status: 'pending_swap' })
+              .where(eq(schema.shifts.id, currentShift.id));
+
+            return res.json({
+              content: `Created swap request for your shift (${new Date(currentShift.startDate).toLocaleDateString()} to ${new Date(currentShift.endDate).toLocaleDateString()}) with ${recipient.name}.`
+            });
+          } catch (error) {
+            console.error('Error creating swap request:', error);
+            return res.json({
+              content: "I encountered an error while creating the swap request. Please try again."
+            });
+          }
         }
+      } else {
+        return res.json({
+          content: "There are no pending shift swap requests."
+        });
       }
 
       // Handle schedule conflict queries

@@ -123,5 +123,70 @@ export function registerRoutes(app: Express) {
     }
   });
 
+  // Analytics endpoints
+  app.get('/api/analytics/workload', async (req, res) => {
+    try {
+      const timeRange = req.query.timeRange || 'month';
+      const allShifts = await db.select().from(shifts);
+      
+      const hoursDistribution = allShifts.map(shift => {
+        const startDate = new Date(shift.startDate);
+        const endDate = new Date(shift.endDate);
+        const hours = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60);
+        
+        return {
+          name: `User ${shift.userId}`,
+          hours: hours,
+          target: 40 // Example target hours
+        };
+      });
+
+      res.json({ hoursDistribution });
+    } catch (error) {
+      console.error('Error fetching workload data:', error);
+      res.status(500).json({ error: 'Failed to fetch workload data' });
+    }
+  });
+
+  app.get('/api/analytics/fatigue', async (req, res) => {
+    try {
+      const timeRange = req.query.timeRange || 'month';
+      const allShifts = await db.select().from(shifts);
+      
+      const fatigueMetrics = allShifts.map(shift => ({
+        date: shift.startDate,
+        consecutiveShifts: 1, // Example metric
+        restHours: 24 // Example metric
+      }));
+
+      res.json({ fatigueMetrics });
+    } catch (error) {
+      console.error('Error fetching fatigue data:', error);
+      res.status(500).json({ error: 'Failed to fetch fatigue data' });
+    }
+  });
+
+  app.get('/api/analytics/distribution', async (req, res) => {
+    try {
+      const timeRange = req.query.timeRange || 'month';
+      const allShifts = await db.select().from(shifts);
+      
+      const fairnessMetrics = allShifts.reduce((acc, shift) => {
+        const existingMetric = acc.find(m => m.name === `User ${shift.userId}`);
+        if (existingMetric) {
+          existingMetric.value += 1;
+        } else {
+          acc.push({ name: `User ${shift.userId}`, value: 1 });
+        }
+        return acc;
+      }, []);
+
+      res.json({ fairnessMetrics });
+    } catch (error) {
+      console.error('Error fetching distribution data:', error);
+      res.status(500).json({ error: 'Failed to fetch distribution data' });
+    }
+  });
+
   return app;
 }

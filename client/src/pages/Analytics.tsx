@@ -61,6 +61,7 @@ type TimeRange = 'week' | 'month' | 'quarter';
 
 export function Analytics() {
   const [timeRange, setTimeRange] = useState<TimeRange>('month');
+  const [viewMode, setViewMode] = useState<'hours' | 'days' | 'shifts'>('hours');
 
   const { data: workloadData, isLoading: isLoadingWorkload } = useQuery<WorkloadData>({
     queryKey: ['/api/analytics/workload', timeRange] as const,
@@ -154,32 +155,53 @@ export function Analytics() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="h-[400px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={workloadData?.hoursDistribution || []}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis 
-                    dataKey="name" 
-                    tick={{ fontSize: 12 }}
-                    height={60}
-                    interval={0}
-                    angle={-45}
-                    textAnchor="end"
-                  />
-                  <YAxis 
-                    label={{ 
-                      value: 'Hours', 
-                      angle: -90, 
-                      position: 'insideLeft',
-                      style: { textAnchor: 'middle' }
-                    }}
-                  />
-                  <Tooltip />
-                  <Legend verticalAlign="top" height={36} />
-                  <Bar dataKey="hours" fill="#8884d8" name="Hours Worked" />
-                  <Bar dataKey="target" fill="#82ca9d" name="Target Hours" />
-                </BarChart>
-              </ResponsiveContainer>
+            <div className="space-y-4">
+              <Select defaultValue="hours" onValueChange={(value) => setViewMode(value as 'hours' | 'days' | 'shifts')}>
+                <SelectTrigger className="w-32">
+                  <SelectValue placeholder="View by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="hours">Hours</SelectItem>
+                  <SelectItem value="days">Days</SelectItem>
+                  <SelectItem value="shifts">Shifts</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <div className="h-[400px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={workloadData?.hoursDistribution || []}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis 
+                      dataKey="name" 
+                      tick={{ fontSize: 12 }}
+                      height={60}
+                      interval={0}
+                      angle={-45}
+                      textAnchor="end"
+                    />
+                    <YAxis 
+                      label={{ 
+                        value: viewMode.charAt(0).toUpperCase() + viewMode.slice(1), 
+                        angle: -90, 
+                        position: 'insideLeft',
+                        style: { textAnchor: 'middle' }
+                      }}
+                    />
+                    <Tooltip />
+                    <Legend verticalAlign="top" height={36} />
+                    <Bar 
+                      dataKey={viewMode} 
+                      fill="#8884d8" 
+                      name={`${viewMode.charAt(0).toUpperCase() + viewMode.slice(1)} Worked`} 
+                    />
+                    <Bar 
+                      dataKey={`target${viewMode.charAt(0).toUpperCase() + viewMode.slice(1)}`} 
+                      fill="#82ca9d" 
+                      name={`Target ${viewMode.charAt(0).toUpperCase() + viewMode.slice(1)}`} 
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             </div>
           </CardContent>
         </Card>

@@ -145,10 +145,17 @@ export function registerRoutes(app: Express) {
       const allUsers = await db.select().from(users);
       const hoursDistribution = Object.entries(userHours).map(([userId, data]) => {
         const user = allUsers.find(u => u.id === parseInt(userId));
+        const daysWorked = Math.ceil(data.hours / 8); // Assuming 8-hour workdays
+        const shiftsCount = allShifts.filter(s => s.userId === parseInt(userId)).length;
+        
         return {
           name: user?.name?.split(' ')[0] || `User ${userId}`,
           hours: Math.round(data.hours),
-          target: data.target
+          targetHours: data.target,
+          days: daysWorked,
+          targetDays: 20, // Assuming 20 workdays per month
+          shifts: shiftsCount,
+          targetShifts: 15 // Example target shifts per month
         };
       });
 

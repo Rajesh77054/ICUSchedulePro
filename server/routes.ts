@@ -3,6 +3,7 @@ import * as schema from '../db/schema';
 import { eq } from 'drizzle-orm';
 // routes.ts
 import express, { Express } from 'express';
+import { OpenAIChatHandler } from './openai-handler';
 
 export function registerRoutes(app: Express) {
   app.get('/api/shifts', async (req, res) => {

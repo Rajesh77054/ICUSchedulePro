@@ -233,7 +233,10 @@ export function registerRoutes(app: Express) {
             .where(eq(schema.swapRequests.id, request.id));
 
           await db.update(schema.shifts)
-            .set({ status: 'swapped' })
+            .set({ 
+              status: 'swapped',
+              userId: request.recipientId 
+            })
             .where(eq(schema.shifts.id, request.shiftId));
 
           const requestor = users.find(u => u.id === request.requestorId);

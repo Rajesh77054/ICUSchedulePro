@@ -30,18 +30,16 @@ export function registerRoutes(app: Express) {
       console.log('Chat request received:', req.body);
       const { messages, pageContext } = req.body;
       const users = await db.select().from(schema.users);
+      const shifts = pageContext?.shifts || [];
       
       const chatContext = {
-        shifts: pageContext?.shifts || [],
+        shifts,
         users,
         currentPage: pageContext?.currentPage || 'unknown'
       };
 
       const lastMessage = messages[messages.length - 1];
-      const response = await chatHandler.handleChat(lastMessage.content, chatContext);
-      const lastMessage = messages[messages.length - 1];
-      const shifts = pageContext?.shifts || [];
-      const users = await db.select().from(schema.users);
+      const chatResponse = await chatHandler.handleChat(lastMessage.content, chatContext);
 
       // Helper function to format dates consistently
       const formatDate = (date: string) => new Date(date).toLocaleDateString();
@@ -322,11 +320,11 @@ export function registerRoutes(app: Express) {
         }
       }
 
-      const response = {
+      const defaultResponse = {
         content: `I can help you create a new shift. Please provide the dates in format: MM/DD/YYYY - MM/DD/YYYY`
       };
-      console.log('Chat response:', response);
-      res.json(response);
+      console.log('Chat response:', defaultResponse);
+      res.json(defaultResponse);
     } catch (error) {
       console.error('Chat error:', error);
       res.status(500).json({ error: 'Failed to process chat request' });

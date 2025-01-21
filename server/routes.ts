@@ -242,16 +242,35 @@ export function registerRoutes(app: Express) {
       const userId = parseInt(req.params.userId);
       const updates = req.body;
 
-      const updated = await db
-        .update(userPreferences)
-        .set(updates)
-        .where(eq(userPreferences.userId, userId))
-        .returning();
+      // First check if preferences exist
+      let existing = await db.query.userPreferences.findFirst({
+        where: (preferences, { eq }) => eq(preferences.userId, userId)
+      });
 
-      res.json(updated[0]);
+      let result;
+      if (existing) {
+        // Update existing preferences
+        result = await db
+          .update(userPreferences)
+          .set({ ...updates, updatedAt: new Date() })
+          .where(eq(userPreferences.userId, userId))
+          .returning();
+      } else {
+        // Create new preferences
+        result = await db
+          .insert(userPreferences)
+          .values({ ...updates, userId, createdAt: new Date(), updatedAt: new Date() })
+          .returning();
+      }
+
+      if (!result.length) {
+        return res.status(404).json({ error: 'Failed to update preferences' });
+      }
+
+      res.json(result[0]);
     } catch (error) {
       console.error('Error updating preferences:', error);
-      res.status(500).json({ error: 'Failed to update preferences' });
+      res.status(500).json({ error: 'Failed to update preferences: ' + error.message });
     }
   });
 

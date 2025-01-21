@@ -58,6 +58,7 @@ export function AIScheduleAssistant({ currentPage, pageContext }: AIScheduleAssi
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          message: userMessage.content,
           messages: [...messages, userMessage],
           pageContext: {
             shifts: pageContext?.shifts || [],

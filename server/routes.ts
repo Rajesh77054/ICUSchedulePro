@@ -127,10 +127,48 @@ export function registerRoutes(app: Express) {
         }
       }
 
-      // Handle shift count queries
+      // Handle shift count and holiday queries
       const messageContent = lastMessage.content.toLowerCase();
+      
+      if (messageContent.includes('holiday')) {
+        const nameMatch = messageContent.match(/does (\w+) work/i);
+        if (nameMatch) {
+          const name = nameMatch[1].toLowerCase();
+          const userShifts = shifts.filter(s => 
+            s.user?.name.toLowerCase().includes(name)
+          );
+          
+          const holidays = {
+            '01-01': 'New Year\'s Day',
+            '01-15': 'Martin Luther King Jr. Day',
+            '02-19': 'Presidents\' Day'
+          };
+          
+          const holidayShifts = userShifts.filter(shift => {
+            const shiftDate = new Date(shift.startDate);
+            const monthDay = `${String(shiftDate.getMonth() + 1).padStart(2, '0')}-${String(shiftDate.getDate()).padStart(2, '0')}`;
+            return holidays[monthDay];
+          });
+
+          if (holidayShifts.length > 0) {
+            const holidayList = holidayShifts.map(shift => {
+              const date = new Date(shift.startDate);
+              const monthDay = `${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+              return holidays[monthDay];
+            }).join(', ');
+            return res.json({
+              content: `Yes, ${nameMatch[1]} works on the following holidays: ${holidayList}`
+            });
+          } else {
+            return res.json({
+              content: `No, ${nameMatch[1]} does not work on any holidays this month.`
+            });
+          }
+        }
+      }
+
       if (messageContent.includes('how many shifts')) {
-        const nameMatch = userMessage.match(/how many shifts does (\w+) have/i);
+        const nameMatch = messageContent.match(/how many shifts does (\w+) have/i);
         if (nameMatch) {
           const name = nameMatch[1].toLowerCase();
           const userShifts = shifts.filter(s => 

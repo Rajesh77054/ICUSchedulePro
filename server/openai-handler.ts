@@ -59,7 +59,7 @@ export class OpenAIChatHandler {
         messages: recentHistory,
         temperature: 0.7,
         max_tokens: 500,
-        stream: true,
+        stream: false,
         functions: [{
           name: "get_schedule_conflicts",
           description: "Get conflicts in the current schedule",

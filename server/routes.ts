@@ -29,6 +29,14 @@ export function registerRoutes(app: Express) {
       console.log('Chat request received:', req.body);
       const { messages, pageContext } = req.body;
       const lastMessage = messages[messages.length - 1];
+      const shifts = pageContext?.shifts || [];
+
+      // Handle shift count query
+      if (lastMessage.content.toLowerCase().includes('how many shifts')) {
+        return res.json({
+          content: `Ashley currently has ${shifts.length} shifts scheduled.`
+        });
+      }
       
       if (lastMessage.content.toLowerCase().includes('create new shift')) {
         const match = lastMessage.content.match(/(\d{1,2}\/\d{1,2}\/\d{4})\s*-\s*(\d{1,2}\/\d{1,2}\/\d{4})/);

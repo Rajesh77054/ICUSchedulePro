@@ -284,22 +284,23 @@ export function registerRoutes(app: Express) {
           }
 
           try {
-            const transaction = await db.transaction(async (tx) => {
+            await db.transaction(async (tx) => {
               console.log('Creating swap request:', { shiftId: targetShift.id, requestorId: targetShift.userId, recipientId: recipient.id });
               // Create swap request
               const swapRequest = await tx.insert(schema.swapRequests).values({
-              shiftId: targetShift.id,
-              requestorId: targetShift.userId,
-              recipientId: recipient.id,
-              status: 'pending',
-              createdAt: new Date(),
-              updatedAt: new Date()
-            }).returning();
+                shiftId: targetShift.id,
+                requestorId: targetShift.userId,
+                recipientId: recipient.id,
+                status: 'pending',
+                createdAt: new Date(),
+                updatedAt: new Date()
+              }).returning();
 
-            // Update shift status
-            await db.update(schema.shifts)
-              .set({ status: 'pending_swap' })
-              .where(eq(schema.shifts.id, targetShift.id));
+              // Update shift status
+              await tx.update(schema.shifts)
+                .set({ status: 'pending_swap' })
+                .where(eq(schema.shifts.id, targetShift.id));
+            });
 
             return res.json({
               content: `Created swap request for the shift (${new Date(targetShift.startDate).toLocaleDateString()} to ${new Date(targetShift.endDate).toLocaleDateString()}) with ${recipient.name}.`
@@ -405,21 +406,23 @@ export function registerRoutes(app: Express) {
           }
 
           try {
-            console.log('Creating swap request:', { shiftId: currentShift.id, requestorId: currentShift.userId, recipientId: recipient.id });
-            // Create swap request
-            const swapRequest = await db.insert(schema.swapRequests).values({
-              shiftId: currentShift.id,
-              requestorId: currentShift.userId,
-              recipientId: recipient.id,
-              status: 'pending',
-              createdAt: new Date(),
-              updatedAt: new Date()
-            }).returning();
+            await db.transaction(async (tx) => {
+              console.log('Creating swap request:', { shiftId: currentShift.id, requestorId: currentShift.userId, recipientId: recipient.id });
+              // Create swap request
+              const swapRequest = await tx.insert(schema.swapRequests).values({
+                shiftId: currentShift.id,
+                requestorId: currentShift.userId,
+                recipientId: recipient.id,
+                status: 'pending',
+                createdAt: new Date(),
+                updatedAt: new Date()
+              }).returning();
 
-            // Update shift status
-            await db.update(schema.shifts)
-              .set({ status: 'pending_swap' })
-              .where(eq(schema.shifts.id, currentShift.id));
+              // Update shift status
+              await tx.update(schema.shifts)
+                .set({ status: 'pending_swap' })
+                .where(eq(schema.shifts.id, currentShift.id));
+            });
 
             return res.json({
               content: `Created swap request for your shift (${new Date(currentShift.startDate).toLocaleDateString()} to ${new Date(currentShift.endDate).toLocaleDateString()}) with ${recipient.name}.`
@@ -441,140 +444,6 @@ export function registerRoutes(app: Express) {
       return res.json({
         content: "An error occurred while processing your request."
       });
-    }
-  } catch (error) {
-    console.error('Error in route handler:', error);
-    return res.status(500).json({ error: 'Internal server error' });
-  }
-
-    // Handle schedule conflict queries
-      if (userMessage.includes('conflict') || userMessage.includes('overlap')) {
-        const overlappingShifts = shifts.filter(s1 => 
-          shifts.some(s2 => 
-            s1.id !== s2.id && 
-            new Date(s1.startDate) <= new Date(s2.endDate) && 
-            new Date(s1.endDate) >= new Date(s2.startDate)
-          )
-        );
-        if (overlappingShifts.length > 0) {
-          return res.json({
-            content: `I found ${overlappingShifts.length} overlapping shifts in the schedule.`
-          });
-        }
-      }
-
-      // Handle shift calculations
-      if (userMessage.toLowerCase().includes('shifts remain')) {
-        const numbers = userMessage.match(/\d+/g);
-        if (numbers) {
-          const total = numbers.reduce((sum, num) => sum + parseInt(num, 10), 0);
-          return res.json({
-            content: `Based on the numbers provided (${total} shifts total), ${52 - total} shifts remain to be scheduled for the year.`
-          });
-        }
-      }
-
-      // Handle shift queries
-      if (userMessage.toLowerCase().includes('who') && userMessage.toLowerCase().includes('scheduled')) {
-        const dateMatch = userMessage.match(/(\d{1,2}\/\d{1,2}\/\d{4})/);
-        if (dateMatch) {
-          const queryDate = new Date(dateMatch[1]);
-          const shift = shifts.find(s => 
-            new Date(s.startDate) <= queryDate && 
-            new Date(s.endDate) >= queryDate
-          );
-
-          if (shift) {
-            const user = users.find(u => u.id === shift.userId);
-            return res.json({
-              content: `${user?.name} is scheduled for the shift from ${new Date(shift.startDate).toLocaleDateString()} to ${new Date(shift.endDate).toLocaleDateString()}.`
-            });
-          }
-          return res.json({
-            content: "No one is scheduled for that date."
-          });
-        }
-      }
-
-      // Handle math calculations
-      const mathRegex = /(?:what\s+is\s+)?(\d+(?:\.\d+)?)\s*([\+\-\*\/])\s*(\d+(?:\.\d+)?)/i;
-      const mathMatch = lastMessage.content.match(mathRegex);
-      if (mathMatch && !lastMessage.content.toLowerCase().includes('create new shift')) {
-        const [_, num1, operator, num2] = mathMatch;
-        try {
-          let result = 0;
-          switch (operator) {
-            case '+': result = parseFloat(num1) + parseFloat(num2); break;
-            case '-': result = parseFloat(num1) - parseFloat(num2); break;
-            case '*': result = parseFloat(num1) * parseFloat(num2); break;
-            case '/': 
-              if (parseFloat(num2) === 0) {
-                return res.json({ content: "Cannot divide by zero!" });
-              }
-              result = parseFloat(num1) / parseFloat(num2); 
-              break;
-          }
-          return res.json({
-            content: `The result is ${result.toFixed(2)}`
-          });
-        } catch (error) {
-          return res.json({
-            content: "I had trouble calculating that. Please check the numbers and try again."
-          });
-        }
-      }
-
-      if (lastMessage.content.toLowerCase().includes('create') && lastMessage.content.toLowerCase().includes('shift')) {
-        const nameMatch = lastMessage.content.match(/for\s+(\w+):/i);
-        const dateMatch = lastMessage.content.match(/(\d{1,2}\/\d{1,2}\/\d{4})/g);
-
-        if (nameMatch && dateMatch && dateMatch.length >= 2) {
-          const name = nameMatch[1];
-          const startDate = new Date(dateMatch[0]);
-          const endDate = new Date(dateMatch[1]);
-          const user = users.find(u => u.name.toLowerCase().includes(name.toLowerCase()));
-
-          if (!user) {
-            return res.json({
-              content: `Could not find a user named ${name}.`
-            });
-          }
-
-          try {
-            // Delete any existing shifts with the same date range
-            await db.delete(schema.shifts)
-              .where(sql`${schema.shifts.startDate} = ${startDate.toISOString().split('T')[0]} 
-                AND ${schema.shifts.endDate} = ${endDate.toISOString().split('T')[0]}`);
-
-            const newShift = await db.insert(schema.shifts).values({
-              userId: user.id, // Use the found user's ID
-              startDate: startDate.toISOString().split('T')[0],
-              endDate: endDate.toISOString().split('T')[0],
-              status: 'confirmed',
-              source: 'manual'
-            }).returning();
-
-            // Fetch updated shifts
-            const updatedShifts = await db.select().from(schema.shifts);
-
-            return res.json({
-              content: `Created a new shift for ${name} from ${dateMatch[0]} to ${dateMatch[1]}.`,
-              shifts: updatedShifts // Include updated shifts in response
-            });
-          } catch (err) {
-            return res.json({
-              content: `Sorry, I was unable to create the shift. Please try again. Error: ${err.message}`
-            });
-          }
-        } else {
-          return res.json({ content: "I couldn't understand the dates for the new shift. Please use MM/DD/YYYY format." });
-        }
-      }
-
-      return res.json({ content: chatResponse });
-    } catch (error) {
-      console.error('Chat error:', error);
-      res.status(500).json({ error: 'Failed to process chat request' });
     }
   });
 

@@ -1561,18 +1561,6 @@ based on the provided context. Always format dates in a clear, readable format.`
                 });
               }
 
-              // First find the user regardless of confirmation
-              const user = await db.query.users.findFirst({
-                where: eq(users.name, args.userName)
-              });
-
-              if (!user) {
-                return res.json({
-                  role: 'assistant',
-                  content: `Could not find user ${args.userName}`
-                });
-              }
-
               // If we have confirmation, proceed with creating the shift
               if (messages.some(m => 
                 m.role === 'user' && 

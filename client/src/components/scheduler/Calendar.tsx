@@ -47,6 +47,11 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
     queryKey: ["/api/users"],
   });
 
+  // Fetch swap requests to handle swapped shifts
+  const { data: swapRequests = [] } = useQuery({
+    queryKey: ["/api/swap-requests"],
+  });
+
   const getUserColor = (userId: number) => {
     const user = users.find(u => u.id === userId);
     return user?.color || "hsl(0, 0%, 50%)";
@@ -79,21 +84,27 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
     },
   });
 
-  const calendarEvents = useMemo(() =>
-    initialShifts.map(shift => ({
-      id: shift.id.toString(),
-      title: users.find(u => u.id === shift.userId)?.name || 'Unknown',
-      start: shift.startDate,
-      end: shift.endDate,
-      backgroundColor: getUserColor(shift.userId),
-      borderColor: getUserColor(shift.userId),
-      textColor: 'white',
-      extendedProps: { shift },
-      editable: true,
-      durationEditable: true,
-    })),
-    [initialShifts, users]
-  );
+  const calendarEvents = useMemo(() => {
+    return initialShifts.map(shift => {
+      // For swapped shifts, show the recipient instead of original user
+      const effectiveUserId = shift.status === 'swapped' ? 
+        swapRequests?.find(req => req.shiftId === shift.id && req.status === 'accepted')?.recipientId || shift.userId :
+        shift.userId;
+
+      return {
+        id: shift.id.toString(),
+        title: users.find(u => u.id === effectiveUserId)?.name || 'Unknown',
+        start: shift.startDate,
+        end: shift.endDate,
+        backgroundColor: getUserColor(effectiveUserId),
+        borderColor: getUserColor(effectiveUserId),
+        textColor: 'white',
+        extendedProps: { shift },
+        editable: true,
+        durationEditable: true,
+      };
+    });
+  }, [initialShifts, users, swapRequests]);
 
   const handleEventDrop = async (dropInfo: EventDropArg) => {
     const shiftId = parseInt(dropInfo.event.id);

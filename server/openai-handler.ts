@@ -59,17 +59,27 @@ export class OpenAIChatHandler {
       }
 
       // Add context to the message
+      // Validate and prepare context message
+      const contextStr = JSON.stringify(context) || '{}';
       const contextMessage = {
         role: 'system' as const,
-        content: `Current context: ${JSON.stringify(context)}`
+        content: `Current context: ${contextStr}`
       };
+
+      // Validate user message
+      if (!userMessage?.trim()) {
+        throw new Error('Empty or invalid message');
+      }
 
       const userMsg = {
         role: 'user' as const,
         content: userMessage
       };
 
-      // Maintain conversation history
+      // Clean conversation history of any null contents
+      this.conversationHistory = this.conversationHistory.filter(msg => msg.content != null);
+      
+      // Add new messages
       this.conversationHistory.push(contextMessage, userMsg);
 
       // Limit history to last 10 messages to prevent token overflow

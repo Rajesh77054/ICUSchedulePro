@@ -248,13 +248,67 @@ export function registerRoutes(app: Express) {
         }
       }
 
-      // Handle swap status queries
+      // Handle swap status queries and requests
       if (userMessage.toLowerCase().includes('swap') || userMessage.toLowerCase().includes('trade')) {
-        // Extract names and shift info
-        const shiftMatch = userMessage.match(/shift.*?(\d{1,2}\/\d{1,2}\/\d{4})/i);
+        const dateMatch = userMessage.match(/(\d{1,2}\/\d{1,2}\/\d{4})/);
         const recipientMatch = userMessage.match(/with\s+(\w+)/i);
 
-        if (shiftMatch && recipientMatch) {
+        // Handle creating new swap request
+        if ((dateMatch || userMessage.toLowerCase().includes('this shift')) && recipientMatch) {
+          const recipientName = recipientMatch[1];
+          const recipient = users.find(u => u.name.toLowerCase().includes(recipientName.toLowerCase()));
+          
+          // Find the relevant shift
+          let targetShift;
+          if (dateMatch) {
+            const shiftDate = new Date(dateMatch[1]);
+            targetShift = shifts.find(s => 
+              new Date(s.startDate).toDateString() === shiftDate.toDateString()
+            );
+          } else {
+            // Use the most recently discussed shift
+            const shiftId = chatContext.currentShiftId;
+            targetShift = shifts.find(s => s.id === shiftId);
+          }
+
+          if (!targetShift) {
+            return res.json({
+              content: "I couldn't find the shift you're referring to."
+            });
+          }
+
+          if (!recipient) {
+            return res.json({
+              content: `I couldn't find a user named ${recipientName}.`
+            });
+          }
+
+          try {
+            // Create swap request
+            const swapRequest = await db.insert(schema.swapRequests).values({
+              shiftId: targetShift.id,
+              requestorId: targetShift.userId,
+              recipientId: recipient.id,
+              status: 'pending',
+              createdAt: new Date(),
+              updatedAt: new Date()
+            }).returning();
+
+            // Update shift status
+            await db.update(schema.shifts)
+              .set({ status: 'pending_swap' })
+              .where(eq(schema.shifts.id, targetShift.id));
+
+            return res.json({
+              content: `Created swap request for the shift (${new Date(targetShift.startDate).toLocaleDateString()} to ${new Date(targetShift.endDate).toLocaleDateString()}) with ${recipient.name}.`
+            });
+          } catch (error) {
+            console.error('Error creating swap request:', error);
+            return res.json({
+              content: "I encountered an error while creating the swap request. Please try again."
+            });
+          }
+        }
           const shiftDate = new Date(shiftMatch[1]);
           const recipientName = recipientMatch[1];
 

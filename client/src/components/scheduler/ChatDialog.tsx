@@ -1,6 +1,8 @@
+
 import { useState, useEffect, useCallback } from "react";
-import { Bot } from "lucide-react";
+import { Bot, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -9,6 +11,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { AIScheduleAssistant } from "./AIScheduleAssistant";
+import { Chat } from "./Chat";
 
 interface ChatDialogProps {
   trigger?: React.ReactNode;
@@ -19,6 +22,7 @@ interface ChatDialogProps {
 
 export function ChatDialog({ trigger, className, currentPage, pageContext = {} }: ChatDialogProps) {
   const [open, setOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState("ai");
 
   useEffect(() => {
     console.log("ChatDialog received pageContext:", pageContext);
@@ -30,9 +34,7 @@ export function ChatDialog({ trigger, className, currentPage, pageContext = {} }
       console.error('ChatDialog: Missing page context');
       return;
     }
-    // Add your form submission logic here.  This was not present in the original code.
   }, [pageContext]);
-
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -44,20 +46,36 @@ export function ChatDialog({ trigger, className, currentPage, pageContext = {} }
             className={`${className} hover:bg-primary hover:text-primary-foreground transition-colors`}
           >
             <Bot className="h-5 w-5" />
-            <span className="sr-only">Open AI Assistant</span>
+            <span className="sr-only">Open Chat</span>
           </Button>
         )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
-        <DialogTitle>Schedule Assistant</DialogTitle>
-        <AIScheduleAssistant 
-          currentPage={currentPage} 
-          pageContext={{
-            ...pageContext,
-            shifts: Array.isArray(pageContext?.shifts) ? pageContext.shifts : []
-          }} 
-          onSubmit={handleSubmit} //Adding the handleSubmit function to AIScheduleAssistant
-        />
+        <DialogHeader>
+          <DialogTitle>Chat</DialogTitle>
+        </DialogHeader>
+        <Tabs defaultValue="ai" value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="ai">
+              <Bot className="h-4 w-4 mr-2" />
+              Schedule Assistant
+            </TabsTrigger>
+            <TabsTrigger value="team">
+              <MessageSquare className="h-4 w-4 mr-2" />
+              Team Chat
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="ai">
+            <AIScheduleAssistant 
+              currentPage={currentPage} 
+              pageContext={pageContext}
+              onSubmit={handleSubmit}
+            />
+          </TabsContent>
+          <TabsContent value="team">
+            <Chat roomId={1} />
+          </TabsContent>
+        </Tabs>
       </DialogContent>
     </Dialog>
   );

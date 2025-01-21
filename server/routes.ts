@@ -1,7 +1,6 @@
-
 import { db } from '../db';
 import * as schema from '../db/schema';
-
+import { eq } from 'drizzle-orm';
 // routes.ts
 import express, { Express } from 'express';
 
@@ -30,7 +29,7 @@ export function registerRoutes(app: Express) {
       const { messages, pageContext } = req.body;
       const lastMessage = messages[messages.length - 1];
       const shifts = pageContext?.shifts || [];
-      
+
       // If this is the initial greeting, provide contextual suggestions
       if (messages.length === 1) {
         const suggestions = [];
@@ -48,7 +47,7 @@ export function registerRoutes(app: Express) {
             "- View upcoming schedule"
           );
         }
-        
+
         if (suggestions.length > 0) {
           return res.json({
             content: `Hello! I'm your schedule assistant. How can I help you manage your schedule today?\n\nYou can try:\n${suggestions.join('\n')}`
@@ -56,10 +55,36 @@ export function registerRoutes(app: Express) {
         }
       }
 
-      // Handle shift count query
-      const userMessage = lastMessage.content.toLowerCase();
-      
+      // Handle shift deletion
+      const deleteShiftRegex = /delete shift for (\w+):\s*(\d{1,2}\/\d{1,2}\/\d{4})\s*-\s*(\d{1,2}\/\d{1,2}\/\d{4})/i;
+      const deleteMatch = lastMessage.content.match(deleteShiftRegex);
+      if (deleteMatch) {
+        const [_, name, startDate, endDate] = deleteMatch;
+        const matchingShifts = shifts.filter(s => 
+          s.startDate === new Date(startDate).toISOString().split('T')[0] &&
+          s.endDate === new Date(endDate).toISOString().split('T')[0]
+        );
+
+        if (matchingShifts.length > 0) {
+          try {
+            await db.delete(schema.shifts).where(eq(schema.shifts.id, matchingShifts[0].id));
+            return res.json({
+              content: `Deleted shift for ${name} from ${startDate} to ${endDate}`
+            });
+          } catch (error) {
+            return res.json({
+              content: `Failed to delete shift: ${error.message}`
+            });
+          }
+        } else {
+          return res.json({
+            content: `No matching shift found for ${name} from ${startDate} to ${endDate}`
+          });
+        }
+      }
+
       // Handle shift count queries
+      const userMessage = lastMessage.content.toLowerCase();
       if (userMessage.includes('how many shifts')) {
         return res.json({
           content: `Ashley currently has ${shifts.length} shifts scheduled.`
@@ -118,13 +143,13 @@ export function registerRoutes(app: Express) {
           content: `The result is ${result.toFixed(2)}`
         });
       }
-      
+
       if (lastMessage.content.toLowerCase().includes('create new shift')) {
         const match = lastMessage.content.match(/(\d{1,2}\/\d{1,2}\/\d{4})\s*-\s*(\d{1,2}\/\d{1,2}\/\d{4})/);
         if (match) {
           const startDate = new Date(match[1]);
           const endDate = new Date(match[2]);
-          
+
           try {
             const newShift = await db.insert(schema.shifts).values({
               userId: 1, // For Ashley
@@ -136,7 +161,7 @@ export function registerRoutes(app: Express) {
 
             // Fetch updated shifts
             const shifts = await db.select().from(schema.shifts);
-            
+
             return res.json({
               content: `Created a new shift from ${match[1]} to ${match[2]}.`,
               shifts: shifts // Include updated shifts in response
@@ -148,7 +173,7 @@ export function registerRoutes(app: Express) {
           }
         }
       }
-      
+
       const response = {
         content: `I can help you create a new shift. Please provide the dates in format: MM/DD/YYYY - MM/DD/YYYY`
       };

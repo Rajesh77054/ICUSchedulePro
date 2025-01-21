@@ -1570,19 +1570,20 @@ based on the provided context. Always format dates in a clear, readable format.`
                     where: eq(users.name, args.userName)
                   });
 
-                  if (!user) {
+                  if (!user || !user.id) {
                     return res.json({
-                      role: 'assistant', 
-                      content: `Could not find user ${args.userName}`
+                      role: 'assistant',
+                      content: `Could not find user ${args.userName} or invalid user ID`
                     });
                   }
 
                   const startDate = new Date(args.startDate);
                   const endDate = new Date(args.endDate);
-                  
+
+                  // Insert shift with explicit userId
                   const [newShift] = await db.insert(shifts)
                     .values({
-                      userId: user.id,
+                      userId: parseInt(user.id.toString()),
                       startDate: startDate.toISOString(),
                       endDate: endDate.toISOString(),
                       status: 'confirmed',

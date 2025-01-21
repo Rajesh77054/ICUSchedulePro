@@ -112,9 +112,9 @@ export function PreferencesForm({ userId, onSuccess }: PreferencesFormProps) {
   const [formData, setFormData] = useState<UserPreferences>({
     id: 0,
     userId,
-    defaultView: preferences?.defaultView || 'dayGridMonth',
-    defaultCalendarDuration: preferences?.defaultCalendarDuration || 'month',
-    notificationPreferences: preferences?.notificationPreferences || {
+    defaultView: 'dayGridMonth',
+    defaultCalendarDuration: 'month',
+    notificationPreferences: {
       emailNotifications: true,
       inAppNotifications: true,
       notifyOnNewShifts: true,
@@ -122,12 +122,24 @@ export function PreferencesForm({ userId, onSuccess }: PreferencesFormProps) {
       notifyOnTimeOffUpdates: true,
       notifyBeforeShift: 24,
     },
-    preferredShiftLength: preferences?.preferredShiftLength || 1,
-    maxShiftsPerWeek: preferences?.maxShiftsPerWeek || 5,
-    minDaysBetweenShifts: preferences?.minDaysBetweenShifts || 1,
-    preferredDaysOfWeek: preferences?.preferredDaysOfWeek || [],
-    avoidedDaysOfWeek: preferences?.avoidedDaysOfWeek || [],
+    preferredShiftLength: 1,
+    maxShiftsPerWeek: 5,
+    minDaysBetweenShifts: 1,
+    preferredDaysOfWeek: [],
+    avoidedDaysOfWeek: [],
   });
+
+  useEffect(() => {
+    if (preferences) {
+      setFormData({
+        ...preferences,
+        notificationPreferences: {
+          ...formData.notificationPreferences,
+          ...preferences.notificationPreferences,
+        },
+      });
+    }
+  }, [preferences]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

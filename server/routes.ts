@@ -405,30 +405,44 @@ export function registerRoutes(app: Express) {
             });
           }
 
-          try {
-            await db.transaction(async (tx) => {
-              console.log('Creating swap request:', { shiftId: currentShift.id, requestorId: currentShift.userId, recipientId: recipient.id });
-              // Create swap request
-              const swapRequest = await tx.insert(schema.swapRequests).values({
-                shiftId: currentShift.id,
-                requestorId: currentShift.userId,
-                recipientId: recipient.id,
-                status: 'pending',
-                createdAt: new Date(),
-                updatedAt: new Date()
-              }).returning();
+          // Separate transaction logic
+          const createSwapRequest = async () => {
+            return await db.transaction(async (tx) => {
+              try {
+                console.log('Creating swap request:', { 
+                  shiftId: currentShift.id, 
+                  requestorId: currentShift.userId, 
+                  recipientId: recipient.id 
+                });
 
-              // Update shift status
-              await tx.update(schema.shifts)
-                .set({ status: 'pending_swap' })
-                .where(eq(schema.shifts.id, currentShift.id));
+                const swapRequest = await tx.insert(schema.swapRequests).values({
+                  shiftId: currentShift.id,
+                  requestorId: currentShift.userId,
+                  recipientId: recipient.id,
+                  status: 'pending',
+                  createdAt: new Date(),
+                  updatedAt: new Date()
+                }).returning();
+
+                await tx.update(schema.shifts)
+                  .set({ status: 'pending_swap' })
+                  .where(eq(schema.shifts.id, currentShift.id));
+
+                return { success: true, swapRequest };
+              } catch (error) {
+                console.error('Transaction error:', error);
+                return { success: false, error };
+              }
             });
+          };
 
+          const result = await createSwapRequest();
+          
+          if (result.success) {
             return res.json({
               content: `Created swap request for your shift (${new Date(currentShift.startDate).toLocaleDateString()} to ${new Date(currentShift.endDate).toLocaleDateString()}) with ${recipient.name}.`
             });
-          } catch (error) {
-            console.error('Error creating swap request:', error);
+          } else {
             return res.json({
               content: "I encountered an error while creating the swap request. Please try again."
             });

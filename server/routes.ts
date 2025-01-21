@@ -1563,10 +1563,20 @@ based on the provided context. Always format dates in a clear, readable format.`
 
               if (messages.some(m => 
                 m.role === 'user' && 
-                m.content.toLowerCase() === 'yes' &&
-                messages[messages.length - 2]?.content?.includes(user.name)
+                m.content.toLowerCase() === 'yes'
               )) {
                 try {
+                  const user = await db.query.users.findFirst({
+                    where: eq(users.name, args.userName)
+                  });
+
+                  if (!user) {
+                    return res.json({
+                      role: 'assistant', 
+                      content: `Could not find user ${args.userName}`
+                    });
+                  }
+
                   const startDate = new Date(args.startDate);
                   const endDate = new Date(args.endDate);
                   

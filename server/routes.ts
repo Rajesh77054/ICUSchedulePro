@@ -305,8 +305,19 @@ export function registerRoutes(app: Express) {
               content: `${requestor.name} has requested to swap their shift (${new Date(shift.startDate).toLocaleDateString()} to ${new Date(shift.endDate).toLocaleDateString()}) with ${recipient.name}. The request is currently ${swap.status}. Would you like to approve, reject, or cancel this swap request?`
             });
           } else {
+            const swap = swapRequests[0];
+            const requestor = users.find(u => u.id === swap.requestorId);
+            const recipient = users.find(u => u.id === swap.recipientId);
+            const shift = shifts.find(s => s.id === swap.shiftId);
+
+            if (!requestor || !recipient || !shift) {
+              return res.json({
+                content: "Could not find complete details for this swap request."
+              });
+            }
+
             return res.json({
-              content: `There are ${swapRequests.length} pending shift swap requests.`
+              content: `${requestor.name} has requested to swap their shift (${new Date(shift.startDate).toLocaleDateString()} to ${new Date(shift.endDate).toLocaleDateString()}) with ${recipient.name}. The request is currently ${swap.status}.`
             });
           }
         } else {

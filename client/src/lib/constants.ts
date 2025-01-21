@@ -1,6 +1,7 @@
 import { User, Holiday } from "./types";
 
-export const USERS: User[] = [
+// Default users as fallback
+const DEFAULT_USERS: User[] = [
   // Physicians
   {
     id: 1,
@@ -49,6 +50,13 @@ export const USERS: User[] = [
     color: "hsl(290, 75%, 45%)",
   },
 ];
+
+export let USERS = DEFAULT_USERS;
+
+// Function to update users
+export function updateUsers(newUsers: User[]) {
+  USERS = newUsers;
+}
 
 export const HOLIDAYS_2024_2025: Holiday[] = [
   { name: "New Year's Day", date: "2024-01-01" },

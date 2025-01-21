@@ -17,8 +17,21 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { useQuery } from "@tanstack/react-query";
 import { ChatDialog } from "@/components/scheduler/ChatDialog";
 import { PersonalChatDialog } from "@/components/scheduler/PersonalChatDialog";
+import { useSyncUsers } from './hooks/use-sync-users';
+import { updateUsers } from './lib/constants';
+import React from 'react';
+
 
 function App() {
+  const { users } = useSyncUsers();
+
+  // Update users whenever DB data changes
+  React.useEffect(() => {
+    if (users.length > 0) {
+      updateUsers(users);
+    }
+  }, [users]);
+
   const { data: shifts } = useQuery({
     queryKey: ['/api/shifts'],
     queryFn: async () => {

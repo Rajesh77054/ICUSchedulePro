@@ -321,9 +321,7 @@ export function registerRoutes(app: Express) {
         }
       }
 
-      const chatResponse = await chatHandler.handleChat(lastMessage.content, chatContext);
-      console.log('Chat response:', { content: chatResponse });
-      res.json({ content: chatResponse });
+      return res.json({ content: chatResponse });
     } catch (error) {
       console.error('Chat error:', error);
       res.status(500).json({ error: 'Failed to process chat request' });

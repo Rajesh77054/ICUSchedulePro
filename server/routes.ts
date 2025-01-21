@@ -258,34 +258,7 @@ export function registerRoutes(app: Express) {
         }
       }
 
-      // Handle math calculations
-      const mathRegex = /(?:what\s+is\s+)?(\d+(?:\.\d+)?)\s*([\+\-\*\/])\s*(\d+(?:\.\d+)?)/i;
-      const mathMatch = lastMessage.content.match(mathRegex);
-      if (mathMatch) {
-        const [_, num1, operator, num2] = mathMatch;
-        try {
-          let result = 0;
-          switch (operator) {
-            case '+': result = parseFloat(num1) + parseFloat(num2); break;
-            case '-': result = parseFloat(num1) - parseFloat(num2); break;
-            case '*': result = parseFloat(num1) * parseFloat(num2); break;
-            case '/': 
-              if (parseFloat(num2) === 0) {
-                return res.json({ content: "Cannot divide by zero!" });
-              }
-              result = parseFloat(num1) / parseFloat(num2); 
-              break;
-          }
-          return res.json({
-            content: `The result is ${result.toFixed(2)}`
-          });
-        } catch (error) {
-          return res.json({
-            content: "I had trouble calculating that. Please check the numbers and try again."
-          });
-        }
-      }
-
+      // Handle shift creation
       if (lastMessage.content.toLowerCase().includes('create') && lastMessage.content.toLowerCase().includes('shift')) {
         const nameMatch = lastMessage.content.match(/for\s+(\w+):/i);
         const dateMatch = lastMessage.content.match(/(\d{1,2}\/\d{1,2}\/\d{4})/g);

@@ -68,7 +68,6 @@ export function registerRoutes(app: Express) {
         }
       }
       
-      const shifts = pageContext?.shifts || [];
       const response = {
         content: `I can help you create a new shift. Please provide the dates in format: MM/DD/YYYY - MM/DD/YYYY`
       };

@@ -248,11 +248,21 @@ export function registerRoutes(app: Express) {
       });
 
       let result;
+      const values = {
+        userId,
+        preferredShiftLength: updates.preferredShiftLength || 7,
+        maxShiftsPerWeek: updates.maxShiftsPerWeek || 1,
+        minDaysBetweenShifts: updates.minDaysBetweenShifts || 0,
+        preferredDaysOfWeek: updates.preferredDaysOfWeek || [],
+        avoidedDaysOfWeek: updates.avoidedDaysOfWeek || [],
+        updatedAt: new Date()
+      };
+
       if (existing) {
         // Update existing preferences
         result = await db
           .update(userPreferences)
-          .set({ ...updates, updatedAt: new Date() })
+          .set(values)
           .where(eq(userPreferences.userId, userId))
           .returning();
       } else {
@@ -260,15 +270,8 @@ export function registerRoutes(app: Express) {
         result = await db
           .insert(userPreferences)
           .values({
-            ...updates,
-            userId,
-            preferredShiftLength: updates.preferredShiftLength || 7,
-            maxShiftsPerWeek: updates.maxShiftsPerWeek || 1,
-            minDaysBetweenShifts: updates.minDaysBetweenShifts || 0,
-            preferredDaysOfWeek: updates.preferredDaysOfWeek || [],
-            avoidedDaysOfWeek: updates.avoidedDaysOfWeek || [],
-            createdAt: new Date(),
-            updatedAt: new Date()
+            ...values,
+            createdAt: new Date()
           })
           .returning();
       }

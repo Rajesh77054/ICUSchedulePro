@@ -24,6 +24,20 @@ export function registerRoutes(app: Express) {
     }
   });
 
+  app.post('/api/chat', async (req, res) => {
+    try {
+      const { messages, pageContext } = req.body;
+      // For now, just echo back a simple response about the shifts
+      const shifts = pageContext?.shifts || [];
+      const response = {
+        content: `I see you have ${shifts.length} shifts in your schedule. How can I help you manage them?`
+      };
+      res.json(response);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to process chat request' });
+    }
+  });
+
   return app;
 }
 

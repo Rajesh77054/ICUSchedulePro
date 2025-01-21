@@ -387,7 +387,9 @@ export function registerRoutes(app: Express) {
             });
           }
         }
-      } else if (userMessage.toLowerCase().includes('request') && userMessage.toLowerCase().includes('swap')) {
+      } 
+      
+      if (userMessage.toLowerCase().includes('request') && userMessage.toLowerCase().includes('swap')) {
         const nameMatch = userMessage.match(/with\s+(\w+)/i);
         if (nameMatch) {
           const recipientName = nameMatch[1];

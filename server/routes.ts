@@ -32,10 +32,49 @@ export function registerRoutes(app: Express) {
       const shifts = pageContext?.shifts || [];
 
       // Handle shift count query
-      if (lastMessage.content.toLowerCase().includes('how many shifts')) {
+      const userMessage = lastMessage.content.toLowerCase();
+      
+      // Handle shift count queries
+      if (userMessage.includes('how many shifts')) {
         return res.json({
           content: `Ashley currently has ${shifts.length} shifts scheduled.`
         });
+      }
+
+      // Handle date range queries
+      if (userMessage.includes('when') || userMessage.includes('what dates')) {
+        const nextShift = shifts.find(s => new Date(s.startDate) > new Date());
+        if (nextShift) {
+          return res.json({
+            content: `The next shift is scheduled from ${nextShift.startDate} to ${nextShift.endDate}`
+          });
+        }
+      }
+
+      // Handle swap status queries
+      if (userMessage.includes('swap') || userMessage.includes('trade')) {
+        const pendingSwaps = shifts.filter(s => s.status === 'pending_swap');
+        if (pendingSwaps.length > 0) {
+          return res.json({
+            content: `There are ${pendingSwaps.length} pending shift swap requests.`
+          });
+        }
+      }
+
+      // Handle schedule conflict queries
+      if (userMessage.includes('conflict') || userMessage.includes('overlap')) {
+        const overlappingShifts = shifts.filter(s1 => 
+          shifts.some(s2 => 
+            s1.id !== s2.id && 
+            new Date(s1.startDate) <= new Date(s2.endDate) && 
+            new Date(s1.endDate) >= new Date(s2.startDate)
+          )
+        );
+        if (overlappingShifts.length > 0) {
+          return res.json({
+            content: `I found ${overlappingShifts.length} overlapping shifts in the schedule.`
+          });
+        }
       }
 
       // Handle math calculations

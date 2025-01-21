@@ -249,7 +249,37 @@ export function registerRoutes(app: Express) {
       }
 
       // Handle swap status queries
-      if (userMessage.includes('swap') || userMessage.includes('trade')) {
+      if (userMessage.toLowerCase().includes('swap') || userMessage.toLowerCase().includes('trade')) {
+        // Extract names and shift info
+        const shiftMatch = userMessage.match(/shift.*?(\d{1,2}\/\d{1,2}\/\d{4})/i);
+        const recipientMatch = userMessage.match(/with\s+(\w+)/i);
+
+        if (shiftMatch && recipientMatch) {
+          const shiftDate = new Date(shiftMatch[1]);
+          const recipientName = recipientMatch[1];
+
+          // Find the shift and users
+          const shift = shifts.find(s => new Date(s.startDate).toDateString() === shiftDate.toDateString());
+          const requestor = users.find(u => u.id === shift?.userId);
+          const recipient = users.find(u => u.name.toLowerCase().includes(recipientName.toLowerCase()));
+
+          if (shift && requestor && recipient) {
+            // Create swap request
+            await db.insert(schema.swapRequests).values({
+              shiftId: shift.id,
+              requestorId: requestor.id,
+              recipientId: recipient.id,
+              status: 'pending',
+              createdAt: new Date(),
+              updatedAt: new Date()
+            });
+
+            return res.json({
+              content: `Created swap request for ${requestor.name}'s shift (${new Date(shift.startDate).toLocaleDateString()} to ${new Date(shift.endDate).toLocaleDateString()}) with ${recipient.name}.`
+            });
+          }
+        }
+
         const nameMatch = userMessage.match(/does (\w+) have/i);
         const swapRequests = await db.select().from(schema.swapRequests).where(eq(schema.swapRequests.status, 'pending'));
 
@@ -366,7 +396,7 @@ export function registerRoutes(app: Express) {
             new Date(s.startDate) <= queryDate && 
             new Date(s.endDate) >= queryDate
           );
-          
+
           if (shift) {
             const user = users.find(u => u.id === shift.userId);
             return res.json({

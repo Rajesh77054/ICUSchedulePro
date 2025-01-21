@@ -284,8 +284,6 @@ export function registerRoutes(app: Express) {
           }
 
           try {
-
-          try {
             console.log('Creating swap request:', { shiftId: targetShift.id, requestorId: targetShift.userId, recipientId: recipient.id });
             // Create swap request
             const swapRequest = await db.insert(schema.swapRequests).values({
@@ -310,7 +308,9 @@ export function registerRoutes(app: Express) {
             return res.json({
               content: "I encountered an error while creating the swap request. Please try again."
             });
-          } finally {
+          }
+
+          // Continue with name matching logic
             const nameMatch = userMessage.match(/does (\w+) have/i);
         const swapRequests = await db.select().from(schema.swapRequests).where(eq(schema.swapRequests.status, 'pending'));
 

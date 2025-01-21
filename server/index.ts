@@ -41,6 +41,12 @@ app.use((req, res, next) => {
   try {
     // Setup auth before registering routes
     setupAuth(app);
+    
+    // Initialize OpenAI handler
+    import { OpenAIChatHandler } from './openai-handler';
+    const openaiHandler = new OpenAIChatHandler();
+    app.set('openaiHandler', openaiHandler);
+    
     const server = registerRoutes(app);
 
     app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

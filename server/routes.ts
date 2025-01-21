@@ -36,7 +36,11 @@ export function registerRoutes(app: Express) {
         throw new Error('OpenAI handler not initialized');
       }
 
-      const response = await openaiHandler.processMessage(userMessage);
+      const response = await openaiHandler.handleChat(userMessage, {
+        shifts: [],
+        users: [],
+        currentPage: req.body.currentPage || 'unknown'
+      });
       res.json({ content: response });
     } catch (error) {
       console.error('Error handling chat request:', error);

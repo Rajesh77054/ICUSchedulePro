@@ -1,6 +1,6 @@
 import { db } from '../db';
 import * as schema from '../db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 // routes.ts
 import express, { Express } from 'express';
 import { OpenAIChatHandler } from './openai-handler';
@@ -32,7 +32,7 @@ export function registerRoutes(app: Express) {
       const { messages, pageContext } = req.body;
       const users = await db.select().from(schema.users);
       const shifts = pageContext?.shifts || [];
-      
+
       const chatContext = {
         shifts,
         users,
@@ -68,9 +68,9 @@ export function registerRoutes(app: Express) {
         } else if (messageContent.includes('app')) {
           filteredUsers = users.filter(user => user.userType === 'app');
         }
-        
+
         const usersList = filteredUsers.map(user => `${user.name}, ${user.title} (${user.userType.toUpperCase()})`);
-        
+
         const typeLabel = messageContent.includes('physician') ? 'physician ' : 
                          messageContent.includes('app') ? 'APP ' : '';
         return res.json({
@@ -286,11 +286,21 @@ export function registerRoutes(app: Express) {
         }
       }
 
-      if (lastMessage.content.toLowerCase().includes('create new shift')) {
-        const match = lastMessage.content.match(/(\d{1,2}\/\d{1,2}\/\d{4})\s*-\s*(\d{1,2}\/\d{1,2}\/\d{4})/);
-        if (match) {
-          const startDate = new Date(match[1]);
-          const endDate = new Date(match[2]);
+      if (lastMessage.content.toLowerCase().includes('create') && lastMessage.content.toLowerCase().includes('shift')) {
+        const nameMatch = lastMessage.content.match(/for\s+(\w+):/i);
+        const dateMatch = lastMessage.content.match(/(\d{1,2}\/\d{1,2}\/\d{4})/g);
+
+        if (nameMatch && dateMatch && dateMatch.length >= 2) {
+          const name = nameMatch[1];
+          const startDate = new Date(dateMatch[0]);
+          const endDate = new Date(dateMatch[1]);
+          const user = users.find(u => u.name.toLowerCase().includes(name.toLowerCase()));
+
+          if (!user) {
+            return res.json({
+              content: `Could not find a user named ${name}.`
+            });
+          }
 
           try {
             // Delete any existing shifts with the same date range
@@ -299,7 +309,7 @@ export function registerRoutes(app: Express) {
                 AND ${schema.shifts.endDate} = ${endDate.toISOString().split('T')[0]}`);
 
             const newShift = await db.insert(schema.shifts).values({
-              userId: 1, // For Ashley
+              userId: user.id, // Use the found user's ID
               startDate: startDate.toISOString().split('T')[0],
               endDate: endDate.toISOString().split('T')[0],
               status: 'confirmed',
@@ -307,17 +317,19 @@ export function registerRoutes(app: Express) {
             }).returning();
 
             // Fetch updated shifts
-            const shifts = await db.select().from(schema.shifts);
+            const updatedShifts = await db.select().from(schema.shifts);
 
             return res.json({
-              content: `Created a new shift from ${match[1]} to ${match[2]}.`,
-              shifts: shifts // Include updated shifts in response
+              content: `Created a new shift for ${name} from ${dateMatch[0]} to ${dateMatch[1]}.`,
+              shifts: updatedShifts // Include updated shifts in response
             });
           } catch (err) {
             return res.json({
-              content: 'Sorry, I was unable to create the shift. Please try again.'
+              content: `Sorry, I was unable to create the shift. Please try again. Error: ${err.message}`
             });
           }
+        } else {
+          return res.json({ content: "I couldn't understand the dates for the new shift. Please use MM/DD/YYYY format." });
         }
       }
 

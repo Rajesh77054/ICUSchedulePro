@@ -23,10 +23,22 @@ export function registerRoutes(app: Express) {
     }
   });
 
+  const chatHandler = new OpenAIChatHandler();
+
   app.post('/api/chat', async (req, res) => {
     try {
       console.log('Chat request received:', req.body);
       const { messages, pageContext } = req.body;
+      const users = await db.select().from(schema.users);
+      
+      const chatContext = {
+        shifts: pageContext?.shifts || [],
+        users,
+        currentPage: pageContext?.currentPage || 'unknown'
+      };
+
+      const lastMessage = messages[messages.length - 1];
+      const response = await chatHandler.handleChat(lastMessage.content, chatContext);
       const lastMessage = messages[messages.length - 1];
       const shifts = pageContext?.shifts || [];
       const users = await db.select().from(schema.users);

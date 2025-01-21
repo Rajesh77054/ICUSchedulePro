@@ -1,4 +1,3 @@
-
 import OpenAI from 'openai';
 import { ChatCompletionMessageParam } from 'openai/resources/chat';
 
@@ -22,14 +21,14 @@ export class OpenAIChatHandler {
     - User schedules and shifts
     - Staff information including roles (Physician/APP)
     - Current page context
-    
+
     Please help users with:
     - Scheduling inquiries
     - Shift management
     - Time-off requests
     - Schedule conflicts
     - Staff availability`;
-    
+
     this.conversationHistory = [{
       role: 'system',
       content: this.systemPrompt
@@ -59,7 +58,19 @@ export class OpenAIChatHandler {
         model: 'gpt-4',
         messages: recentHistory,
         temperature: 0.7,
-        max_tokens: 500
+        max_tokens: 500,
+        stream: true,
+        functions: [{
+          name: "get_schedule_conflicts",
+          description: "Get conflicts in the current schedule",
+          parameters: {
+            type: "object",
+            properties: {
+              startDate: { type: "string", description: "Start date of the period to check" },
+              endDate: { type: "string", description: "End date of the period to check" }
+            }
+          }
+        }]
       });
 
       const response = completion.choices[0].message;

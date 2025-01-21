@@ -1567,10 +1567,22 @@ based on the provided context. Always format dates in a clear, readable format.`
                 m.content.toLowerCase() === 'yes'
               )) {
                 try {
+                  // Validate user exists before creating shift
+                  const user = await db.query.users.findFirst({
+                    where: eq(users.name, args.userName)
+                  });
+
+                  if (!user) {
+                    return res.json({
+                      role: 'assistant',
+                      content: `Could not find user ${args.userName}`
+                    });
+                  }
+
                   const startDate = new Date(args.startDate);
                   const endDate = new Date(args.endDate);
 
-                  // Create the shift with the found user ID
+                  // Create the shift with validated user ID
                   const [newShift] = await db.insert(shifts)
                     .values({
                       userId: user.id,

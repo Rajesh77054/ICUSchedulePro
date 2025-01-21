@@ -30,10 +30,20 @@ export function registerRoutes(app: Express) {
   app.post('/api/chat', async (req, res) => {
     try {
       const userMessage = req.body.message;
-      res.json({ content: "Message received" });
+      const openaiHandler = req.app.get('openaiHandler');
+      
+      if (!openaiHandler) {
+        throw new Error('OpenAI handler not initialized');
+      }
+
+      const response = await openaiHandler.processMessage(userMessage);
+      res.json({ content: response });
     } catch (error) {
-      console.error('Error handling request:', error);
-      res.json({ content: "An error occurred while processing your request." });
+      console.error('Error handling chat request:', error);
+      res.status(500).json({ 
+        content: "An error occurred while processing your request.",
+        error: error.message 
+      });
     }
   });
 

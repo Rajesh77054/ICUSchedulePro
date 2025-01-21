@@ -247,22 +247,38 @@ export function registerRoutes(app: Express) {
 
       // Handle swap status queries
       if (userMessage.includes('swap') || userMessage.includes('trade')) {
-        // First get pending swap requests
+        const nameMatch = userMessage.match(/does (\w+) have/i);
         const swapRequests = await db.select().from(schema.swapRequests).where(eq(schema.swapRequests.status, 'pending'));
+        
         if (swapRequests.length > 0) {
+          if (nameMatch) {
+            const name = nameMatch[1].toLowerCase();
+            const relevantSwaps = swapRequests.filter(swap => {
+              const requestor = users.find(u => u.id === swap.requestorId);
+              const recipient = users.find(u => u.id === swap.recipientId);
+              return requestor?.name.toLowerCase().includes(name) || recipient?.name.toLowerCase().includes(name);
+            });
+            return res.json({
+              content: relevantSwaps.length > 0 ? 
+                `Yes, ${nameMatch[1]} is involved in ${relevantSwaps.length} pending swap request(s).` :
+                `No, ${nameMatch[1]} does not have any pending swap requests.`
+            });
+          }
+          
           if (userMessage.includes('who') || userMessage.includes('requestor') || userMessage.includes('requestee')) {
             const swap = swapRequests[0];
             const requestor = users.find(u => u.id === swap.requestorId);
             const recipient = users.find(u => u.id === swap.recipientId);
+            const shift = shifts.find(s => s.id === swap.shiftId);
             
-            if (!requestor || !recipient) {
+            if (!requestor || !recipient || !shift) {
               return res.json({
-                content: "Could not find the users involved in the swap request."
+                content: "Could not find complete information about the swap request."
               });
             }
             
             return res.json({
-              content: `${requestor.name} requested a shift swap with ${recipient.name}.`
+              content: `${requestor.name} requested a shift swap with ${recipient.name} for the shift from ${new Date(shift.startDate).toLocaleDateString()} to ${new Date(shift.endDate).toLocaleDateString()}.`
             });
           } else if (userMessage.includes('date')) {
             const swap = swapRequests[0];

@@ -41,10 +41,14 @@ export class OpenAIChatHandler {
       const timeRegex = /what (time|day|date) is it/i;
       if (timeRegex.test(userMessage)) {
         const now = new Date();
+        const options = {
+          timeZone: 'America/New_York',  // Set to Eastern Time
+          hour12: true
+        };
         const format = userMessage.toLowerCase().includes('time') ? 
-          now.toLocaleTimeString() :
-          now.toLocaleDateString();
-        return `It is currently ${format}`;
+          now.toLocaleTimeString('en-US', options) :
+          now.toLocaleDateString('en-US', { timeZone: 'America/New_York' });
+        return `It is currently ${format} Eastern Time`;
       }
 
       // Add context to the message

@@ -26,14 +26,16 @@ export function registerRoutes(app: Express) {
 
   app.post('/api/chat', async (req, res) => {
     try {
+      console.log('Chat request received:', req.body);
       const { messages, pageContext } = req.body;
-      // For now, just echo back a simple response about the shifts
       const shifts = pageContext?.shifts || [];
       const response = {
         content: `I see you have ${shifts.length} shifts in your schedule. How can I help you manage them?`
       };
+      console.log('Chat response:', response);
       res.json(response);
     } catch (error) {
+      console.error('Chat error:', error);
       res.status(500).json({ error: 'Failed to process chat request' });
     }
   });

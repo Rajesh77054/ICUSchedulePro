@@ -151,6 +151,11 @@ export function registerRoutes(app: Express) {
           const endDate = new Date(match[2]);
 
           try {
+            // Delete any existing shifts with the same date range
+            await db.delete(schema.shifts)
+              .where(sql`${schema.shifts.startDate} = ${startDate.toISOString().split('T')[0]} 
+                AND ${schema.shifts.endDate} = ${endDate.toISOString().split('T')[0]}`);
+
             const newShift = await db.insert(schema.shifts).values({
               userId: 1, // For Ashley
               startDate: startDate.toISOString().split('T')[0],

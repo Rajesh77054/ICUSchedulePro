@@ -37,6 +37,23 @@ export function registerRoutes(app: Express) {
           content: `Ashley currently has ${shifts.length} shifts scheduled.`
         });
       }
+
+      // Handle math calculations
+      const mathRegex = /what\s+is\s+(\d+(?:\.\d+)?)\s*([\+\-\*\/])\s*(\d+(?:\.\d+)?)/i;
+      const mathMatch = lastMessage.content.match(mathRegex);
+      if (mathMatch) {
+        const [_, num1, operator, num2] = mathMatch;
+        let result;
+        switch (operator) {
+          case '+': result = parseFloat(num1) + parseFloat(num2); break;
+          case '-': result = parseFloat(num1) - parseFloat(num2); break;
+          case '*': result = parseFloat(num1) * parseFloat(num2); break;
+          case '/': result = parseFloat(num1) / parseFloat(num2); break;
+        }
+        return res.json({
+          content: `The result is ${result}`
+        });
+      }
       
       if (lastMessage.content.toLowerCase().includes('create new shift')) {
         const match = lastMessage.content.match(/(\d{1,2}\/\d{1,2}\/\d{4})\s*-\s*(\d{1,2}\/\d{1,2}\/\d{4})/);

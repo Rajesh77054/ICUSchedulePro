@@ -1581,11 +1581,15 @@ based on the provided context. Always format dates in a clear, readable format.`
                   const endDate = new Date(args.endDate);
 
                   // Insert shift with explicit userId
+                  // Ensure dates are properly formatted
+                  const formattedStartDate = new Date(startDate).toISOString();
+                  const formattedEndDate = new Date(endDate).toISOString();
+
                   const [newShift] = await db.insert(shifts)
                     .values({
-                      userId: parseInt(user.id.toString()),
-                      startDate: startDate.toISOString(),
-                      endDate: endDate.toISOString(),
+                      userId: user.id,
+                      startDate: formattedStartDate,
+                      endDate: formattedEndDate,
                       status: 'confirmed',
                       source: 'ai_assistant'
                     })

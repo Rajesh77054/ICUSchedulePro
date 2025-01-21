@@ -254,14 +254,13 @@ export function registerRoutes(app: Express) {
         const recipientMatch = userMessage.match(/with\s+(\w+)/i);
 
         // Handle creating new swap request
-        try {
-          if ((dateMatch || userMessage.toLowerCase().includes('this shift')) && recipientMatch) {
-            const recipientName = recipientMatch[1];
-            const recipient = users.find(u => u.name.toLowerCase().includes(recipientName.toLowerCase()));
+        if ((dateMatch || userMessage.toLowerCase().includes('this shift')) && recipientMatch) {
+          const recipientName = recipientMatch[1];
+          const recipient = users.find(u => u.name.toLowerCase().includes(recipientName.toLowerCase()));
 
-            // Find the relevant shift
-            let targetShift;
-            if (dateMatch) {
+          // Find the relevant shift
+          let targetShift;
+          if (dateMatch) {
             const shiftDate = new Date(dateMatch[1]);
             targetShift = shifts.find(s => 
               new Date(s.startDate).toDateString() === shiftDate.toDateString()
@@ -283,6 +282,8 @@ export function registerRoutes(app: Express) {
               content: `I couldn't find a user named ${recipientName}.`
             });
           }
+
+          try {
 
           try {
             // Create swap request

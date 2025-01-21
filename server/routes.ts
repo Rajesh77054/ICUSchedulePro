@@ -37,12 +37,12 @@ export function registerRoutes(app: Express) {
       }
 
       // Fetch current context data
-      const shifts = await db.select().from(shifts);
-      const users = await db.select().from(users);
+      const shiftsList = await db.select().from(shifts);
+      const usersList = await db.select().from(users);
 
       const response = await openaiHandler.handleChat(userMessage, {
-        shifts: [],
-        users: [],
+        shifts: shiftsList,
+        users: usersList,
         currentPage: req.body.currentPage || 'unknown'
       });
       res.json({ content: response });

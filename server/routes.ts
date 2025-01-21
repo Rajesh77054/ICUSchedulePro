@@ -1562,6 +1562,18 @@ based on the provided context. Always format dates in a clear, readable format.`
               }
 
               // If user confirmed, create the shift
+              // Find user by name with exact match
+              const user = await db.query.users.findFirst({
+                where: eq(users.name, args.userName)
+              });
+
+              if (!user) {
+                return res.json({
+                  role: 'assistant',
+                  content: `User ${args.userName} not found. Please check the name and try again.`
+                });
+              }
+
               if (messages.some(m => 
                 m.role === 'user' && 
                 m.content.toLowerCase() === 'yes' &&

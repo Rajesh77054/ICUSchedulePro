@@ -33,7 +33,7 @@ export const USERS: User[] = [
   {
     id: 4,
     name: "Anthony Zachria",
-    title: "MD",
+    title: "DO",
     userType: "physician", 
     targetDays: 150,
     maxConsecutiveWeeks: 2,
@@ -42,8 +42,8 @@ export const USERS: User[] = [
   {
     id: 5, 
     name: "Todd Want",
-    title: "MD",
-    userType: "physician",
+    title: "APP",
+    userType: "app",
     targetDays: 160,
     maxConsecutiveWeeks: 2,
     color: "hsl(290, 75%, 45%)",

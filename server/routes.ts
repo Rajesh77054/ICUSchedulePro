@@ -257,7 +257,7 @@ export function registerRoutes(app: Express) {
         if ((dateMatch || userMessage.toLowerCase().includes('this shift')) && recipientMatch) {
           const recipientName = recipientMatch[1];
           const recipient = users.find(u => u.name.toLowerCase().includes(recipientName.toLowerCase()));
-          
+
           // Find the relevant shift
           let targetShift;
           if (dateMatch) {
@@ -440,7 +440,7 @@ export function registerRoutes(app: Express) {
     }
 
     // Handle schedule conflict queries
-    if (userMessage.includes('conflict') || userMessage.includes('overlap')) {
+      if (userMessage.includes('conflict') || userMessage.includes('overlap')) {
         const overlappingShifts = shifts.filter(s1 => 
           shifts.some(s2 => 
             s1.id !== s2.id && 

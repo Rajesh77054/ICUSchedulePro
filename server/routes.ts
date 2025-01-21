@@ -236,6 +236,17 @@ export function registerRoutes(app: Express) {
         }
       }
 
+      // Handle shift calculations
+      if (userMessage.toLowerCase().includes('shifts remain')) {
+        const numbers = userMessage.match(/\d+/g);
+        if (numbers) {
+          const total = numbers.reduce((sum, num) => sum + parseInt(num, 10), 0);
+          return res.json({
+            content: `Based on the numbers provided (${total} shifts total), ${52 - total} shifts remain to be scheduled for the year.`
+          });
+        }
+      }
+
       // Handle math calculations
       const mathRegex = /(?:what\s+is\s+)?(\d+(?:\.\d+)?)\s*([\+\-\*\/])\s*(\d+(?:\.\d+)?)/i;
       const mathMatch = lastMessage.content.match(mathRegex);

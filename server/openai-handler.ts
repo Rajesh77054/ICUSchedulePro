@@ -37,7 +37,24 @@ export class OpenAIChatHandler {
 
   async handleChat(userMessage: string, context: ChatContext) {
     try {
-      console.log('Processing chat with context:', context);
+      // Sanitize context before logging
+      const sanitizedContext = {
+        shifts: context?.shifts?.map(shift => ({
+          id: shift.id,
+          startDate: shift.startDate,
+          endDate: shift.endDate,
+          status: shift.status
+        })) || [],
+        users: context?.users?.map(user => ({
+          id: user.id,
+          name: user.name,
+          title: user.title,
+          userType: user.userType
+        })) || [],
+        currentPage: context?.currentPage
+      };
+      
+      console.log('Processing chat with context:', sanitizedContext);
       
       if (!context || (!context.shifts && !context.users)) {
         console.warn('Missing context data');

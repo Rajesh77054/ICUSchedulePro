@@ -79,18 +79,21 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
     },
   });
 
-  const calendarEvents = useMemo(() => {
-    return (shifts || []).map(shift => ({
+  const calendarEvents = useMemo(() =>
+    (shifts || []).map(shift => ({
       id: shift.id.toString(),
-      title: shift.user?.name || 'Unknown',
-      start: new Date(shift.startDate),
-      end: new Date(shift.endDate),
-      backgroundColor: shift.user?.color || '#666',
-      borderColor: shift.user?.color || '#666',
+      title: users.find(u => u.id === shift.userId)?.name || 'Unknown',
+      start: shift.startDate,
+      end: shift.endDate,
+      backgroundColor: getUserColor(shift.userId),
+      borderColor: getUserColor(shift.userId),
       textColor: 'white',
-      extendedProps: { shift }
-    }));
-  }, [shifts]);
+      extendedProps: { shift },
+      editable: true,
+      durationEditable: true,
+    })),
+    [initialShifts, users]
+  );
 
   const handleEventDrop = async (dropInfo: EventDropArg) => {
     const shiftId = parseInt(dropInfo.event.id);

@@ -86,9 +86,16 @@ export function registerRoutes(app: Express) {
       // Handle shift count queries
       const userMessage = lastMessage.content.toLowerCase();
       if (userMessage.includes('how many shifts')) {
-        return res.json({
-          content: `Ashley currently has ${shifts.length} shifts scheduled.`
-        });
+        const nameMatch = userMessage.match(/how many shifts does (\w+) have/i);
+        if (nameMatch) {
+          const name = nameMatch[1].toLowerCase();
+          const userShifts = shifts.filter(s => 
+            s.user?.name.toLowerCase().includes(name)
+          );
+          return res.json({
+            content: `${nameMatch[1]} currently has ${userShifts.length} shifts scheduled.`
+          });
+        }
       }
 
       // Handle date range queries

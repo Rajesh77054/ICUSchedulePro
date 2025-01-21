@@ -26,6 +26,15 @@ import { useToast } from "@/hooks/use-toast";
 export function ScheduleManagement() {
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
   const { toast } = useToast();
+  
+  const { data: shifts } = useQuery({
+    queryKey: ['/api/shifts'],
+    queryFn: async () => {
+      const response = await fetch('/api/shifts');
+      if (!response.ok) throw new Error('Failed to fetch shifts');
+      return response.json();
+    }
+  });
 
   const clearShifts = async () => {
     try {
@@ -54,7 +63,7 @@ export function ScheduleManagement() {
       <ChatDialog 
         currentPage="schedule" 
         pageContext={{
-          shifts: allShifts,
+          shifts: shifts || [],
         }} 
       />
       <Card>

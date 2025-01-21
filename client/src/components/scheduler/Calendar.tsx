@@ -82,8 +82,11 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
   const calendarEvents = useMemo(() =>
     (shifts || []).map(shift => ({
       id: shift.id.toString(),
-      title: users.find(u => u.id === shift.userId)?.name || 'Unknown',
-      start: shift.startDate,
+      title: shift.user?.name || 'Unknown',
+      start: new Date(shift.startDate),
+      end: new Date(shift.endDate),
+      backgroundColor: shift.user?.color || 'hsl(0, 0%, 50%)',
+      borderColor: shift.user?.color || 'hsl(0, 0%, 50%)',
       end: shift.endDate,
       backgroundColor: getUserColor(shift.userId),
       borderColor: getUserColor(shift.userId),

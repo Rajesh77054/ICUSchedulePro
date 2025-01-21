@@ -225,9 +225,23 @@ export function registerRoutes(app: Express) {
       if (userMessage.includes('swap') || userMessage.includes('trade')) {
         const pendingSwaps = shifts.filter(s => s.status === 'pending_swap');
         if (pendingSwaps.length > 0) {
-          return res.json({
-            content: `There are ${pendingSwaps.length} pending shift swap requests.`
-          });
+          if (userMessage.includes('who') || userMessage.includes('requestor') || userMessage.includes('requestee')) {
+            const swap = pendingSwaps[0];
+            const requestor = users.find(u => u.id === swap.userId);
+            const recipient = users.find(u => u.id === swap.recipientId);
+            return res.json({
+              content: `${requestor?.name} requested a shift swap with ${recipient?.name}.`
+            });
+          } else if (userMessage.includes('date')) {
+            const swap = pendingSwaps[0];
+            return res.json({
+              content: `The swap request is for the shift from ${new Date(swap.startDate).toLocaleDateString()} to ${new Date(swap.endDate).toLocaleDateString()}.`
+            });
+          } else {
+            return res.json({
+              content: `There are ${pendingSwaps.length} pending shift swap requests.`
+            });
+          }
         }
       }
 

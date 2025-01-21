@@ -77,20 +77,19 @@ export function PreferencesForm({ userId, onSuccess }: PreferencesFormProps) {
       const res = await fetch(`/api/user-preferences/${userId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          ...data,
+          userId,
+          updatedAt: new Date().toISOString()
+        }),
       });
-      
+
       if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ error: 'Unknown error occurred' }));
-        throw new Error(errorData.error || 'Failed to update preferences');
+        const errorText = await res.text();
+        throw new Error(`Failed to update preferences: ${errorText}`);
       }
-      
-      const responseData = await res.json().catch(() => null);
-      if (!responseData) {
-        throw new Error('Invalid response from server');
-      }
-      
-      return responseData;
+
+      return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/user-preferences"] });

@@ -34,7 +34,10 @@ export function AIScheduleAssistant({ currentPage, pageContext }: AIScheduleAssi
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || isLoading) return;
+    if (!input?.trim() || isLoading) {
+      setError('Please enter a message');
+      return;
+    }
 
     const userMessage = { 
       id: Date.now().toString(),

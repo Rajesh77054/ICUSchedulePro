@@ -74,8 +74,9 @@ export class OpenAIChatHandler {
       };
 
       // Validate user message
-      if (!userMessage?.trim()) {
-        throw new Error('Empty or invalid message');
+      if (typeof userMessage !== 'string' || !userMessage.trim()) {
+        console.error('Invalid message format:', userMessage);
+        return 'I apologize, but I received an empty or invalid message.';
       }
 
       const userMsg = {

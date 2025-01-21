@@ -1575,62 +1575,51 @@ based on the provided context. Always format dates in a clear, readable format.`
               }
 
               // If we have confirmation, proceed with creating the shift
-              if (messages.some(m => 
-                m.role === 'user' && 
-                m.content.toLowerCase() === 'yes'
-              )) {
-                try {
-                  // Validate user exists before creating shift
-                  const user = await db.query.users.findFirst({
-                    where: eq(users.name, args.userName)
-                  });
+              try {
+                // Validate user exists before creating shift
+                const user = await db.query.users.findFirst({
+                  where: eq(users.name, args.userName)
+                });
 
-                  if (!user) {
-                    return res.json({
-                      role: 'assistant',
-                      content: `Could not find user ${args.userName}`
-                    });
-                  }
-
-                  const startDate = new Date(args.startDate);
-                  const endDate = new Date(args.endDate);
-
-                  // Create the shift with validated user ID
-                  const [newShift] = await db.insert(shifts)
-                    .values({
-                      userId: user.id,
-                      startDate: startDate.toISOString(),
-                      endDate: endDate.toISOString(),
-                      status: 'confirmed',
-                      source: 'ai_assistant'
-                    })
-                    .returning();
-
-                  if (!newShift) {
-                    throw new Error('Failed to create shift');
-                  }
-
-                  broadcast(notify.shiftCreated(newShift, {
-                    name: user.name,
-                    title: user.title
-                  }));
-
+                if (!user) {
                   return res.json({
                     role: 'assistant',
-                    content: `Successfully created shift for ${user.name} from ${startDate.toLocaleDateString()} to ${endDate.toLocaleDateString()}`
-                  });
-                } catch (error) {
-                  console.error('Error creating shift:', error);
-                  return res.json({
-                    role: 'assistant',
-                    content: `Failed to create shift: ${error.message}`
+                    content: `Could not find user ${args.userName}`
                   });
                 }
-              } else {
-                // Ask for confirmation
+
+                const startDate = new Date(args.startDate);
+                const endDate = new Date(args.endDate);
+
+                // Create the shift with validated user ID
+                const [newShift] = await db.insert(shifts)
+                  .values({
+                    userId: user.id,
+                    startDate: startDate.toISOString(),
+                    endDate: endDate.toISOString(),
+                    status: 'confirmed',
+                    source: 'ai_assistant'
+                  })
+                  .returning();
+
+                if (!newShift) {
+                  throw new Error('Failed to create shift');
+                }
+
+                broadcast(notify.shiftCreated(newShift, {
+                  name: user.name,
+                  title: user.title
+                }));
+
                 return res.json({
                   role: 'assistant',
-                  content: `I found ${user.name}. Please confirm by responding with 'yes' if this is correct.`
+                  content: `Successfully created shift for ${user.name} from ${startDate.toLocaleDateString()} to ${endDate.toLocaleDateString()}`
+                });
+              } catch (error) {
+                console.error('Error creating shift:', error);
+                return res.json({
+                  role: 'assistant',
+                  content: `Failed to create shift: ${error.message}`
                 });
               }
 

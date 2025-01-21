@@ -189,16 +189,25 @@ export function Analytics() {
                     />
                     <Tooltip />
                     <Legend verticalAlign="top" height={36} />
-                    <Bar 
-                      dataKey={viewMode} 
-                      fill="#8884d8" 
-                      name={`${viewMode.charAt(0).toUpperCase() + viewMode.slice(1)} Worked`} 
-                    />
-                    <Bar 
-                      dataKey={`target${viewMode.charAt(0).toUpperCase() + viewMode.slice(1)}`} 
-                      fill="#82ca9d" 
-                      name={`Target ${viewMode.charAt(0).toUpperCase() + viewMode.slice(1)}`} 
-                    />
+                    <>
+                      <Bar 
+                        dataKey={`worked${viewMode.charAt(0).toUpperCase() + viewMode.slice(1)}`}
+                        stackId="a"
+                        fill="#8884d8" 
+                        name="Worked"
+                      />
+                      <Bar 
+                        dataKey={`upcoming${viewMode.charAt(0).toUpperCase() + viewMode.slice(1)}`}
+                        stackId="a"
+                        fill="#a4a1e4"
+                        name="Upcoming"
+                      />
+                      <Bar 
+                        dataKey={`target${viewMode.charAt(0).toUpperCase() + viewMode.slice(1)}`}
+                        fill="#82ca9d" 
+                        name={`Target ${viewMode.charAt(0).toUpperCase() + viewMode.slice(1)}`}
+                      />
+                    </>
                   </BarChart>
                 </ResponsiveContainer>
               </div>

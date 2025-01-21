@@ -145,17 +145,36 @@ export function registerRoutes(app: Express) {
       const allUsers = await db.select().from(users);
       const hoursDistribution = Object.entries(userHours).map(([userId, data]) => {
         const user = allUsers.find(u => u.id === parseInt(userId));
-        const daysWorked = Math.ceil(data.hours / 8); // Assuming 8-hour workdays
-        const shiftsCount = allShifts.filter(s => s.userId === parseInt(userId)).length;
+        const now = new Date();
+        const userShifts = allShifts.filter(s => s.userId === parseInt(userId));
+        
+        const workedShifts = userShifts.filter(s => new Date(s.startDate) <= now);
+        const upcomingShifts = userShifts.filter(s => new Date(s.startDate) > now);
+        
+        const workedHours = workedShifts.reduce((acc, shift) => {
+          const hours = (new Date(shift.endDate).getTime() - new Date(shift.startDate).getTime()) / (1000 * 60 * 60);
+          return acc + hours;
+        }, 0);
+        
+        const upcomingHours = upcomingShifts.reduce((acc, shift) => {
+          const hours = (new Date(shift.endDate).getTime() - new Date(shift.startDate).getTime()) / (1000 * 60 * 60);
+          return acc + hours;
+        }, 0);
+
+        const workedDays = Math.ceil(workedHours / 8);
+        const upcomingDays = Math.ceil(upcomingHours / 8);
         
         return {
           name: user?.name?.split(' ')[0] || `User ${userId}`,
-          hours: Math.round(data.hours),
+          workedHours: Math.round(workedHours),
+          upcomingHours: Math.round(upcomingHours),
           targetHours: data.target,
-          days: daysWorked,
-          targetDays: 20, // Assuming 20 workdays per month
-          shifts: shiftsCount,
-          targetShifts: 15 // Example target shifts per month
+          workedDays,
+          upcomingDays,
+          targetDays: 20,
+          workedShifts: workedShifts.length,
+          upcomingShifts: upcomingShifts.length,
+          targetShifts: 15
         };
       });
 

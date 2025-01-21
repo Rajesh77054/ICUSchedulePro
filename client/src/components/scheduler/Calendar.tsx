@@ -80,7 +80,7 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
   });
 
   const calendarEvents = useMemo(() =>
-    (shifts || []).map(shift => ({
+    initialShifts.map(shift => ({
       id: shift.id.toString(),
       title: users.find(u => u.id === shift.userId)?.name || 'Unknown',
       start: shift.startDate,

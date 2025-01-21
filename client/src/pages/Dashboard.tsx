@@ -11,7 +11,6 @@ import { ChatDialog } from "@/components/scheduler/ChatDialog";
 export function Dashboard() {
   const { data: shifts, isLoading: isLoadingShifts, error: shiftsError } = useQuery<Shift[]>({
     queryKey: ["/api/shifts"],
-    refetchInterval: 1000,
     queryFn: async () => {
       const response = await fetch('/api/shifts');
       if (!response.ok) {

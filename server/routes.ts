@@ -45,6 +45,9 @@ export function registerRoutes(app: Express) {
         allUsers: users,
       };
 
+      // Process the message content
+      const messageContent = lastMessage.content.toLowerCase();
+
       // Handle colleague and team queries
       if (messageContent.includes('colleague') || messageContent.includes('team') || messageContent.includes('who are my')) {
         const usersList = users.map(user => `${user.name}, ${user.title} (${user.userType.toUpperCase()})`);

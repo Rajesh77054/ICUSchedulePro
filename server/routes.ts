@@ -223,25 +223,43 @@ export function registerRoutes(app: Express) {
 
       // Handle swap status queries
       if (userMessage.includes('swap') || userMessage.includes('trade')) {
-        const pendingSwaps = shifts.filter(s => s.status === 'pending_swap');
-        if (pendingSwaps.length > 0) {
+        // First get pending swap requests
+        const swapRequests = await db.select().from(schema.swapRequests).where(eq(schema.swapRequests.status, 'pending'));
+        if (swapRequests.length > 0) {
           if (userMessage.includes('who') || userMessage.includes('requestor') || userMessage.includes('requestee')) {
-            const swap = pendingSwaps[0];
-            const requestor = users.find(u => u.id === swap.userId);
+            const swap = swapRequests[0];
+            const requestor = users.find(u => u.id === swap.requestorId);
             const recipient = users.find(u => u.id === swap.recipientId);
+            
+            if (!requestor || !recipient) {
+              return res.json({
+                content: "Could not find the users involved in the swap request."
+              });
+            }
+            
             return res.json({
-              content: `${requestor?.name} requested a shift swap with ${recipient?.name}.`
+              content: `${requestor.name} requested a shift swap with ${recipient.name}.`
             });
           } else if (userMessage.includes('date')) {
-            const swap = pendingSwaps[0];
+            const swap = swapRequests[0];
+            const shift = shifts.find(s => s.id === swap.shiftId);
+            if (!shift) {
+              return res.json({
+                content: "Could not find the shift details for this swap request."
+              });
+            }
             return res.json({
-              content: `The swap request is for the shift from ${new Date(swap.startDate).toLocaleDateString()} to ${new Date(swap.endDate).toLocaleDateString()}.`
+              content: `The swap request is for the shift from ${new Date(shift.startDate).toLocaleDateString()} to ${new Date(shift.endDate).toLocaleDateString()}.`
             });
           } else {
             return res.json({
-              content: `There are ${pendingSwaps.length} pending shift swap requests.`
+              content: `There are ${swapRequests.length} pending shift swap requests.`
             });
           }
+        } else {
+          return res.json({
+            content: "There are no pending shift swap requests."
+          });
         }
       }
 

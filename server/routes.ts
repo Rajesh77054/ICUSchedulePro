@@ -283,13 +283,17 @@ export function registerRoutes(app: Express) {
           } else if (userMessage.includes('date')) {
             const swap = swapRequests[0];
             const shift = shifts.find(s => s.id === swap.shiftId);
-            if (!shift) {
+            const requestor = users.find(u => u.id === swap.requestorId);
+            const recipient = users.find(u => u.id === swap.recipientId);
+            
+            if (!shift || !requestor || !recipient) {
               return res.json({
-                content: "Could not find the shift details for this swap request."
+                content: "Could not find complete details for this swap request."
               });
             }
+            
             return res.json({
-              content: `The swap request is for the shift from ${new Date(shift.startDate).toLocaleDateString()} to ${new Date(shift.endDate).toLocaleDateString()}.`
+              content: `${requestor.name} has requested to swap their shift (${new Date(shift.startDate).toLocaleDateString()} to ${new Date(shift.endDate).toLocaleDateString()}) with ${recipient.name}. The request is currently ${swap.status}. Would you like to approve, reject, or cancel this swap request?`
             });
           } else {
             return res.json({

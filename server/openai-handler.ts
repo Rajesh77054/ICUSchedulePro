@@ -37,6 +37,13 @@ export class OpenAIChatHandler {
 
   async handleChat(userMessage: string, context: ChatContext) {
     try {
+      console.log('Processing chat with context:', context);
+      
+      if (!context || (!context.shifts && !context.users)) {
+        console.warn('Missing context data');
+        return 'I apologize, but I cannot access the schedule information at the moment.';
+      }
+
       // Handle time-related queries directly
       const timeRegex = /what (?:is )?(?:the )?(?:current )?(time|day|date)(?: and (time|day|date))?/i;
       if (timeRegex.test(userMessage)) {

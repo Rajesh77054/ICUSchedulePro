@@ -36,6 +36,10 @@ export function registerRoutes(app: Express) {
         throw new Error('OpenAI handler not initialized');
       }
 
+      // Fetch current context data
+      const shifts = await db.select().from(shifts);
+      const users = await db.select().from(users);
+
       const response = await openaiHandler.handleChat(userMessage, {
         shifts: [],
         users: [],

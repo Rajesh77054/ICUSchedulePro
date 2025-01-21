@@ -50,9 +50,20 @@ export function registerRoutes(app: Express) {
 
       // Handle colleague and team queries
       if (messageContent.includes('colleague') || messageContent.includes('team') || messageContent.includes('who are my')) {
-        const usersList = users.map(user => `${user.name}, ${user.title} (${user.userType.toUpperCase()})`);
+        // Filter based on physician/APP if specified
+        let filteredUsers = users;
+        if (messageContent.includes('physician')) {
+          filteredUsers = users.filter(user => user.userType === 'physician');
+        } else if (messageContent.includes('app')) {
+          filteredUsers = users.filter(user => user.userType === 'app');
+        }
+        
+        const usersList = filteredUsers.map(user => `${user.name}, ${user.title} (${user.userType.toUpperCase()})`);
+        
+        const typeLabel = messageContent.includes('physician') ? 'physician ' : 
+                         messageContent.includes('app') ? 'APP ' : '';
         return res.json({
-          content: `Your colleagues are:\n${usersList.join('\n')}`
+          content: `Your ${typeLabel}colleagues are:\n${usersList.join('\n')}`
         });
       }
 

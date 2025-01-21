@@ -39,14 +39,18 @@ export function registerRoutes(app: Express) {
           try {
             const newShift = await db.insert(schema.shifts).values({
               userId: 1, // For Ashley
-              startDate: startDate.toISOString(),
-              endDate: endDate.toISOString(),
+              startDate: startDate.toISOString().split('T')[0],
+              endDate: endDate.toISOString().split('T')[0],
               status: 'confirmed',
               source: 'manual'
             }).returning();
+
+            // Fetch updated shifts
+            const shifts = await db.select().from(schema.shifts);
             
             return res.json({
-              content: `Created a new shift from ${match[1]} to ${match[2]}.`
+              content: `Created a new shift from ${match[1]} to ${match[2]}.`,
+              shifts: shifts // Include updated shifts in response
             });
           } catch (err) {
             return res.json({

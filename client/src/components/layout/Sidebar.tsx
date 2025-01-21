@@ -96,13 +96,7 @@ export function Sidebar() {
         label: "My Schedule",
         tooltip: "View and manage your schedule",
         indent: true,
-      },
-      {
-        href: "/chat",
-        icon: <MessageSquare className="h-4 w-4" />,
-        label: "Team Chat",
-        tooltip: "Open team chat for communication",
-      },
+      }
     ],
     scheduling: [],
     timeManagement: [

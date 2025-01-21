@@ -142,11 +142,15 @@ export function registerRoutes(app: Express) {
         return acc;
       }, {});
 
-      const hoursDistribution = Object.entries(userHours).map(([userId, data]) => ({
-        name: `User ${userId}`,
-        hours: Math.round(data.hours),
-        target: data.target
-      }));
+      const allUsers = await db.select().from(users);
+      const hoursDistribution = Object.entries(userHours).map(([userId, data]) => {
+        const user = allUsers.find(u => u.id === parseInt(userId));
+        return {
+          name: user?.name?.split(' ')[0] || `User ${userId}`,
+          hours: Math.round(data.hours),
+          target: data.target
+        };
+      });
 
       res.json({ hoursDistribution });
     } catch (error) {

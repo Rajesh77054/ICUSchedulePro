@@ -39,11 +39,11 @@ export function registerRoutes(app: Express) {
       }
 
       // Handle math calculations
-      const mathRegex = /what\s+is\s+(\d+(?:\.\d+)?)\s*([\+\-\*\/])\s*(\d+(?:\.\d+)?)/i;
+      const mathRegex = /(?:what\s+is\s+)?(\d+(?:\.\d+)?)\s*([\+\-\*\/])\s*(\d+(?:\.\d+)?)/i;
       const mathMatch = lastMessage.content.match(mathRegex);
       if (mathMatch) {
         const [_, num1, operator, num2] = mathMatch;
-        let result;
+        let result = 0;
         switch (operator) {
           case '+': result = parseFloat(num1) + parseFloat(num2); break;
           case '-': result = parseFloat(num1) - parseFloat(num2); break;
@@ -51,7 +51,7 @@ export function registerRoutes(app: Express) {
           case '/': result = parseFloat(num1) / parseFloat(num2); break;
         }
         return res.json({
-          content: `The result is ${result}`
+          content: `The result is ${result.toFixed(2)}`
         });
       }
       

@@ -272,11 +272,17 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
             eventDrop={handleEventDrop}
             eventResize={handleEventResize}
             eventClick={handleEventClick}
-            eventContent={(eventInfo) => (
-              <div className="p-1 select-none truncate">
-                {eventInfo.event.title}
-              </div>
-            )}
+            eventContent={(eventInfo) => {
+              const shift = eventInfo.event.extendedProps.shift;
+              return (
+                <div className="p-1 select-none truncate">
+                  {eventInfo.event.title}
+                  {shift?.status === 'swapped' && (
+                    <span className="ml-1 text-xs text-blue-500">(Swapped)</span>
+                  )}
+                </div>
+              );
+            }}
             height="100%"
             selectable={true}
             select={handleSelect}

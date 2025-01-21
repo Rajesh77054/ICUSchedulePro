@@ -221,6 +221,30 @@ export function registerRoutes(app: Express) {
         }
       }
 
+      // Handle swap acceptance
+      if (userMessage.toLowerCase().includes('accept') && userMessage.toLowerCase().includes('swap')) {
+        const swapRequests = await db.select().from(schema.swapRequests)
+          .where(eq(schema.swapRequests.status, 'pending'));
+        
+        if (swapRequests.length > 0) {
+          const request = swapRequests[0];
+          await db.update(schema.swapRequests)
+            .set({ status: 'accepted', updatedAt: new Date() })
+            .where(eq(schema.swapRequests.id, request.id));
+          
+          await db.update(schema.shifts)
+            .set({ status: 'swapped' })
+            .where(eq(schema.shifts.id, request.shiftId));
+          
+          const requestor = users.find(u => u.id === request.requestorId);
+          const recipient = users.find(u => u.id === request.recipientId);
+          
+          return res.json({
+            content: `Shift swap request between ${requestor?.name} and ${recipient?.name} has been accepted.`
+          });
+        }
+      }
+
       // Handle swap status queries
       if (userMessage.includes('swap') || userMessage.includes('trade')) {
         // First get pending swap requests

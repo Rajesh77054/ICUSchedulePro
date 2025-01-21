@@ -29,57 +29,101 @@ export function registerRoutes(app: Express) {
       const { messages, pageContext } = req.body;
       const lastMessage = messages[messages.length - 1];
       const shifts = pageContext?.shifts || [];
+      const users = await db.select().from(schema.users);
+      
+      // Helper function to format dates consistently
+      const formatDate = (date: string) => new Date(date).toLocaleDateString();
+      
+      // Process natural language queries
+      const userMessage = lastMessage.content.toLowerCase();
+      
+      // Get user context
+      const currentUser = users.find(u => u.id === pageContext?.userId);
+      const userContext = {
+        shifts: shifts.filter(s => s.userId === currentUser?.id),
+        pendingSwaps: shifts.filter(s => s.status === 'pending_swap'),
+        allUsers: users,
+      };
 
-      // If this is the initial greeting, provide contextual suggestions
-      if (messages.length === 1) {
-        const suggestions = [];
-        if (shifts.length > 0) {
-          suggestions.push(
-            "- Ask about your current shifts",
-            "- Check for schedule conflicts",
-            "- View pending swap requests"
-          );
-        }
-        if (pageContext?.currentPage === 'dashboard') {
-          suggestions.push(
-            "- Create a new shift",
-            "- Request time off",
-            "- View upcoming schedule"
-          );
-        }
-
-        if (suggestions.length > 0) {
+      // Enhanced message processing
+      if (userMessage.includes('how many shifts')) {
+        const nameMatch = userMessage.match(/how many shifts does (\w+) have/i);
+        if (nameMatch) {
+          const name = nameMatch[1].toLowerCase();
+          const targetUser = users.find(u => u.name.toLowerCase().includes(name));
+          if (!targetUser) {
+            return res.json({ content: `I couldn't find a user named ${nameMatch[1]}.` });
+          }
+          const userShifts = shifts.filter(s => s.userId === targetUser.id);
           return res.json({
-            content: `Hello! I'm your schedule assistant. How can I help you manage your schedule today?\n\nYou can try:\n${suggestions.join('\n')}`
+            content: `${targetUser.name} currently has ${userShifts.length} shifts scheduled.`
           });
         }
       }
 
-      // Handle shift deletion
-      const deleteShiftRegex = /delete shift for (\w+):\s*(\d{1,2}\/\d{1,2}\/\d{4})\s*-\s*(\d{1,2}\/\d{1,2}\/\d{4})/i;
-      const deleteMatch = lastMessage.content.match(deleteShiftRegex);
-      if (deleteMatch) {
-        const [_, name, startDate, endDate] = deleteMatch;
-        const matchingShifts = shifts.filter(s => 
-          s.startDate === new Date(startDate).toISOString().split('T')[0] &&
-          s.endDate === new Date(endDate).toISOString().split('T')[0]
-        );
+      // Greet with context
+      if (messages.length === 1) {
+        const suggestions = [];
+        const userShifts = currentUser ? shifts.filter(s => s.userId === currentUser.id) : [];
+        
+        if (userShifts.length > 0) {
+          suggestions.push(
+            `- You have ${userShifts.length} upcoming shifts`,
+            "- View your schedule details",
+            "- Check for schedule conflicts"
+          );
+          
+          const pendingSwaps = userShifts.filter(s => s.status === 'pending_swap');
+          if (pendingSwaps.length > 0) {
+            suggestions.push(`- You have ${pendingSwaps.length} pending swap requests`);
+          }
+        }
 
-        if (matchingShifts.length > 0) {
-          try {
-            await db.delete(schema.shifts).where(eq(schema.shifts.id, matchingShifts[0].id));
+        return res.json({
+          content: `Hello${currentUser ? ` ${currentUser.name}` : ''}! I'm your schedule assistant. How can I help you today?\n\n${suggestions.length > 0 ? `Here's what I see:\n${suggestions.join('\n')}` : ''}`
+        });
+      }
+
+      // Enhanced shift management
+      if (userMessage.includes('delete shift') || userMessage.includes('remove shift')) {
+        const datePattern = /(\d{1,2}\/\d{1,2}\/\d{4})\s*-\s*(\d{1,2}\/\d{1,2}\/\d{4})/;
+        const namePattern = /(?:for|from)\s+(\w+):/i;
+        
+        const dateMatch = userMessage.match(datePattern);
+        const nameMatch = userMessage.match(namePattern);
+        
+        if (dateMatch && nameMatch) {
+          const [_, startDate, endDate] = dateMatch;
+          const name = nameMatch[1];
+          const targetUser = users.find(u => u.name.toLowerCase().includes(name.toLowerCase()));
+          
+          if (!targetUser) {
+            return res.json({ content: `I couldn't find a user named ${name}.` });
+          }
+
+          const matchingShifts = shifts.filter(s => 
+            s.userId === targetUser.id &&
+            s.startDate === new Date(startDate).toISOString().split('T')[0] &&
+            s.endDate === new Date(endDate).toISOString().split('T')[0]
+          );
+
+          if (matchingShifts.length > 0) {
+            try {
+              await db.delete(schema.shifts).where(eq(schema.shifts.id, matchingShifts[0].id));
+              const remainingShifts = shifts.filter(s => s.userId === targetUser.id).length - 1;
+              return res.json({
+                content: `I've deleted the shift for ${targetUser.name} from ${startDate} to ${endDate}. They now have ${remainingShifts} shifts scheduled.`
+              });
+            } catch (error) {
+              return res.json({
+                content: `I encountered an error while trying to delete the shift: ${error.message}`
+              });
+            }
+          } else {
             return res.json({
-              content: `Deleted shift for ${name} from ${startDate} to ${endDate}`
-            });
-          } catch (error) {
-            return res.json({
-              content: `Failed to delete shift: ${error.message}`
+              content: `I couldn't find a shift for ${targetUser.name} from ${startDate} to ${endDate}. Would you like to see their current schedule?`
             });
           }
-        } else {
-          return res.json({
-            content: `No matching shift found for ${name} from ${startDate} to ${endDate}`
-          });
         }
       }
 

@@ -38,13 +38,20 @@ export class OpenAIChatHandler {
   async handleChat(userMessage: string, context: ChatContext) {
     try {
       // Handle time-related queries directly
-      const timeRegex = /what (time|day|date) is it/i;
+      const timeRegex = /what (?:is )?(?:the )?(?:current )?(time|day|date)(?: and (time|day|date))?/i;
       if (timeRegex.test(userMessage)) {
         const now = new Date();
         const options = {
-          timeZone: 'America/Chicago',  // Set to Central Time
+          timeZone: 'America/Chicago',
           hour12: true
         };
+        
+        if (userMessage.toLowerCase().includes('date') && userMessage.toLowerCase().includes('time')) {
+          const date = now.toLocaleDateString('en-US', { timeZone: 'America/Chicago' });
+          const time = now.toLocaleTimeString('en-US', options);
+          return `It is ${date} at ${time} Central Time`;
+        }
+        
         const format = userMessage.toLowerCase().includes('time') ? 
           now.toLocaleTimeString('en-US', options) :
           now.toLocaleDateString('en-US', { timeZone: 'America/Chicago' });

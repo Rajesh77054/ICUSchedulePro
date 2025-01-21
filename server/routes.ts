@@ -1562,12 +1562,12 @@ based on the provided context. Always format dates in a clear, readable format.`
                 throw new Error('userName is required');
               }
 
-              // Find user by name with exact match
+              // Find user by name with exact match and get ID
               const user = await db.query.users.findFirst({
                 where: eq(users.name, args.userName)
               });
 
-              if (!user) {
+              if (!user || !user.id) {
                 return res.json({
                   role: 'assistant',
                   content: `User ${args.userName} not found. Please check the name and try again.`
@@ -1576,17 +1576,6 @@ based on the provided context. Always format dates in a clear, readable format.`
 
               // If we have confirmation, proceed with creating the shift
               try {
-                // Validate user exists before creating shift
-                const user = await db.query.users.findFirst({
-                  where: eq(users.name, args.userName)
-                });
-
-                if (!user) {
-                  return res.json({
-                    role: 'assistant',
-                    content: `Could not find user ${args.userName}`
-                  });
-                }
 
                 const startDate = new Date(args.startDate);
                 const endDate = new Date(args.endDate);

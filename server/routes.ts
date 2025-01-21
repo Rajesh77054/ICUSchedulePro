@@ -460,6 +460,11 @@ export function registerRoutes(app: Express) {
         content: "An error occurred while processing your request."
       });
     }
+      console.error('Error handling request:', error);
+      return res.json({
+        content: "An error occurred while processing your request."
+      });
+    }
   });
 
   return app;

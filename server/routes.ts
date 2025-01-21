@@ -357,6 +357,28 @@ export function registerRoutes(app: Express) {
         }
       }
 
+      // Handle shift queries
+      if (userMessage.toLowerCase().includes('who') && userMessage.toLowerCase().includes('scheduled')) {
+        const dateMatch = userMessage.match(/(\d{1,2}\/\d{1,2}\/\d{4})/);
+        if (dateMatch) {
+          const queryDate = new Date(dateMatch[1]);
+          const shift = shifts.find(s => 
+            new Date(s.startDate) <= queryDate && 
+            new Date(s.endDate) >= queryDate
+          );
+          
+          if (shift) {
+            const user = users.find(u => u.id === shift.userId);
+            return res.json({
+              content: `${user?.name} is scheduled for the shift from ${new Date(shift.startDate).toLocaleDateString()} to ${new Date(shift.endDate).toLocaleDateString()}.`
+            });
+          }
+          return res.json({
+            content: "No one is scheduled for that date."
+          });
+        }
+      }
+
       // Handle math calculations
       const mathRegex = /(?:what\s+is\s+)?(\d+(?:\.\d+)?)\s*([\+\-\*\/])\s*(\d+(?:\.\d+)?)/i;
       const mathMatch = lastMessage.content.match(mathRegex);

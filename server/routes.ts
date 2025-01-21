@@ -1,8 +1,7 @@
-
 import express, { Express } from 'express';
 import { db } from '../db';
 import { and, eq } from "drizzle-orm";
-import { shifts, users, swapRequests } from '../db/schema';
+import { shifts, users, swapRequests, userPreferences } from '../db/schema'; // Added import for userPreferences
 import { createInsertSchema } from 'drizzle-zod';
 import { z } from 'zod';
 
@@ -31,7 +30,7 @@ export function registerRoutes(app: Express) {
     try {
       const userMessage = req.body.message;
       const openaiHandler = req.app.get('openaiHandler');
-      
+
       if (!openaiHandler) {
         throw new Error('OpenAI handler not initialized');
       }
@@ -128,13 +127,13 @@ export function registerRoutes(app: Express) {
     try {
       const timeRange = req.query.timeRange || 'month';
       const allShifts = await db.select().from(shifts);
-      
+
       // Group shifts by user and calculate total hours
       const userHours = allShifts.reduce((acc, shift) => {
         const startDate = new Date(shift.startDate);
         const endDate = new Date(shift.endDate);
         const hours = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60);
-        
+
         if (!acc[shift.userId]) {
           acc[shift.userId] = { hours: 0, target: 160 }; // 160 hours per month (40 hours/week)
         }
@@ -147,15 +146,15 @@ export function registerRoutes(app: Express) {
         const user = allUsers.find(u => u.id === parseInt(userId));
         const now = new Date();
         const userShifts = allShifts.filter(s => s.userId === parseInt(userId));
-        
+
         const workedShifts = userShifts.filter(s => new Date(s.startDate) <= now);
         const upcomingShifts = userShifts.filter(s => new Date(s.startDate) > now);
-        
+
         const workedHours = workedShifts.reduce((acc, shift) => {
           const hours = (new Date(shift.endDate).getTime() - new Date(shift.startDate).getTime()) / (1000 * 60 * 60);
           return acc + hours;
         }, 0);
-        
+
         const upcomingHours = upcomingShifts.reduce((acc, shift) => {
           const hours = (new Date(shift.endDate).getTime() - new Date(shift.startDate).getTime()) / (1000 * 60 * 60);
           return acc + hours;
@@ -163,7 +162,7 @@ export function registerRoutes(app: Express) {
 
         const workedDays = Math.ceil(workedHours / 8);
         const upcomingDays = Math.ceil(upcomingHours / 8);
-        
+
         return {
           name: user?.name?.split(' ')[0] || `User ${userId}`,
           workedHours: Math.round(workedHours),
@@ -189,7 +188,7 @@ export function registerRoutes(app: Express) {
     try {
       const timeRange = req.query.timeRange || 'month';
       const allShifts = await db.select().from(shifts);
-      
+
       const fatigueMetrics = allShifts.map(shift => ({
         date: shift.startDate,
         consecutiveShifts: 1, // Example metric
@@ -207,7 +206,7 @@ export function registerRoutes(app: Express) {
     try {
       const timeRange = req.query.timeRange || 'month';
       const allShifts = await db.select().from(shifts);
-      
+
       const fairnessMetrics = allShifts.reduce((acc, shift) => {
         const existingMetric = acc.find(m => m.name === `User ${shift.userId}`);
         if (existingMetric) {
@@ -222,6 +221,37 @@ export function registerRoutes(app: Express) {
     } catch (error) {
       console.error('Error fetching distribution data:', error);
       res.status(500).json({ error: 'Failed to fetch distribution data' });
+    }
+  });
+
+  app.get('/api/user-preferences/:userId', async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const userPreferences = await db.query.userPreferences.findFirst({
+        where: (preferences, { eq }) => eq(preferences.userId, userId)
+      });
+      res.json(userPreferences || {});
+    } catch (error) {
+      console.error('Error fetching preferences:', error);
+      res.status(500).json({ error: 'Failed to fetch preferences' });
+    }
+  });
+
+  app.patch('/api/user-preferences/:userId', async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const updates = req.body;
+
+      const updated = await db
+        .update(userPreferences)
+        .set(updates)
+        .where(eq(userPreferences.userId, userId))
+        .returning();
+
+      res.json(updated[0]);
+    } catch (error) {
+      console.error('Error updating preferences:', error);
+      res.status(500).json({ error: 'Failed to update preferences' });
     }
   });
 

@@ -1561,38 +1561,51 @@ based on the provided context. Always format dates in a clear, readable format.`
                 });
               }
 
-              try {
-                // Create new shift with explicit user ID
-                const [newShift] = await db.insert(shifts)
-                  .values({
-                    userId: user.id,
-                    startDate: new Date(args.startDate),
-                    endDate: new Date(args.endDate),
-                    status: 'confirmed',
-                    source: 'ai_assistant'
-                  })
-                  .returning();
+              // If user confirmed, create the shift
+              if (messages.some(m => 
+                m.role === 'user' && 
+                m.content.toLowerCase() === 'yes' &&
+                messages[messages.length - 2]?.content?.includes(user.name)
+              )) {
+                try {
+                  const startDate = new Date(args.startDate);
+                  const endDate = new Date(args.endDate);
+                  
+                  const [newShift] = await db.insert(shifts)
+                    .values({
+                      userId: user.id,
+                      startDate: startDate.toISOString(),
+                      endDate: endDate.toISOString(),
+                      status: 'confirmed',
+                      source: 'ai_assistant'
+                    })
+                    .returning();
 
-                if (!newShift) {
-                  throw new Error('Failed to create shift');
-                }
-              } finally {
-                const [fuzzyMatch] = await db
-                  .select({
-                    id: users.id,
-                    name: users.name,
-                    title: users.title,
-                    userType: users.userType
-                  })
-                  .from(users)
-                  .where(sql`LOWER(name) LIKE LOWER(${`%${args.userName}%`})`);
+                  if (!newShift) {
+                    throw new Error('Failed to create shift');
+                  }
 
-                if (!fuzzyMatch) {
-                  throw new Error(`User ${args.userName} not found`);
+                  broadcast(notify.shiftCreated(newShift, {
+                    name: user.name,
+                    title: user.title
+                  }));
+
+                  return res.json({
+                    role: 'assistant',
+                    content: `Successfully created shift for ${user.name} from ${startDate.toLocaleDateString()} to ${endDate.toLocaleDateString()}`
+                  });
+                } catch (error) {
+                  console.error('Error creating shift:', error);
+                  return res.json({
+                    role: 'assistant',
+                    content: `Failed to create shift: ${error.message}`
+                  });
                 }
+              } else {
+                // Ask for confirmation
                 return res.json({
                   role: 'assistant',
-                  content: `Did you mean "${fuzzyMatch.name}"? Please confirm the exact name.`
+                  content: `I found ${user.name}. Please confirm by responding with 'yes' if this is correct.`
                 });
               }
 

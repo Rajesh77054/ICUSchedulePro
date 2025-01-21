@@ -427,11 +427,11 @@ export function registerRoutes(app: Express) {
             });
           }
         }
-      } else {
-        return res.json({
-          content: "There are no pending shift swap requests."
-        });
       }
+
+      return res.json({
+        content: "There are no pending shift swap requests."
+      });
 
       // Handle schedule conflict queries
       if (userMessage.includes('conflict') || userMessage.includes('overlap')) {

@@ -6,9 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import App from './App';
 import "./index.css";
 
-const rootElement = document.getElementById("root");
-if (!rootElement) throw new Error("Root element not found");
-createRoot(rootElement).render(
+createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <App />

@@ -60,12 +60,7 @@ export function ScheduleManagement() {
 
   return (
     <div className="container mx-auto p-4 md:py-6 relative">
-      <ChatDialog 
-        currentPage="schedule" 
-        pageContext={{
-          shifts: shifts || [],
-        }} 
-      />
+      
       <Card>
         <CardHeader>
           <CardTitle>Schedule Management</CardTitle>

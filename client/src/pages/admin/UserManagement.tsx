@@ -145,7 +145,7 @@ export function UserManagement() {
 
   return (
     <div className="container mx-auto p-4 md:py-6 relative">
-      <ChatDialog currentPage="users" />
+      
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">

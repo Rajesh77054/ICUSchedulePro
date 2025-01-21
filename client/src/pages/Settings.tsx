@@ -4,7 +4,7 @@ import { ChatDialog } from "@/components/scheduler/ChatDialog";
 export function Settings() {
   return (
     <div className="container mx-auto p-4 md:py-6 relative">
-      <ChatDialog currentPage="settings" />
+      
       <h1 className="text-2xl md:text-3xl font-bold mb-6">Settings</h1>
 
       <Card>

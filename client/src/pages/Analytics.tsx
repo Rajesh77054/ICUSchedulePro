@@ -99,7 +99,7 @@ export function Analytics() {
 
   return (
     <div className="space-y-6 relative">
-      <ChatDialog currentPage="analytics" />
+      
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">Workload Analytics</h1>
         <Select value={timeRange} onValueChange={setTimeRange}>

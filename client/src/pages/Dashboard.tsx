@@ -42,10 +42,15 @@ export function Dashboard() {
     );
   }
 
-  if (hasError) {
+  if (shiftsError || usersError) {
+    console.error('Shifts error:', shiftsError);
+    console.error('Users error:', usersError);
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="text-destructive">Error loading schedule data. Please try again later.</div>
+        <div className="text-destructive">
+          {shiftsError ? 'Error loading shifts: ' + shiftsError.message : ''}
+          {usersError ? 'Error loading users: ' + usersError.message : ''}
+        </div>
       </div>
     );
   }

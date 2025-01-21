@@ -386,7 +386,8 @@ export function registerRoutes(app: Express) {
               content: `${requestor.name} has requested to swap their shift (${new Date(shift.startDate).toLocaleDateString()} to ${new Date(shift.endDate).toLocaleDateString()}) with ${recipient.name}. The request is currently ${swap.status}.`
             });
           }
-        } else if (userMessage.toLowerCase().includes('request') && userMessage.toLowerCase().includes('swap')) {
+        }
+      } else if (userMessage.toLowerCase().includes('request') && userMessage.toLowerCase().includes('swap')) {
         const nameMatch = userMessage.match(/with\s+(\w+)/i);
         if (nameMatch) {
           const recipientName = nameMatch[1];

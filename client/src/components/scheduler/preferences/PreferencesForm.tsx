@@ -1,4 +1,3 @@
-
 import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -33,9 +32,18 @@ const preferencesSchema = z.object({
 
 type PreferencesFormProps = {
   userId: number;
+  isAdmin?: boolean;
+  adminOverrides?: {
+    preferredShiftLength?: boolean;
+    maxShiftsPerWeek?: boolean;
+    minDaysBetweenShifts?: boolean;
+    preferredDaysOfWeek?: boolean;
+    avoidedDaysOfWeek?: boolean;
+    preferredHolidays?: boolean;
+  };
 };
 
-export function PreferencesForm({ userId }: PreferencesFormProps) {
+export function PreferencesForm({ userId, isAdmin, adminOverrides }: PreferencesFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 

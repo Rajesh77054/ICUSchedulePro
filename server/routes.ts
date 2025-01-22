@@ -247,6 +247,7 @@ export function registerRoutes(app: Express) {
 
       let result;
       const values = {
+        id: existing[0]?.id, // Preserve existing ID
         userId,
         preferredShiftLength: Number(updates.preferredShiftLength) || 7,
         maxShiftsPerWeek: Number(updates.maxShiftsPerWeek) || 1,

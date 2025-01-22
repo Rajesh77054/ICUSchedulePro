@@ -53,7 +53,7 @@ export function PreferencesForm({ userId }: PreferencesFormProps) {
         body: JSON.stringify({
           ...values,
           userId,
-          id: preferences?.id,
+          id: preferences?.id, // Include existing ID in update
         }),
       });
       if (!res.ok) throw new Error("Failed to update preferences");

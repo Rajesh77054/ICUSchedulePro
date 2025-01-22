@@ -1,5 +1,4 @@
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 
@@ -21,30 +20,23 @@ export function HolidayPreferences({
   onHolidayChange: (holidays: string[]) => void 
 }) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Holiday Preferences</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="grid gap-4">
-          {HOLIDAYS.map((holiday) => (
-            <div key={holiday.id} className="flex items-center space-x-2">
-              <Checkbox
-                id={holiday.id}
-                checked={selectedHolidays.includes(holiday.id)}
-                onCheckedChange={(checked) => {
-                  if (checked) {
-                    onHolidayChange([...selectedHolidays, holiday.id])
-                  } else {
-                    onHolidayChange(selectedHolidays.filter(id => id !== holiday.id))
-                  }
-                }}
-              />
-              <Label htmlFor={holiday.id}>{holiday.label}</Label>
-            </div>
-          ))}
+    <div className="grid gap-4">
+      {HOLIDAYS.map((holiday) => (
+        <div key={holiday.id} className="flex items-center space-x-2">
+          <Checkbox
+            id={holiday.id}
+            checked={selectedHolidays.includes(holiday.id)}
+            onCheckedChange={(checked) => {
+              if (checked) {
+                onHolidayChange([...selectedHolidays, holiday.id])
+              } else {
+                onHolidayChange(selectedHolidays.filter(id => id !== holiday.id))
+              }
+            }}
+          />
+          <Label htmlFor={holiday.id}>{holiday.label}</Label>
         </div>
-      </CardContent>
-    </Card>
+      ))}
+    </div>
   )
 }

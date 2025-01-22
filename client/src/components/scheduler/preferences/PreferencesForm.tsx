@@ -74,9 +74,10 @@ export function PreferencesForm({ userId, onSuccess }: PreferencesFormProps) {
 
   const { mutate: updatePreferences, isPending: isUpdating } = useMutation({
     mutationFn: async (data: Partial<UserPreferences>) => {
+      const existingPrefs = await fetch(`/api/user-preferences/${userId}`).then(r => r.json());
       const payload = {
         ...data,
-        id: preferences?.id, // Preserve existing ID
+        id: existingPrefs?.id,
         userId,
         preferredShiftLength: parseInt(data.preferredShiftLength?.toString() || "7"),
         maxShiftsPerWeek: parseInt(data.maxShiftsPerWeek?.toString() || "1"),

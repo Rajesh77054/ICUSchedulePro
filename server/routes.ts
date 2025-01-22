@@ -262,10 +262,14 @@ export function registerRoutes(app: Express) {
           .update(userPreferences)
           .set({
             ...values,
+            id: existing[0].id,
             updatedAt: new Date()
           })
           .where(eq(userPreferences.id, existing[0].id))
           .returning();
+        
+        // Ensure we return the existing ID
+        result = [{ ...result[0], id: existing[0].id }];
       } else {
         // Create new preferences
         result = await db

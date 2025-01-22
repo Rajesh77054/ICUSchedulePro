@@ -1,26 +1,24 @@
+
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
-import { Separator } from "@/components/ui/separator";
-
-const DAYS_OF_WEEK = [
-  { label: "Sunday", value: 0 },
-  { label: "Monday", value: 1 },
-  { label: "Tuesday", value: 2 },
-  { label: "Wednesday", value: 3 },
-  { label: "Thursday", value: 4 },
-  { label: "Friday", value: 5 },
-  { label: "Saturday", value: 6 },
-];
+import { useState, useEffect } from "react";
 
 export function ShiftPreferences({ userId }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [formData, setFormData] = useState({
+    targetDays: 0,
+    toleranceDays: 0,
+    maxConsecutiveWeeks: 0,
+    preferredShiftLength: 0,
+    maxShiftsPerWeek: 0,
+    minDaysBetweenShifts: 0
+  });
 
   const { data: preferences, isLoading } = useQuery({
     queryKey: ["/api/user-preferences", userId],
@@ -30,6 +28,19 @@ export function ShiftPreferences({ userId }) {
       return res.json();
     },
   });
+
+  useEffect(() => {
+    if (preferences) {
+      setFormData({
+        targetDays: preferences.targetDays || 0,
+        toleranceDays: preferences.toleranceDays || 0,
+        maxConsecutiveWeeks: preferences.maxConsecutiveWeeks || 0,
+        preferredShiftLength: preferences.preferredShiftLength || 0,
+        maxShiftsPerWeek: preferences.maxShiftsPerWeek || 0,
+        minDaysBetweenShifts: preferences.minDaysBetweenShifts || 0
+      });
+    }
+  }, [preferences]);
 
   const { mutate: updatePreferences, isPending: isUpdating } = useMutation({
     mutationFn: async (data) => {
@@ -54,18 +65,17 @@ export function ShiftPreferences({ userId }) {
     },
   });
 
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: parseInt(value) || 0
+    }));
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
-    const formData = new FormData(e.target);
-    const data = {
-      targetDays: parseInt(formData.get("targetDays")),
-      toleranceDays: parseInt(formData.get("toleranceDays")),
-      maxConsecutiveWeeks: parseInt(formData.get("maxConsecutiveWeeks")),
-      preferredShiftLength: parseInt(formData.get("preferredShiftLength")),
-      maxShiftsPerWeek: parseInt(formData.get("maxShiftsPerWeek")),
-      minDaysBetweenShifts: parseInt(formData.get("minDaysBetweenShifts")),
-    };
-    updatePreferences(data);
+    updatePreferences(formData);
   };
 
   if (isLoading) {
@@ -91,7 +101,8 @@ export function ShiftPreferences({ userId }) {
                 id="targetDays"
                 name="targetDays"
                 type="number"
-                defaultValue={preferences?.targetDays}
+                value={formData.targetDays}
+                onChange={handleInputChange}
                 min={1}
                 max={90}
               />
@@ -102,7 +113,8 @@ export function ShiftPreferences({ userId }) {
                 id="toleranceDays"
                 name="toleranceDays"
                 type="number"
-                defaultValue={preferences?.toleranceDays}
+                value={formData.toleranceDays}
+                onChange={handleInputChange}
                 min={0}
                 max={14}
               />
@@ -124,7 +136,8 @@ export function ShiftPreferences({ userId }) {
                 id="maxConsecutiveWeeks"
                 name="maxConsecutiveWeeks"
                 type="number"
-                defaultValue={preferences?.maxConsecutiveWeeks}
+                value={formData.maxConsecutiveWeeks}
+                onChange={handleInputChange}
                 min={1}
                 max={52}
               />
@@ -135,7 +148,8 @@ export function ShiftPreferences({ userId }) {
                 id="maxShiftsPerWeek"
                 name="maxShiftsPerWeek"
                 type="number"
-                defaultValue={preferences?.maxShiftsPerWeek}
+                value={formData.maxShiftsPerWeek}
+                onChange={handleInputChange}
                 min={1}
                 max={7}
               />

@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import {
@@ -8,13 +9,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
 
-// Rest of the file remains unchanged
 const DAYS_OF_WEEK = [
   { label: "Sunday", value: "0" },
   { label: "Monday", value: "1" },
@@ -25,34 +26,21 @@ const DAYS_OF_WEEK = [
   { label: "Saturday", value: "6" },
 ];
 
-interface UserPreference {
-  id: number;
-  userId: number;
-  preferredShiftLength: number;
-  preferredDaysOfWeek: number[];
-  preferredCoworkers: number[];
-  avoidedDaysOfWeek: number[];
-  maxShiftsPerWeek: number;
-  minDaysBetweenShifts: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface ShiftPreferencesProps {
-  userId: number;
-}
-
-export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
+export function ShiftPreferences({ userId }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: preferences, isLoading } = useQuery<UserPreference>({
+  const { data: preferences, isLoading } = useQuery({
     queryKey: ["/api/user-preferences", userId],
-    enabled: !!userId,
+    queryFn: async () => {
+      const res = await fetch(`/api/user-preferences/${userId}`);
+      if (!res.ok) throw new Error("Failed to fetch preferences");
+      return res.json();
+    },
   });
 
   const { mutate: updatePreferences, isPending: isUpdating } = useMutation({
-    mutationFn: async (data: Partial<UserPreference>) => {
+    mutationFn: async (data) => {
       const res = await fetch(`/api/user-preferences/${userId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -65,10 +53,10 @@ export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
       queryClient.invalidateQueries({ queryKey: ["/api/user-preferences"] });
       toast({
         title: "Success",
-        description: "Shift preferences updated successfully",
+        description: "Preferences updated successfully",
       });
     },
-    onError: (error: Error) => {
+    onError: (error) => {
       toast({
         title: "Error",
         description: error.message,
@@ -77,11 +65,10 @@ export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
     },
   });
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
-    const form = e.currentTarget;
-    const formData = new FormData(form);
-
+    const formData = new FormData(e.target);
+    
     const preferredDaysOfWeek = DAYS_OF_WEEK
       .filter(day => formData.get(`preferred_${day.value}`))
       .map(day => parseInt(day.value));
@@ -91,9 +78,12 @@ export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
       .map(day => parseInt(day.value));
 
     const data = {
-      preferredShiftLength: parseInt(formData.get("preferredShiftLength") as string),
-      maxShiftsPerWeek: parseInt(formData.get("maxShiftsPerWeek") as string),
-      minDaysBetweenShifts: parseInt(formData.get("minDaysBetweenShifts") as string),
+      targetDays: parseInt(formData.get("targetDays")),
+      toleranceDays: parseInt(formData.get("toleranceDays")),
+      maxConsecutiveWeeks: parseInt(formData.get("maxConsecutiveWeeks")),
+      preferredShiftLength: parseInt(formData.get("preferredShiftLength")),
+      maxShiftsPerWeek: parseInt(formData.get("maxShiftsPerWeek")),
+      minDaysBetweenShifts: parseInt(formData.get("minDaysBetweenShifts")),
       preferredDaysOfWeek,
       avoidedDaysOfWeek,
     };
@@ -104,97 +94,155 @@ export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-8">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
-  if (!preferences) {
-    return (
-      <div className="text-center py-8 text-muted-foreground">
-        No preferences found for this user
+        <Loader2 className="h-6 w-6 animate-spin" />
       </div>
     );
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="space-y-4">
-        <div>
-          <Label htmlFor="preferredShiftLength">Preferred Shift Length (days)</Label>
-          <Input
-            id="preferredShiftLength"
-            name="preferredShiftLength"
-            type="number"
-            defaultValue={preferences.preferredShiftLength}
-            min={1}
-            max={14}
-            required
-          />
-        </div>
-
-        <div>
-          <Label htmlFor="maxShiftsPerWeek">Maximum Shifts per Week</Label>
-          <Input
-            id="maxShiftsPerWeek"
-            name="maxShiftsPerWeek"
-            type="number"
-            defaultValue={preferences.maxShiftsPerWeek}
-            min={1}
-            max={7}
-            required
-          />
-        </div>
-
-        <div>
-          <Label htmlFor="minDaysBetweenShifts">Minimum Days Between Shifts</Label>
-          <Input
-            id="minDaysBetweenShifts"
-            name="minDaysBetweenShifts"
-            type="number"
-            defaultValue={preferences.minDaysBetweenShifts}
-            min={0}
-            max={90}
-            required
-          />
-        </div>
-
-        <div>
-          <Label className="mb-2 block">Preferred Days of Week</Label>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            {DAYS_OF_WEEK.map((day) => (
-              <div key={day.value} className="flex items-center space-x-2">
-                <Checkbox
-                  id={`preferred_${day.value}`}
-                  name={`preferred_${day.value}`}
-                  defaultChecked={preferences.preferredDaysOfWeek.includes(
-                    parseInt(day.value)
-                  )}
-                />
-                <Label htmlFor={`preferred_${day.value}`}>{day.label}</Label>
-              </div>
-            ))}
+    <form onSubmit={handleSubmit} className="space-y-8">
+      <Card>
+        <CardHeader>
+          <CardTitle>Schedule Duration</CardTitle>
+          <CardDescription>Configure your preferred shift duration settings</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <Label htmlFor="targetDays">Target Days</Label>
+              <Input
+                id="targetDays"
+                name="targetDays"
+                type="number"
+                defaultValue={preferences?.targetDays}
+                min={1}
+                max={90}
+              />
+            </div>
+            <div>
+              <Label htmlFor="preferredShiftLength">Preferred Shift Length (days)</Label>
+              <Input
+                id="preferredShiftLength"
+                name="preferredShiftLength"
+                type="number"
+                defaultValue={preferences?.preferredShiftLength}
+                min={1}
+                max={14}
+              />
+            </div>
           </div>
-        </div>
+        </CardContent>
+      </Card>
 
-        <div>
-          <Label className="mb-2 block">Days to Avoid</Label>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            {DAYS_OF_WEEK.map((day) => (
-              <div key={day.value} className="flex items-center space-x-2">
-                <Checkbox
-                  id={`avoided_${day.value}`}
-                  name={`avoided_${day.value}`}
-                  defaultChecked={preferences.avoidedDaysOfWeek.includes(
-                    parseInt(day.value)
-                  )}
-                />
-                <Label htmlFor={`avoided_${day.value}`}>{day.label}</Label>
-              </div>
-            ))}
+      <Card>
+        <CardHeader>
+          <CardTitle>Schedule Constraints</CardTitle>
+          <CardDescription>Set your scheduling limits and preferences</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <Label htmlFor="maxConsecutiveWeeks">Maximum Consecutive Weeks</Label>
+              <Input
+                id="maxConsecutiveWeeks"
+                name="maxConsecutiveWeeks"
+                type="number"
+                defaultValue={preferences?.maxConsecutiveWeeks}
+                min={1}
+                max={52}
+              />
+            </div>
+            <div>
+              <Label htmlFor="maxShiftsPerWeek">Maximum Shifts per Week</Label>
+              <Input
+                id="maxShiftsPerWeek"
+                name="maxShiftsPerWeek"
+                type="number"
+                defaultValue={preferences?.maxShiftsPerWeek}
+                min={1}
+                max={7}
+              />
+            </div>
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Break Rules</CardTitle>
+          <CardDescription>Configure your break preferences</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <Label htmlFor="minDaysBetweenShifts">Minimum Days Between Shifts</Label>
+              <Input
+                id="minDaysBetweenShifts"
+                name="minDaysBetweenShifts"
+                type="number"
+                defaultValue={preferences?.minDaysBetweenShifts}
+                min={0}
+                max={90}
+              />
+            </div>
+            <div>
+              <Label htmlFor="toleranceDays">Tolerance Days</Label>
+              <Input
+                id="toleranceDays"
+                name="toleranceDays"
+                type="number"
+                defaultValue={preferences?.toleranceDays}
+                min={0}
+                max={14}
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Day Preferences</CardTitle>
+          <CardDescription>Select your preferred and avoided days of the week</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-6">
+            <div>
+              <Label className="mb-2 block">Preferred Days</Label>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {DAYS_OF_WEEK.map((day) => (
+                  <div key={`pref_${day.value}`} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`preferred_${day.value}`}
+                      name={`preferred_${day.value}`}
+                      defaultChecked={preferences?.preferredDaysOfWeek?.includes(parseInt(day.value))}
+                    />
+                    <Label htmlFor={`preferred_${day.value}`}>{day.label}</Label>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            <Separator />
+            
+            <div>
+              <Label className="mb-2 block">Days to Avoid</Label>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {DAYS_OF_WEEK.map((day) => (
+                  <div key={`avoid_${day.value}`} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`avoided_${day.value}`}
+                      name={`avoided_${day.value}`}
+                      defaultChecked={preferences?.avoidedDaysOfWeek?.includes(parseInt(day.value))}
+                    />
+                    <Label htmlFor={`avoided_${day.value}`}>{day.label}</Label>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <Button type="submit" className="w-full" disabled={isUpdating}>
         {isUpdating ? (

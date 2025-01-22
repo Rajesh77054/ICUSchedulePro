@@ -35,20 +35,11 @@ export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
     holidayPreferences: [] as string[]
   });
 
-  const { data: preferences, isLoading: preferencesLoading } = useQuery({
+  const { data: preferences, isLoading } = useQuery({
     queryKey: ["/api/user-preferences", userId],
     queryFn: async () => {
       const res = await fetch(`/api/user-preferences/${userId}`);
       if (!res.ok) throw new Error("Failed to fetch preferences");
-      return res.json();
-    },
-  });
-
-  const { data: holidayAssignments, isLoading: holidaysLoading } = useQuery({
-    queryKey: ["/api/holiday-assignments", userId],
-    queryFn: async () => {
-      const res = await fetch(`/api/holiday-assignments/${userId}`);
-      if (!res.ok) throw new Error("Failed to fetch holiday assignments");
       return res.json();
     },
   });
@@ -93,7 +84,7 @@ export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
     updatePreferences(formData);
   };
 
-  if (preferencesLoading || holidaysLoading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center py-8">
         <Loader2 className="h-6 w-6 animate-spin" />
@@ -102,10 +93,10 @@ export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
   }
 
   return (
-    <div className="h-full flex flex-col">
-      <ScrollArea className="flex-1 px-4">
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div className="flex flex-col h-full max-h-[calc(100vh-8rem)]">
+      <ScrollArea className="flex-grow px-4">
+        <form onSubmit={handleSubmit} className="space-y-6 pb-20">
+          <div className="grid grid-cols-1 gap-6">
             <Card>
               <CardHeader>
                 <CardTitle>Shift Settings</CardTitle>
@@ -116,7 +107,6 @@ export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
                   <Label htmlFor="preferredShiftLength">Preferred Shift Length (days)</Label>
                   <Input
                     id="preferredShiftLength"
-                    name="preferredShiftLength"
                     type="number"
                     value={formData.preferredShiftLength}
                     onChange={(e) => setFormData(prev => ({
@@ -127,11 +117,11 @@ export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
                     max={14}
                   />
                 </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="maxShiftsPerWeek">Maximum Shifts per Week</Label>
                   <Input
                     id="maxShiftsPerWeek"
-                    name="maxShiftsPerWeek"
                     type="number"
                     value={formData.maxShiftsPerWeek}
                     onChange={(e) => setFormData(prev => ({
@@ -142,11 +132,11 @@ export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
                     max={7}
                   />
                 </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="minDaysBetweenShifts">Minimum Days Between Shifts</Label>
                   <Input
                     id="minDaysBetweenShifts"
-                    name="minDaysBetweenShifts"
                     type="number"
                     value={formData.minDaysBetweenShifts}
                     onChange={(e) => setFormData(prev => ({
@@ -195,21 +185,21 @@ export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
               </CardContent>
             </Card>
           </div>
-
-          <div className="sticky bottom-0 bg-background pt-4 pb-6">
-            <Button type="submit" className="w-full" disabled={isUpdating}>
-              {isUpdating ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                "Save Preferences"
-              )}
-            </Button>
-          </div>
         </form>
       </ScrollArea>
+      
+      <div className="sticky bottom-0 bg-background p-4 border-t">
+        <Button type="submit" className="w-full" disabled={isUpdating} onClick={handleSubmit}>
+          {isUpdating ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Saving...
+            </>
+          ) : (
+            "Save Preferences"
+          )}
+        </Button>
+      </div>
     </div>
   );
 }

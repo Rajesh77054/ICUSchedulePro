@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,7 +7,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
-import { useState } from "react";
 
 const DAYS_OF_WEEK = [
   { label: "Sunday", value: 0 },
@@ -23,34 +21,13 @@ const DAYS_OF_WEEK = [
 export function ShiftPreferences({ userId }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [formData, setFormData] = useState({
-    targetDays: "",
-    toleranceDays: "",
-    maxConsecutiveWeeks: "",
-    preferredShiftLength: "",
-    maxShiftsPerWeek: "",
-    minDaysBetweenShifts: "",
-    preferredDaysOfWeek: [],
-    avoidedDaysOfWeek: []
-  });
 
   const { data: preferences, isLoading } = useQuery({
     queryKey: ["/api/user-preferences", userId],
     queryFn: async () => {
       const res = await fetch(`/api/user-preferences/${userId}`);
       if (!res.ok) throw new Error("Failed to fetch preferences");
-      const data = await res.json();
-      setFormData({
-        targetDays: data.targetDays || "",
-        toleranceDays: data.toleranceDays || "",
-        maxConsecutiveWeeks: data.maxConsecutiveWeeks || "",
-        preferredShiftLength: data.preferredShiftLength || "",
-        maxShiftsPerWeek: data.maxShiftsPerWeek || "",
-        minDaysBetweenShifts: data.minDaysBetweenShifts || "",
-        preferredDaysOfWeek: data.preferredDaysOfWeek || [],
-        avoidedDaysOfWeek: data.avoidedDaysOfWeek || []
-      });
-      return data;
+      return res.json();
     },
   });
 
@@ -77,22 +54,18 @@ export function ShiftPreferences({ userId }) {
     },
   });
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
   const handleSubmit = (e) => {
     e.preventDefault();
-    updatePreferences({
-      ...formData,
-      targetDays: parseInt(formData.targetDays),
-      toleranceDays: parseInt(formData.toleranceDays),
-      maxConsecutiveWeeks: parseInt(formData.maxConsecutiveWeeks),
-      preferredShiftLength: parseInt(formData.preferredShiftLength),
-      maxShiftsPerWeek: parseInt(formData.maxShiftsPerWeek),
-      minDaysBetweenShifts: parseInt(formData.minDaysBetweenShifts),
-    });
+    const formData = new FormData(e.target);
+    const data = {
+      targetDays: parseInt(formData.get("targetDays")),
+      toleranceDays: parseInt(formData.get("toleranceDays")),
+      maxConsecutiveWeeks: parseInt(formData.get("maxConsecutiveWeeks")),
+      preferredShiftLength: parseInt(formData.get("preferredShiftLength")),
+      maxShiftsPerWeek: parseInt(formData.get("maxShiftsPerWeek")),
+      minDaysBetweenShifts: parseInt(formData.get("minDaysBetweenShifts")),
+    };
+    updatePreferences(data);
   };
 
   if (isLoading) {
@@ -108,7 +81,7 @@ export function ShiftPreferences({ userId }) {
       <Card>
         <CardHeader>
           <CardTitle>Schedule Duration</CardTitle>
-          <CardDescription>Configure your scheduling period and shift length preferences</CardDescription>
+          <CardDescription>Configure your scheduling period preferences</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
@@ -118,8 +91,7 @@ export function ShiftPreferences({ userId }) {
                 id="targetDays"
                 name="targetDays"
                 type="number"
-                value={formData.targetDays}
-                onChange={handleInputChange}
+                defaultValue={preferences?.targetDays}
                 min={1}
                 max={90}
               />
@@ -130,8 +102,7 @@ export function ShiftPreferences({ userId }) {
                 id="toleranceDays"
                 name="toleranceDays"
                 type="number"
-                value={formData.toleranceDays}
-                onChange={handleInputChange}
+                defaultValue={preferences?.toleranceDays}
                 min={0}
                 max={14}
               />
@@ -153,8 +124,7 @@ export function ShiftPreferences({ userId }) {
                 id="maxConsecutiveWeeks"
                 name="maxConsecutiveWeeks"
                 type="number"
-                value={formData.maxConsecutiveWeeks}
-                onChange={handleInputChange}
+                defaultValue={preferences?.maxConsecutiveWeeks}
                 min={1}
                 max={52}
               />
@@ -165,45 +135,9 @@ export function ShiftPreferences({ userId }) {
                 id="maxShiftsPerWeek"
                 name="maxShiftsPerWeek"
                 type="number"
-                value={formData.maxShiftsPerWeek}
-                onChange={handleInputChange}
+                defaultValue={preferences?.maxShiftsPerWeek}
                 min={1}
                 max={7}
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Shift Preferences</CardTitle>
-          <CardDescription>Configure your shift length and spacing preferences</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <Label htmlFor="preferredShiftLength">Preferred Shift Length</Label>
-              <Input
-                id="preferredShiftLength"
-                name="preferredShiftLength"
-                type="number"
-                value={formData.preferredShiftLength}
-                onChange={handleInputChange}
-                min={1}
-                max={14}
-              />
-            </div>
-            <div>
-              <Label htmlFor="minDaysBetweenShifts">Minimum Days Between Shifts</Label>
-              <Input
-                id="minDaysBetweenShifts"
-                name="minDaysBetweenShifts"
-                type="number"
-                value={formData.minDaysBetweenShifts}
-                onChange={handleInputChange}
-                min={0}
-                max={90}
               />
             </div>
           </div>

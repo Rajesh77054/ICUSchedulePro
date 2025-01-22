@@ -273,9 +273,6 @@ export function registerRoutes(app: Express) {
             createdAt: userPreferences.createdAt,
             updatedAt: userPreferences.updatedAt
           });
-          .set(values)
-          .where(eq(userPreferences.userId, userId))
-          .returning();
       } else {
         // Create new preferences
         result = await db

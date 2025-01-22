@@ -103,7 +103,8 @@ export function PreferencesForm({ userId }: PreferencesFormProps) {
       enableReinitialize
     >
       {({ values, setFieldValue }) => (
-        <Form className="space-y-6">
+        <>
+          <Form className="space-y-6">
           <div className="space-y-4">
             <div>
               <Label>Preferred Shift Length (days)</Label>
@@ -195,10 +196,10 @@ export function PreferencesForm({ userId }: PreferencesFormProps) {
             )}
           </Button>
         </Form>
-
-        <div className="mt-8">
-          <HolidayPreferences userId={userId} />
-        </div>
+          <div className="mt-8">
+            <HolidayPreferences userId={userId} />
+          </div>
+        </>
       )}
     </Formik>
   );

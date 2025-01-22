@@ -37,6 +37,11 @@ export function PreferencesForm({ userId, isAdmin }) {
     queryFn: async () => {
       const res = await fetch(`/api/user-preferences/${userId}`);
       if (!res.ok) throw new Error("Failed to fetch preferences");
+      return res.json();
+    },
+    queryFn: async () => {
+      const res = await fetch(`/api/user-preferences/${userId}`);
+      if (!res.ok) throw new Error("Failed to fetch preferences");
       const data = await res.json();
       console.log("Fetched preferences:", data);
       return data;

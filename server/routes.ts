@@ -243,21 +243,19 @@ export function registerRoutes(app: Express) {
       const updates = req.body;
 
       // First check if preferences exist
-      let existing = await db.query.userPreferences.findFirst({
-        where: (preferences, { eq }) => eq(preferences.userId, userId)
-      });
+      const existing = await db.select().from(userPreferences).where(eq(userPreferences.userId, userId));
 
       let result;
       const values = {
-        preferredShiftLength: updates.preferredShiftLength,
-        maxShiftsPerWeek: updates.maxShiftsPerWeek,
-        minDaysBetweenShifts: updates.minDaysBetweenShifts,
+        preferredShiftLength: parseInt(updates.preferredShiftLength) || 7,
+        maxShiftsPerWeek: parseInt(updates.maxShiftsPerWeek) || 1,
+        minDaysBetweenShifts: parseInt(updates.minDaysBetweenShifts) || 0,
         preferredDaysOfWeek: Array.isArray(updates.preferredDaysOfWeek) ? updates.preferredDaysOfWeek : [],
         avoidedDaysOfWeek: Array.isArray(updates.avoidedDaysOfWeek) ? updates.avoidedDaysOfWeek : [],
         updatedAt: new Date()
       };
 
-      if (existing) {
+      if (existing.length > 0) {
         // Update existing preferences
         result = await db
           .update(userPreferences)

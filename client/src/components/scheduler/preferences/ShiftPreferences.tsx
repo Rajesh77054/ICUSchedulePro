@@ -189,6 +189,22 @@ export function ShiftPreferences({ userId }) {
           </div>
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Holiday Preferences</CardTitle>
+          <CardDescription>Select your preferred holidays for scheduling</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4">
+            <HolidayPreferences 
+              selectedHolidays={formData.preferredHolidays} 
+              onHolidayChange={handleHolidayChange}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
       <Button type="submit" className="w-full" disabled={isUpdating}>
         {isUpdating ? (
           <>

@@ -260,19 +260,12 @@ export function registerRoutes(app: Express) {
         // Update existing preferences
         result = await db
           .update(userPreferences)
-          .set(values)
+          .set({
+            ...values,
+            id: existing[0].id // Preserve existing ID
+          })
           .where(eq(userPreferences.userId, userId))
-          .returning({
-            id: userPreferences.id,
-            userId: userPreferences.userId,
-            preferredShiftLength: userPreferences.preferredShiftLength,
-            maxShiftsPerWeek: userPreferences.maxShiftsPerWeek,
-            minDaysBetweenShifts: userPreferences.minDaysBetweenShifts,
-            preferredDaysOfWeek: userPreferences.preferredDaysOfWeek,
-            avoidedDaysOfWeek: userPreferences.avoidedDaysOfWeek,
-            createdAt: userPreferences.createdAt,
-            updatedAt: userPreferences.updatedAt
-          });
+          .returning();
       } else {
         // Create new preferences
         result = await db

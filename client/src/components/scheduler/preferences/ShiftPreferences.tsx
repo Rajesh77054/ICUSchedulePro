@@ -1,17 +1,11 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 
@@ -127,7 +121,18 @@ export function ShiftPreferences({ userId }) {
               />
             </div>
             <div>
-              <Label htmlFor="preferredShiftLength">Preferred Shift Length (days)</Label>
+              <Label htmlFor="maxConsecutiveWeeks">Maximum Consecutive Weeks</Label>
+              <Input
+                id="maxConsecutiveWeeks"
+                name="maxConsecutiveWeeks"
+                type="number"
+                defaultValue={preferences?.maxConsecutiveWeeks}
+                min={1}
+                max={52}
+              />
+            </div>
+            <div>
+              <Label htmlFor="preferredShiftLength">Preferred Shift Length</Label>
               <Input
                 id="preferredShiftLength"
                 name="preferredShiftLength"
@@ -148,17 +153,6 @@ export function ShiftPreferences({ userId }) {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <Label htmlFor="maxConsecutiveWeeks">Maximum Consecutive Weeks</Label>
-              <Input
-                id="maxConsecutiveWeeks"
-                name="maxConsecutiveWeeks"
-                type="number"
-                defaultValue={preferences?.maxConsecutiveWeeks}
-                min={1}
-                max={52}
-              />
-            </div>
             <div>
               <Label htmlFor="maxShiftsPerWeek">Maximum Shifts per Week</Label>
               <Input

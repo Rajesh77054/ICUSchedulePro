@@ -107,7 +107,7 @@ export function PreferencesForm({ userId }: PreferencesFormProps) {
       enableReinitialize
     >
       {({ values, setFieldValue }) => (
-        <Form className="space-y-6">
+        <Form className="space-y-6 max-h-[calc(100vh-8rem)] overflow-y-auto px-4">
           <div className="space-y-4">
             <div>
               <Label>Preferred Shift Length (days)</Label>

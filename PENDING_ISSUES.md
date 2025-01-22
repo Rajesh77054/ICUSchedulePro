@@ -1,5 +1,13 @@
-
 # Pending Issues
+
+## User Preferences
+- Fix issue with user preferences ID returning as 0 when updating preferences
+  - Current behavior: Server returns ID as 0 despite successful update
+  - Expected behavior: Server should return correct ID of updated preferences
+  - Affected files: 
+    - server/routes.ts
+    - client/src/components/scheduler/preferences/PreferencesForm.tsx
+  - Priority: High
 
 ## Shift Swap Request Visibility
 - **Issue**: Shift swap requests are not visible in recipient's Personal Schedule Dashboard

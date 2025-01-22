@@ -50,10 +50,7 @@ export function ShiftPreferences({ userId }) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/user-preferences"] });
-      toast({
-        title: "Success",
-        description: "Preferences updated successfully",
-      });
+      toast({ title: "Success", description: "Preferences updated successfully" });
     },
     onError: (error) => {
       toast({
@@ -103,10 +100,10 @@ export function ShiftPreferences({ userId }) {
       <Card>
         <CardHeader>
           <CardTitle>Schedule Duration</CardTitle>
-          <CardDescription>Configure your preferred scheduling period and shift length</CardDescription>
+          <CardDescription>Configure your scheduling period and shift length preferences</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-2">
             <div>
               <Label htmlFor="targetDays">Target Days</Label>
               <Input
@@ -147,10 +144,10 @@ export function ShiftPreferences({ userId }) {
       <Card>
         <CardHeader>
           <CardTitle>Schedule Constraints</CardTitle>
-          <CardDescription>Set your weekly and consecutive scheduling limits</CardDescription>
+          <CardDescription>Set your scheduling limits and consecutive work preferences</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-2">
             <div>
               <Label htmlFor="maxConsecutiveWeeks">Maximum Consecutive Weeks</Label>
               <Input

@@ -1,3 +1,4 @@
+
 import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -47,47 +48,25 @@ export function PreferencesForm({ userId }: PreferencesFormProps) {
 
   const { mutate: updatePreferences, isPending: isUpdating } = useMutation({
     mutationFn: async (values: z.infer<typeof preferencesSchema>) => {
-      const validatedValues = {
-        preferredShiftLength: Math.max(1, Math.min(14, Number(values.preferredShiftLength) || 7)),
-        maxShiftsPerWeek: Math.max(1, Math.min(7, Number(values.maxShiftsPerWeek) || 1)),
-        minDaysBetweenShifts: Math.max(0, Math.min(90, Number(values.minDaysBetweenShifts) || 0)),
-        preferredDaysOfWeek: Array.isArray(values.preferredDaysOfWeek) ? values.preferredDaysOfWeek : [],
-        avoidedDaysOfWeek: Array.isArray(values.avoidedDaysOfWeek) ? values.avoidedDaysOfWeek : [],
-        userId
-      };
-
       const res = await fetch(`/api/user-preferences/${userId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(validatedValues),
+        body: JSON.stringify(values),
       });
-
-      const data = await res.json();
-      if (!res.ok) {
-        const errorMsg = data.error || "Failed to update preferences";
-        console.error("Update failed:", errorMsg);
-        throw new Error(errorMsg);
-      }
-
-      if (!data.id) {
-        throw new Error("Server returned invalid data");
-      }
-
-      return data;
+      if (!res.ok) throw new Error("Failed to update preferences");
+      return res.json();
     },
-    onSuccess: (data) => {
-      if (data.id) {
-        queryClient.invalidateQueries({ queryKey: ["/api/user-preferences"] });
-        toast({
-          title: "Success",
-          description: "Preferences updated successfully"
-        });
-      }
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/user-preferences"] });
+      toast({
+        title: "Success",
+        description: "Preferences updated successfully"
+      });
     },
-    onError: () => {
+    onError: (error: Error) => {
       toast({
         title: "Error",
-        description: "Failed to update preferences",
+        description: error.message,
         variant: "destructive",
       });
     },
@@ -113,7 +92,16 @@ export function PreferencesForm({ userId }: PreferencesFormProps) {
     <Formik
       initialValues={initialValues}
       validationSchema={toFormikValidationSchema(preferencesSchema)}
-      onSubmit={updatePreferences}
+      onSubmit={(values) => {
+        const parsedValues = {
+          ...values,
+          preferredShiftLength: Number(values.preferredShiftLength),
+          maxShiftsPerWeek: Number(values.maxShiftsPerWeek),
+          minDaysBetweenShifts: Number(values.minDaysBetweenShifts),
+        };
+        updatePreferences(parsedValues);
+      }}
+      enableReinitialize
     >
       {({ values, setFieldValue }) => (
         <Form className="space-y-6">
@@ -126,6 +114,7 @@ export function PreferencesForm({ userId }: PreferencesFormProps) {
                 min={1}
                 max={14}
                 as={Input}
+                className="mt-1"
               />
             </div>
 
@@ -137,6 +126,7 @@ export function PreferencesForm({ userId }: PreferencesFormProps) {
                 min={1}
                 max={7}
                 as={Input}
+                className="mt-1"
               />
             </div>
 
@@ -148,6 +138,7 @@ export function PreferencesForm({ userId }: PreferencesFormProps) {
                 min={0}
                 max={90}
                 as={Input}
+                className="mt-1"
               />
             </div>
 

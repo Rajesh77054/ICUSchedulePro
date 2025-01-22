@@ -196,10 +196,10 @@ export function PreferencesForm({ userId, isAdmin, adminOverrides }: Preferences
             </div>
           </div>
 
-          <div>
+          <div className="space-y-4">
             <Label className="mb-2 block">Holiday Preferences</Label>
             <HolidayPreferences
-              selectedHolidays={values.preferredHolidays || []}
+              selectedHolidays={values.preferredHolidays}
               onHolidayChange={(holidays) => setFieldValue('preferredHolidays', holidays)}
             />
           </div>

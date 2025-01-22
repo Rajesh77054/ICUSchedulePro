@@ -8,7 +8,7 @@ import { Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { HolidayPreferences } from "./HolidayPreferences";
 
-export function ShiftPreferences({ userId }) {
+export function ShiftPreferences({ userId, isAdmin }: SharedPreferencesProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [formData, setFormData] = useState({

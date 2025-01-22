@@ -8,27 +8,49 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
+import { useState } from "react";
 
 const DAYS_OF_WEEK = [
-  { label: "Sunday", value: "0" },
-  { label: "Monday", value: "1" },
-  { label: "Tuesday", value: "2" },
-  { label: "Wednesday", value: "3" },
-  { label: "Thursday", value: "4" },
-  { label: "Friday", value: "5" },
-  { label: "Saturday", value: "6" },
+  { label: "Sunday", value: 0 },
+  { label: "Monday", value: 1 },
+  { label: "Tuesday", value: 2 },
+  { label: "Wednesday", value: 3 },
+  { label: "Thursday", value: 4 },
+  { label: "Friday", value: 5 },
+  { label: "Saturday", value: 6 },
 ];
 
 export function ShiftPreferences({ userId }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [formData, setFormData] = useState({
+    targetDays: "",
+    toleranceDays: "",
+    maxConsecutiveWeeks: "",
+    preferredShiftLength: "",
+    maxShiftsPerWeek: "",
+    minDaysBetweenShifts: "",
+    preferredDaysOfWeek: [],
+    avoidedDaysOfWeek: []
+  });
 
   const { data: preferences, isLoading } = useQuery({
     queryKey: ["/api/user-preferences", userId],
     queryFn: async () => {
       const res = await fetch(`/api/user-preferences/${userId}`);
       if (!res.ok) throw new Error("Failed to fetch preferences");
-      return res.json();
+      const data = await res.json();
+      setFormData({
+        targetDays: data.targetDays || "",
+        toleranceDays: data.toleranceDays || "",
+        maxConsecutiveWeeks: data.maxConsecutiveWeeks || "",
+        preferredShiftLength: data.preferredShiftLength || "",
+        maxShiftsPerWeek: data.maxShiftsPerWeek || "",
+        minDaysBetweenShifts: data.minDaysBetweenShifts || "",
+        preferredDaysOfWeek: data.preferredDaysOfWeek || [],
+        avoidedDaysOfWeek: data.avoidedDaysOfWeek || []
+      });
+      return data;
     },
   });
 
@@ -55,30 +77,22 @@ export function ShiftPreferences({ userId }) {
     },
   });
 
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
-    const formData = new FormData(e.target);
-    
-    const preferredDaysOfWeek = DAYS_OF_WEEK
-      .filter(day => formData.get(`preferred_${day.value}`))
-      .map(day => parseInt(day.value));
-
-    const avoidedDaysOfWeek = DAYS_OF_WEEK
-      .filter(day => formData.get(`avoided_${day.value}`))
-      .map(day => parseInt(day.value));
-
-    const data = {
-      targetDays: parseInt(formData.get("targetDays")),
-      toleranceDays: parseInt(formData.get("toleranceDays")),
-      maxConsecutiveWeeks: parseInt(formData.get("maxConsecutiveWeeks")),
-      preferredShiftLength: parseInt(formData.get("preferredShiftLength")),
-      maxShiftsPerWeek: parseInt(formData.get("maxShiftsPerWeek")),
-      minDaysBetweenShifts: parseInt(formData.get("minDaysBetweenShifts")),
-      preferredDaysOfWeek,
-      avoidedDaysOfWeek,
-    };
-
-    updatePreferences(data);
+    updatePreferences({
+      ...formData,
+      targetDays: parseInt(formData.targetDays),
+      toleranceDays: parseInt(formData.toleranceDays),
+      maxConsecutiveWeeks: parseInt(formData.maxConsecutiveWeeks),
+      preferredShiftLength: parseInt(formData.preferredShiftLength),
+      maxShiftsPerWeek: parseInt(formData.maxShiftsPerWeek),
+      minDaysBetweenShifts: parseInt(formData.minDaysBetweenShifts),
+    });
   };
 
   if (isLoading) {
@@ -104,7 +118,8 @@ export function ShiftPreferences({ userId }) {
                 id="targetDays"
                 name="targetDays"
                 type="number"
-                defaultValue={preferences?.targetDays}
+                value={formData.targetDays}
+                onChange={handleInputChange}
                 min={1}
                 max={90}
               />
@@ -115,30 +130,9 @@ export function ShiftPreferences({ userId }) {
                 id="toleranceDays"
                 name="toleranceDays"
                 type="number"
-                defaultValue={preferences?.toleranceDays}
+                value={formData.toleranceDays}
+                onChange={handleInputChange}
                 min={0}
-                max={14}
-              />
-            </div>
-            <div>
-              <Label htmlFor="maxConsecutiveWeeks">Maximum Consecutive Weeks</Label>
-              <Input
-                id="maxConsecutiveWeeks"
-                name="maxConsecutiveWeeks"
-                type="number"
-                defaultValue={preferences?.maxConsecutiveWeeks}
-                min={1}
-                max={52}
-              />
-            </div>
-            <div>
-              <Label htmlFor="preferredShiftLength">Preferred Shift Length</Label>
-              <Input
-                id="preferredShiftLength"
-                name="preferredShiftLength"
-                type="number"
-                defaultValue={preferences?.preferredShiftLength}
-                min={1}
                 max={14}
               />
             </div>
@@ -154,25 +148,27 @@ export function ShiftPreferences({ userId }) {
         <CardContent className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
             <div>
+              <Label htmlFor="maxConsecutiveWeeks">Maximum Consecutive Weeks</Label>
+              <Input
+                id="maxConsecutiveWeeks"
+                name="maxConsecutiveWeeks"
+                type="number"
+                value={formData.maxConsecutiveWeeks}
+                onChange={handleInputChange}
+                min={1}
+                max={52}
+              />
+            </div>
+            <div>
               <Label htmlFor="maxShiftsPerWeek">Maximum Shifts per Week</Label>
               <Input
                 id="maxShiftsPerWeek"
                 name="maxShiftsPerWeek"
                 type="number"
-                defaultValue={preferences?.maxShiftsPerWeek}
+                value={formData.maxShiftsPerWeek}
+                onChange={handleInputChange}
                 min={1}
                 max={7}
-              />
-            </div>
-            <div>
-              <Label htmlFor="minDaysBetweenShifts">Minimum Days Between Shifts</Label>
-              <Input
-                id="minDaysBetweenShifts"
-                name="minDaysBetweenShifts"
-                type="number"
-                defaultValue={preferences?.minDaysBetweenShifts}
-                min={0}
-                max={90}
               />
             </div>
           </div>
@@ -181,43 +177,34 @@ export function ShiftPreferences({ userId }) {
 
       <Card>
         <CardHeader>
-          <CardTitle>Day Preferences</CardTitle>
-          <CardDescription>Select your preferred and avoided days of the week</CardDescription>
+          <CardTitle>Shift Preferences</CardTitle>
+          <CardDescription>Configure your shift length and spacing preferences</CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-6">
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
             <div>
-              <Label className="mb-2 block">Preferred Days</Label>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {DAYS_OF_WEEK.map((day) => (
-                  <div key={`pref_${day.value}`} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={`preferred_${day.value}`}
-                      name={`preferred_${day.value}`}
-                      defaultChecked={preferences?.preferredDaysOfWeek?.includes(parseInt(day.value))}
-                    />
-                    <Label htmlFor={`preferred_${day.value}`}>{day.label}</Label>
-                  </div>
-                ))}
-              </div>
+              <Label htmlFor="preferredShiftLength">Preferred Shift Length</Label>
+              <Input
+                id="preferredShiftLength"
+                name="preferredShiftLength"
+                type="number"
+                value={formData.preferredShiftLength}
+                onChange={handleInputChange}
+                min={1}
+                max={14}
+              />
             </div>
-            
-            <Separator />
-            
             <div>
-              <Label className="mb-2 block">Days to Avoid</Label>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {DAYS_OF_WEEK.map((day) => (
-                  <div key={`avoid_${day.value}`} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={`avoided_${day.value}`}
-                      name={`avoided_${day.value}`}
-                      defaultChecked={preferences?.avoidedDaysOfWeek?.includes(parseInt(day.value))}
-                    />
-                    <Label htmlFor={`avoided_${day.value}`}>{day.label}</Label>
-                  </div>
-                ))}
-              </div>
+              <Label htmlFor="minDaysBetweenShifts">Minimum Days Between Shifts</Label>
+              <Input
+                id="minDaysBetweenShifts"
+                name="minDaysBetweenShifts"
+                type="number"
+                value={formData.minDaysBetweenShifts}
+                onChange={handleInputChange}
+                min={0}
+                max={90}
+              />
             </div>
           </div>
         </CardContent>

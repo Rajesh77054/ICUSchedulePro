@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Formik, Form, Field } from "formik";
 import { Button } from "@/components/ui/button";
+import { HolidayPreferences } from "./HolidayPreferences";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -27,6 +28,7 @@ const preferencesSchema = z.object({
   minDaysBetweenShifts: z.number().min(0).max(90),
   preferredDaysOfWeek: z.array(z.number()),
   avoidedDaysOfWeek: z.array(z.number()),
+  preferredHolidays: z.array(z.string()),
 });
 
 type PreferencesFormProps = {
@@ -86,6 +88,7 @@ export function PreferencesForm({ userId }: PreferencesFormProps) {
     minDaysBetweenShifts: preferences?.minDaysBetweenShifts || 0,
     preferredDaysOfWeek: preferences?.preferredDaysOfWeek || [],
     avoidedDaysOfWeek: preferences?.avoidedDaysOfWeek || [],
+    preferredHolidays: preferences?.preferredHolidays || [],
   };
 
   return (
@@ -183,6 +186,14 @@ export function PreferencesForm({ userId }: PreferencesFormProps) {
                 ))}
               </div>
             </div>
+          </div>
+
+          <div>
+            <Label className="mb-2 block">Holiday Preferences</Label>
+            <HolidayPreferences
+              selectedHolidays={values.preferredHolidays || []}
+              onHolidayChange={(holidays) => setFieldValue('preferredHolidays', holidays)}
+            />
           </div>
 
           <Button type="submit" className="w-full" disabled={isUpdating}>

@@ -7,8 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Loader2 } from "lucide-react";
-import { Separator } from "@/components/ui/separator";
 import { useState, useEffect } from "react";
 
 const HOLIDAYS = [
@@ -88,14 +88,6 @@ export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
     }
   }, [preferences]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: parseInt(value) || 0
-    }));
-  };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     updatePreferences(formData);
@@ -110,15 +102,15 @@ export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <ScrollArea className="h-[calc(100vh-10rem)] px-4">
       <form onSubmit={handleSubmit} className="space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Shift Settings</CardTitle>
-            <CardDescription>Configure your basic shift preferences</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="grid gap-6 md:grid-cols-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Shift Settings</CardTitle>
+              <CardDescription>Configure your basic shift preferences</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="preferredShiftLength">Preferred Shift Length (days)</Label>
                 <Input
@@ -126,10 +118,12 @@ export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
                   name="preferredShiftLength"
                   type="number"
                   value={formData.preferredShiftLength}
-                  onChange={handleInputChange}
+                  onChange={(e) => setFormData(prev => ({
+                    ...prev,
+                    preferredShiftLength: parseInt(e.target.value) || 0
+                  }))}
                   min={1}
                   max={14}
-                  className="w-full"
                 />
               </div>
               <div className="space-y-2">
@@ -139,71 +133,70 @@ export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
                   name="maxShiftsPerWeek"
                   type="number"
                   value={formData.maxShiftsPerWeek}
-                  onChange={handleInputChange}
+                  onChange={(e) => setFormData(prev => ({
+                    ...prev,
+                    maxShiftsPerWeek: parseInt(e.target.value) || 0
+                  }))}
                   min={1}
                   max={7}
-                  className="w-full"
                 />
               </div>
-              <div className="space-y-2 md:col-span-2">
+              <div className="space-y-2">
                 <Label htmlFor="minDaysBetweenShifts">Minimum Days Between Shifts</Label>
                 <Input
                   id="minDaysBetweenShifts"
                   name="minDaysBetweenShifts"
                   type="number"
                   value={formData.minDaysBetweenShifts}
-                  onChange={handleInputChange}
+                  onChange={(e) => setFormData(prev => ({
+                    ...prev,
+                    minDaysBetweenShifts: parseInt(e.target.value) || 0
+                  }))}
                   min={0}
                   max={90}
-                  className="w-full"
                 />
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Holiday Schedule</CardTitle>
-            <CardDescription>View and manage your holiday assignments</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Holiday</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Priority</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {HOLIDAYS.map((holiday) => {
-                  const assignment = holidayAssignments?.find(
-                    (a: any) => a.holidayId === holiday.id
-                  );
-                  return (
+          <Card>
+            <CardHeader>
+              <CardTitle>Holiday Schedule</CardTitle>
+              <CardDescription>View your holiday assignments and preferences</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Holiday</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {HOLIDAYS.map((holiday) => (
                     <TableRow key={holiday.id}>
-                      <TableCell className="font-medium">{holiday.name}</TableCell>
+                      <TableCell>{holiday.name}</TableCell>
                       <TableCell>
-                        <Badge variant={assignment?.assigned ? "default" : "secondary"}>
-                          {assignment?.assigned ? "Assigned" : "Unassigned"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">
-                          {formData.holidayPreferences?.includes(holiday.id) ? "Preferred Off" : "Standard"}
+                        <Badge variant={
+                          formData.holidayPreferences.includes(holiday.id) 
+                            ? "secondary"
+                            : "outline"
+                        }>
+                          {formData.holidayPreferences.includes(holiday.id) 
+                            ? "Preferred Off" 
+                            : "No Preference"}
                         </Badge>
                       </TableCell>
                     </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </div>
 
-        <div className="flex justify-end">
-          <Button type="submit" disabled={isUpdating} className="min-w-[120px]">
+        <div className="flex justify-end pt-4">
+          <Button type="submit" disabled={isUpdating}>
             {isUpdating ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -215,6 +208,6 @@ export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
           </Button>
         </div>
       </form>
-    </div>
+    </ScrollArea>
   );
 }

@@ -75,16 +75,13 @@ export function PreferencesForm({ userId, onSuccess }: PreferencesFormProps) {
   const { mutate: updatePreferences, isPending: isUpdating } = useMutation({
     mutationFn: async (data: Partial<UserPreferences>) => {
       const payload = {
-        id: preferences?.id || 0,
+        id: preferences?.id,
         userId,
         preferredShiftLength: Number(data.preferredShiftLength) || 7,
         maxShiftsPerWeek: Number(data.maxShiftsPerWeek) || 1,
         minDaysBetweenShifts: Number(data.minDaysBetweenShifts) || 0,
         preferredDaysOfWeek: data.preferredDaysOfWeek?.map(Number) || [],
         avoidedDaysOfWeek: data.avoidedDaysOfWeek?.map(Number) || [],
-        minDaysBetweenShifts: parseInt(data.minDaysBetweenShifts?.toString() || "0"),
-        preferredDaysOfWeek: data.preferredDaysOfWeek || [],
-        avoidedDaysOfWeek: data.avoidedDaysOfWeek || [],
       };
       const res = await fetch(`/api/user-preferences/${userId}`, {
         method: "PATCH",

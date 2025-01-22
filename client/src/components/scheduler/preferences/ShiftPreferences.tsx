@@ -102,112 +102,114 @@ export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
   }
 
   return (
-    <ScrollArea className="h-[calc(100vh-12rem)] px-4 py-2">
-      <form onSubmit={handleSubmit} className="space-y-6 pb-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Shift Settings</CardTitle>
-              <CardDescription>Configure your basic shift preferences</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="preferredShiftLength">Preferred Shift Length (days)</Label>
-                <Input
-                  id="preferredShiftLength"
-                  name="preferredShiftLength"
-                  type="number"
-                  value={formData.preferredShiftLength}
-                  onChange={(e) => setFormData(prev => ({
-                    ...prev,
-                    preferredShiftLength: parseInt(e.target.value) || 0
-                  }))}
-                  min={1}
-                  max={14}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="maxShiftsPerWeek">Maximum Shifts per Week</Label>
-                <Input
-                  id="maxShiftsPerWeek"
-                  name="maxShiftsPerWeek"
-                  type="number"
-                  value={formData.maxShiftsPerWeek}
-                  onChange={(e) => setFormData(prev => ({
-                    ...prev,
-                    maxShiftsPerWeek: parseInt(e.target.value) || 0
-                  }))}
-                  min={1}
-                  max={7}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="minDaysBetweenShifts">Minimum Days Between Shifts</Label>
-                <Input
-                  id="minDaysBetweenShifts"
-                  name="minDaysBetweenShifts"
-                  type="number"
-                  value={formData.minDaysBetweenShifts}
-                  onChange={(e) => setFormData(prev => ({
-                    ...prev,
-                    minDaysBetweenShifts: parseInt(e.target.value) || 0
-                  }))}
-                  min={0}
-                  max={90}
-                />
-              </div>
-            </CardContent>
-          </Card>
+    <div className="h-full flex flex-col">
+      <ScrollArea className="flex-1 px-4">
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Shift Settings</CardTitle>
+                <CardDescription>Configure your basic shift preferences</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="preferredShiftLength">Preferred Shift Length (days)</Label>
+                  <Input
+                    id="preferredShiftLength"
+                    name="preferredShiftLength"
+                    type="number"
+                    value={formData.preferredShiftLength}
+                    onChange={(e) => setFormData(prev => ({
+                      ...prev,
+                      preferredShiftLength: parseInt(e.target.value) || 0
+                    }))}
+                    min={1}
+                    max={14}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="maxShiftsPerWeek">Maximum Shifts per Week</Label>
+                  <Input
+                    id="maxShiftsPerWeek"
+                    name="maxShiftsPerWeek"
+                    type="number"
+                    value={formData.maxShiftsPerWeek}
+                    onChange={(e) => setFormData(prev => ({
+                      ...prev,
+                      maxShiftsPerWeek: parseInt(e.target.value) || 0
+                    }))}
+                    min={1}
+                    max={7}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="minDaysBetweenShifts">Minimum Days Between Shifts</Label>
+                  <Input
+                    id="minDaysBetweenShifts"
+                    name="minDaysBetweenShifts"
+                    type="number"
+                    value={formData.minDaysBetweenShifts}
+                    onChange={(e) => setFormData(prev => ({
+                      ...prev,
+                      minDaysBetweenShifts: parseInt(e.target.value) || 0
+                    }))}
+                    min={0}
+                    max={90}
+                  />
+                </div>
+              </CardContent>
+            </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Holiday Schedule</CardTitle>
-              <CardDescription>View your holiday assignments and preferences</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Holiday</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {HOLIDAYS.map((holiday) => (
-                    <TableRow key={holiday.id}>
-                      <TableCell>{holiday.name}</TableCell>
-                      <TableCell>
-                        <Badge variant={
-                          formData.holidayPreferences.includes(holiday.id) 
-                            ? "secondary"
-                            : "outline"
-                        }>
-                          {formData.holidayPreferences.includes(holiday.id) 
-                            ? "Preferred Off" 
-                            : "No Preference"}
-                        </Badge>
-                      </TableCell>
+            <Card>
+              <CardHeader>
+                <CardTitle>Holiday Schedule</CardTitle>
+                <CardDescription>View your holiday assignments and preferences</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Holiday</TableHead>
+                      <TableHead>Status</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </div>
+                  </TableHeader>
+                  <TableBody>
+                    {HOLIDAYS.map((holiday) => (
+                      <TableRow key={holiday.id}>
+                        <TableCell>{holiday.name}</TableCell>
+                        <TableCell>
+                          <Badge variant={
+                            formData.holidayPreferences.includes(holiday.id) 
+                              ? "secondary"
+                              : "outline"
+                          }>
+                            {formData.holidayPreferences.includes(holiday.id) 
+                              ? "Preferred Off" 
+                              : "No Preference"}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </div>
 
-        <div className="flex justify-end pt-4">
-          <Button type="submit" disabled={isUpdating}>
-            {isUpdating ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              "Save Preferences"
-            )}
-          </Button>
-        </div>
-      </form>
-    </ScrollArea>
+          <div className="sticky bottom-0 bg-background pt-4 pb-6">
+            <Button type="submit" className="w-full" disabled={isUpdating}>
+              {isUpdating ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save Preferences"
+              )}
+            </Button>
+          </div>
+        </form>
+      </ScrollArea>
+    </div>
   );
 }

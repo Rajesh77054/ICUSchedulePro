@@ -1,6 +1,5 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -11,6 +10,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
@@ -103,10 +103,10 @@ export function ShiftPreferences({ userId }) {
       <Card>
         <CardHeader>
           <CardTitle>Schedule Duration</CardTitle>
-          <CardDescription>Configure your preferred shift duration settings</CardDescription>
+          <CardDescription>Configure your preferred scheduling period and shift length</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-3">
             <div>
               <Label htmlFor="targetDays">Target Days</Label>
               <Input
@@ -116,6 +116,17 @@ export function ShiftPreferences({ userId }) {
                 defaultValue={preferences?.targetDays}
                 min={1}
                 max={90}
+              />
+            </div>
+            <div>
+              <Label htmlFor="toleranceDays">Tolerance Days</Label>
+              <Input
+                id="toleranceDays"
+                name="toleranceDays"
+                type="number"
+                defaultValue={preferences?.toleranceDays}
+                min={0}
+                max={14}
               />
             </div>
             <div>
@@ -136,10 +147,10 @@ export function ShiftPreferences({ userId }) {
       <Card>
         <CardHeader>
           <CardTitle>Schedule Constraints</CardTitle>
-          <CardDescription>Set your scheduling limits and preferences</CardDescription>
+          <CardDescription>Set your weekly and consecutive scheduling limits</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-3">
             <div>
               <Label htmlFor="maxConsecutiveWeeks">Maximum Consecutive Weeks</Label>
               <Input
@@ -162,17 +173,6 @@ export function ShiftPreferences({ userId }) {
                 max={7}
               />
             </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Break Rules</CardTitle>
-          <CardDescription>Configure your break preferences</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
             <div>
               <Label htmlFor="minDaysBetweenShifts">Minimum Days Between Shifts</Label>
               <Input
@@ -182,17 +182,6 @@ export function ShiftPreferences({ userId }) {
                 defaultValue={preferences?.minDaysBetweenShifts}
                 min={0}
                 max={90}
-              />
-            </div>
-            <div>
-              <Label htmlFor="toleranceDays">Tolerance Days</Label>
-              <Input
-                id="toleranceDays"
-                name="toleranceDays"
-                type="number"
-                defaultValue={preferences?.toleranceDays}
-                min={0}
-                max={14}
               />
             </div>
           </div>

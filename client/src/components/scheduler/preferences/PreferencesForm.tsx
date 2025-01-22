@@ -47,19 +47,22 @@ export function PreferencesForm({ userId }: PreferencesFormProps) {
 
   const { mutate: updatePreferences, isPending: isUpdating } = useMutation({
     mutationFn: async (values: z.infer<typeof preferencesSchema>) => {
+      const payload = {
+        preferredShiftLength: Number(values.preferredShiftLength),
+        maxShiftsPerWeek: Number(values.maxShiftsPerWeek),
+        minDaysBetweenShifts: Number(values.minDaysBetweenShifts),
+        preferredDaysOfWeek: values.preferredDaysOfWeek,
+        avoidedDaysOfWeek: values.avoidedDaysOfWeek,
+        userId
+      };
       const res = await fetch(`/api/user-preferences/${userId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...values,
-          userId
-        }),
+        body: JSON.stringify(payload),
       });
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.error || "Failed to update preferences");
-      }
-      return res.json();
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to update preferences");
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/user-preferences"] });

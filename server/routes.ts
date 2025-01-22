@@ -248,33 +248,30 @@ export function registerRoutes(app: Express) {
       });
 
       let result;
+      const values = {
+        preferredShiftLength: updates.preferredShiftLength,
+        maxShiftsPerWeek: updates.maxShiftsPerWeek,
+        minDaysBetweenShifts: updates.minDaysBetweenShifts,
+        preferredDaysOfWeek: Array.isArray(updates.preferredDaysOfWeek) ? updates.preferredDaysOfWeek : [],
+        avoidedDaysOfWeek: Array.isArray(updates.avoidedDaysOfWeek) ? updates.avoidedDaysOfWeek : [],
+        updatedAt: new Date()
+      };
+
       if (existing) {
         // Update existing preferences
         result = await db
           .update(userPreferences)
-          .set({
-            preferredShiftLength: updates.preferredShiftLength || existing.preferredShiftLength,
-            maxShiftsPerWeek: updates.maxShiftsPerWeek || existing.maxShiftsPerWeek,
-            minDaysBetweenShifts: updates.minDaysBetweenShifts || existing.minDaysBetweenShifts,
-            preferredDaysOfWeek: updates.preferredDaysOfWeek || existing.preferredDaysOfWeek,
-            avoidedDaysOfWeek: updates.avoidedDaysOfWeek || existing.avoidedDaysOfWeek,
-            updatedAt: new Date()
-          })
-          .where(eq(userPreferences.id, existing.id))
+          .set(values)
+          .where(eq(userPreferences.userId, userId))
           .returning();
       } else {
         // Create new preferences
         result = await db
           .insert(userPreferences)
           .values({
+            ...values,
             userId,
-            preferredShiftLength: updates.preferredShiftLength || 7,
-            maxShiftsPerWeek: updates.maxShiftsPerWeek || 1,
-            minDaysBetweenShifts: updates.minDaysBetweenShifts || 0,
-            preferredDaysOfWeek: updates.preferredDaysOfWeek || [],
-            avoidedDaysOfWeek: updates.avoidedDaysOfWeek || [],
-            createdAt: new Date(),
-            updatedAt: new Date()
+            createdAt: new Date()
           })
           .returning();
       }

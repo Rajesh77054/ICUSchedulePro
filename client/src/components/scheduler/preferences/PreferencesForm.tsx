@@ -115,22 +115,22 @@ export function PreferencesForm({ userId, onSuccess }: PreferencesFormProps) {
   const [formData, setFormData] = useState<UserPreferences>({
     id: 0,
     userId,
-    defaultView: 'dayGridMonth',
-    defaultCalendarDuration: 'month',
-    notificationPreferences: {
-      emailNotifications: true,
-      inAppNotifications: true,
-      notifyOnNewShifts: true,
-      notifyOnSwapRequests: true,
-      notifyOnTimeOffUpdates: true,
-      notifyBeforeShift: 24,
-    },
-    preferredShiftLength: 1,
-    maxShiftsPerWeek: 5,
-    minDaysBetweenShifts: 1,
+    preferredShiftLength: 7,
+    maxShiftsPerWeek: 1,
+    minDaysBetweenShifts: 0,
     preferredDaysOfWeek: [],
     avoidedDaysOfWeek: [],
   });
+
+  // Update form data when preferences are loaded
+  useEffect(() => {
+    if (preferences) {
+      setFormData({
+        ...formData,
+        ...preferences,
+      });
+    }
+  }, [preferences]);
 
   useEffect(() => {
     if (preferences) {

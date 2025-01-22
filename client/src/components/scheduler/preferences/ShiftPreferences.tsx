@@ -5,13 +5,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Loader2, Calendar } from "lucide-react";
 import { useState, useEffect } from "react";
-
-interface ShiftPreferencesProps {
-  userId: number;
-}
 
 const HOLIDAYS = [
   { id: 'new_year', name: "New Year's Day" },
@@ -23,16 +20,21 @@ const HOLIDAYS = [
   { id: 'christmas', name: "Christmas Day" },
 ];
 
+interface ShiftPreferencesProps {
+  userId: number;
+}
+
 export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [formData, setFormData] = useState({
     preferredShiftLength: 0,
     maxShiftsPerWeek: 0,
-    minDaysBetweenShifts: 0
+    minDaysBetweenShifts: 0,
+    holidayPreferences: [] as string[]
   });
 
-  const { data: preferences, isLoading } = useQuery({
+  const { data: preferences, isLoading: preferencesLoading } = useQuery({
     queryKey: ["/api/user-preferences", userId],
     queryFn: async () => {
       const res = await fetch(`/api/user-preferences/${userId}`);
@@ -41,7 +43,7 @@ export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
     },
   });
 
-  const { data: holidayAssignments, isLoading: isLoadingHolidays } = useQuery({
+  const { data: holidayAssignments, isLoading: holidaysLoading } = useQuery({
     queryKey: ["/api/holiday-assignments", userId],
     queryFn: async () => {
       const res = await fetch(`/api/holiday-assignments/${userId}`);
@@ -49,16 +51,6 @@ export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
       return res.json();
     },
   });
-
-  useEffect(() => {
-    if (preferences) {
-      setFormData({
-        preferredShiftLength: preferences.preferredShiftLength || 0,
-        maxShiftsPerWeek: preferences.maxShiftsPerWeek || 0,
-        minDaysBetweenShifts: preferences.minDaysBetweenShifts || 0
-      });
-    }
-  }, [preferences]);
 
   const { mutate: updatePreferences, isPending: isUpdating } = useMutation({
     mutationFn: async (data: typeof formData) => {
@@ -83,11 +75,23 @@ export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
     },
   });
 
+  useEffect(() => {
+    if (preferences) {
+      setFormData(prev => ({
+        ...prev,
+        preferredShiftLength: preferences.preferredShiftLength || 0,
+        maxShiftsPerWeek: preferences.maxShiftsPerWeek || 0,
+        minDaysBetweenShifts: preferences.minDaysBetweenShifts || 0,
+        holidayPreferences: preferences.holidayPreferences || []
+      }));
+    }
+  }, [preferences]);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: parseInt(value, 10) || 0
+      [name]: parseInt(value) || 0
     }));
   };
 
@@ -96,7 +100,7 @@ export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
     updatePreferences(formData);
   };
 
-  if (isLoading || isLoadingHolidays) {
+  if (preferencesLoading || holidaysLoading) {
     return (
       <div className="flex items-center justify-center py-8">
         <Loader2 className="h-6 w-6 animate-spin" />
@@ -120,7 +124,7 @@ export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
                   id="preferredShiftLength"
                   name="preferredShiftLength"
                   type="number"
-                  value={formData.preferredShiftLength || ""}
+                  value={formData.preferredShiftLength}
                   onChange={handleInputChange}
                   min={1}
                   max={14}
@@ -132,7 +136,7 @@ export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
                   id="maxShiftsPerWeek"
                   name="maxShiftsPerWeek"
                   type="number"
-                  value={formData.maxShiftsPerWeek || ""}
+                  value={formData.maxShiftsPerWeek}
                   onChange={handleInputChange}
                   min={1}
                   max={7}
@@ -144,7 +148,7 @@ export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
                   id="minDaysBetweenShifts"
                   name="minDaysBetweenShifts"
                   type="number"
-                  value={formData.minDaysBetweenShifts || ""}
+                  value={formData.minDaysBetweenShifts}
                   onChange={handleInputChange}
                   min={0}
                   max={90}
@@ -169,7 +173,7 @@ export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
       <Card>
         <CardHeader>
           <CardTitle>Holiday Assignments</CardTitle>
-          <CardDescription>View your holiday schedule and history</CardDescription>
+          <CardDescription>Your holiday schedule and preferences</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
@@ -178,16 +182,53 @@ export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
                 <TableHead>Holiday</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>History</TableHead>
+                <TableHead>Preference</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {HOLIDAYS.map((holiday) => {
-                const assignment = holidayAssignments?.find((a: any) => a.holidayId === holiday.id);
+                const assignment = holidayAssignments?.find(
+                  (a: any) => a.holidayId === holiday.id
+                );
                 return (
                   <TableRow key={holiday.id}>
                     <TableCell>{holiday.name}</TableCell>
-                    <TableCell>{assignment?.status || 'Not Assigned'}</TableCell>
-                    <TableCell>{assignment?.history || 'No history'}</TableCell>
+                    <TableCell>
+                      <Badge variant={assignment?.status === 'assigned' ? 'default' : 'secondary'}>
+                        {assignment?.status || 'Not Assigned'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {assignment?.previousYears?.map((year: string) => (
+                        <Badge key={year} variant="outline" className="mr-2">
+                          {year}
+                        </Badge>
+                      )) || 'No history'}
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          const preferences = [...formData.holidayPreferences];
+                          const index = preferences.indexOf(holiday.id);
+                          if (index > -1) {
+                            preferences.splice(index, 1);
+                          } else {
+                            preferences.push(holiday.id);
+                          }
+                          setFormData(prev => ({
+                            ...prev,
+                            holidayPreferences: preferences
+                          }));
+                        }}
+                      >
+                        <Calendar className="h-4 w-4 mr-2" />
+                        {formData.holidayPreferences.includes(holiday.id)
+                          ? 'Preferred'
+                          : 'No Preference'}
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 );
               })}

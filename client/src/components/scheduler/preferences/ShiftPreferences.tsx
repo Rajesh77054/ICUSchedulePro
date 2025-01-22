@@ -1,15 +1,14 @@
-
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
+import { HOLIDAYS_2024_2025 } from "@/lib/constants";
 
 const HOLIDAYS = [
   { id: 'new_year', name: "New Year's Day" },
@@ -21,7 +20,11 @@ const HOLIDAYS = [
   { id: 'christmas', name: "Christmas Day" },
 ];
 
-export function ShiftPreferences({ userId }: { userId: number }) {
+interface ShiftPreferencesProps {
+  userId: number;
+}
+
+export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [formData, setFormData] = useState({
@@ -31,11 +34,29 @@ export function ShiftPreferences({ userId }: { userId: number }) {
     holidayPreferences: [] as string[]
   });
 
-  const { data: preferences, isLoading } = useQuery({
+  const { data: preferences, isLoading: preferencesLoading } = useQuery({
     queryKey: ["/api/user-preferences", userId],
     queryFn: async () => {
       const res = await fetch(`/api/user-preferences/${userId}`);
       if (!res.ok) throw new Error("Failed to fetch preferences");
+      return res.json();
+    },
+  });
+
+  const { data: holidayAssignments, isLoading: holidaysLoading } = useQuery({
+    queryKey: ["/api/holiday-assignments", userId],
+    queryFn: async () => {
+      const res = await fetch(`/api/holiday-assignments/${userId}`);
+      if (!res.ok) throw new Error("Failed to fetch holiday assignments");
+      return res.json();
+    },
+  });
+
+  const { data: holidayStats } = useQuery({
+    queryKey: ["/api/holiday-stats", userId],
+    queryFn: async () => {
+      const res = await fetch(`/api/holiday-stats/${userId}`);
+      if (!res.ok) throw new Error("Failed to fetch holiday stats");
       return res.json();
     },
   });
@@ -75,12 +96,20 @@ export function ShiftPreferences({ userId }: { userId: number }) {
     }
   }, [preferences]);
 
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: parseInt(value) || 0
+    }));
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     updatePreferences(formData);
   };
 
-  if (isLoading) {
+  if (preferencesLoading || holidaysLoading || !holidayStats) {
     return (
       <div className="flex items-center justify-center py-8">
         <Loader2 className="h-6 w-6 animate-spin" />
@@ -89,106 +118,56 @@ export function ShiftPreferences({ userId }: { userId: number }) {
   }
 
   return (
-    <div className="flex flex-col h-full">
-      <ScrollArea className="flex-grow pb-20">
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Shift Settings</CardTitle>
-              <CardDescription>Configure your basic shift preferences</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
+    <div className="space-y-8">
+      <form onSubmit={handleSubmit} className="space-y-8">
+        <Card>
+          <CardHeader>
+            <CardTitle>Shift Preferences</CardTitle>
+            <CardDescription>Set your preferred shift schedule</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4">
+              <div>
                 <Label htmlFor="preferredShiftLength">Preferred Shift Length (days)</Label>
                 <Input
                   id="preferredShiftLength"
+                  name="preferredShiftLength"
                   type="number"
                   value={formData.preferredShiftLength}
-                  onChange={(e) => setFormData(prev => ({
-                    ...prev,
-                    preferredShiftLength: parseInt(e.target.value) || 0
-                  }))}
+                  onChange={handleInputChange}
                   min={1}
                   max={14}
                 />
               </div>
-
-              <div className="space-y-2">
+              <div>
                 <Label htmlFor="maxShiftsPerWeek">Maximum Shifts per Week</Label>
                 <Input
                   id="maxShiftsPerWeek"
+                  name="maxShiftsPerWeek"
                   type="number"
                   value={formData.maxShiftsPerWeek}
-                  onChange={(e) => setFormData(prev => ({
-                    ...prev,
-                    maxShiftsPerWeek: parseInt(e.target.value) || 0
-                  }))}
+                  onChange={handleInputChange}
                   min={1}
                   max={7}
                 />
               </div>
-
-              <div className="space-y-2">
+              <div>
                 <Label htmlFor="minDaysBetweenShifts">Minimum Days Between Shifts</Label>
                 <Input
                   id="minDaysBetweenShifts"
+                  name="minDaysBetweenShifts"
                   type="number"
                   value={formData.minDaysBetweenShifts}
-                  onChange={(e) => setFormData(prev => ({
-                    ...prev,
-                    minDaysBetweenShifts: parseInt(e.target.value) || 0
-                  }))}
+                  onChange={handleInputChange}
                   min={0}
                   max={90}
                 />
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </CardContent>
+        </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Holiday Schedule</CardTitle>
-              <CardDescription>Set your holiday preferences</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Holiday</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {HOLIDAYS.map((holiday) => (
-                    <TableRow key={holiday.id}>
-                      <TableCell>{holiday.name}</TableCell>
-                      <TableCell>
-                        <Badge 
-                          variant={formData.holidayPreferences.includes(holiday.id) ? "secondary" : "outline"}
-                          className="cursor-pointer"
-                          onClick={() => {
-                            setFormData(prev => ({
-                              ...prev,
-                              holidayPreferences: prev.holidayPreferences.includes(holiday.id)
-                                ? prev.holidayPreferences.filter(h => h !== holiday.id)
-                                : [...prev.holidayPreferences, holiday.id]
-                            }));
-                          }}
-                        >
-                          {formData.holidayPreferences.includes(holiday.id) ? "Preferred Off" : "No Preference"}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </form>
-      </ScrollArea>
-      
-      <div className="sticky bottom-0 bg-background p-4 border-t mt-6">
-        <Button type="submit" className="w-full" disabled={isUpdating} onClick={handleSubmit}>
+        <Button type="submit" className="w-full" disabled={isUpdating}>
           {isUpdating ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -198,7 +177,70 @@ export function ShiftPreferences({ userId }: { userId: number }) {
             "Save Preferences"
           )}
         </Button>
-      </div>
+      </form>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Holiday Schedule</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Holiday</TableHead>
+                <TableHead>Date</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Priority</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {HOLIDAYS_2024_2025.map((holiday) => {
+                const assignment = holidayAssignments?.find(
+                  (a: any) => a.date === holiday.date
+                );
+                return (
+                  <TableRow key={holiday.date}>
+                    <TableCell>{holiday.name}</TableCell>
+                    <TableCell>{new Date(holiday.date).toLocaleDateString()}</TableCell>
+                    <TableCell>
+                      <Badge variant={assignment?.assigned ? "default" : "secondary"}>
+                        {assignment?.assigned ? "Assigned" : "Unassigned"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline">
+                        {holidayStats?.priorities?.[holiday.date] || "Standard"}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Holiday Statistics</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4">
+            <div>
+              <p className="font-medium">Historical Coverage</p>
+              <p className="text-sm text-muted-foreground">
+                {holidayStats?.totalWorked || 0} holidays worked in the past year
+              </p>
+            </div>
+            <div>
+              <p className="font-medium">Distribution Fairness</p>
+              <p className="text-sm text-muted-foreground">
+                {holidayStats?.fairnessScore ? `${holidayStats.fairnessScore}% fair distribution` : 'No data available'}
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

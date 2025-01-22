@@ -11,7 +11,6 @@ import * as z from "zod";
 import { toFormikValidationSchema } from "zod-formik-adapter";
 import { ShiftPreferences } from "./ShiftPreferences";
 
-
 const DAYS_OF_WEEK = [
   { label: "Sunday", value: 0 },
   { label: "Monday", value: 1 },

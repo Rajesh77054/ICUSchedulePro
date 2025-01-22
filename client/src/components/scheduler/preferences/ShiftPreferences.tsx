@@ -116,10 +116,6 @@ export function ShiftPreferences({ userId }) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
-      <HolidayPreferences 
-        selectedHolidays={formData.preferredHolidays} 
-        onHolidayChange={handleHolidayChange}
-      />
       <Card>
         <CardHeader>
           <CardTitle>Schedule Duration</CardTitle>
@@ -195,10 +191,10 @@ export function ShiftPreferences({ userId }) {
           <CardTitle>Holiday Preferences</CardTitle>
           <CardDescription>Select your preferred holidays for scheduling</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           <div className="grid gap-4">
             <HolidayPreferences 
-              selectedHolidays={formData.preferredHolidays} 
+              selectedHolidays={formData.preferredHolidays || []} 
               onHolidayChange={handleHolidayChange}
             />
           </div>

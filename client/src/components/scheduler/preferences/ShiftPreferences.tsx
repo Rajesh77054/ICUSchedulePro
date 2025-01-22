@@ -1,40 +1,25 @@
-
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Loader2, Calendar } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
 
-const HOLIDAYS = [
-  { id: 'new_year', name: "New Year's Day" },
-  { id: 'easter', name: "Easter Weekend" },
-  { id: 'memorial', name: "Memorial Day" },
-  { id: 'independence', name: "Independence Day" },
-  { id: 'labor', name: "Labor Day" },
-  { id: 'thanksgiving', name: "Thanksgiving" },
-  { id: 'christmas', name: "Christmas Day" },
-];
-
-interface ShiftPreferencesProps {
-  userId: number;
-}
-
-export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
+export function ShiftPreferences({ userId }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [formData, setFormData] = useState({
+    targetDays: 0,
+    toleranceDays: 0,
+    maxConsecutiveWeeks: 0,
     preferredShiftLength: 0,
     maxShiftsPerWeek: 0,
-    minDaysBetweenShifts: 0,
-    holidayPreferences: [] as string[]
+    minDaysBetweenShifts: 0
   });
 
-  const { data: preferences, isLoading: preferencesLoading } = useQuery({
+  const { data: preferences, isLoading } = useQuery({
     queryKey: ["/api/user-preferences", userId],
     queryFn: async () => {
       const res = await fetch(`/api/user-preferences/${userId}`);
@@ -43,17 +28,21 @@ export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
     },
   });
 
-  const { data: holidayAssignments, isLoading: holidaysLoading } = useQuery({
-    queryKey: ["/api/holiday-assignments", userId],
-    queryFn: async () => {
-      const res = await fetch(`/api/holiday-assignments/${userId}`);
-      if (!res.ok) throw new Error("Failed to fetch holiday assignments");
-      return res.json();
-    },
-  });
+  useEffect(() => {
+    if (preferences) {
+      setFormData({
+        targetDays: preferences.targetDays || 0,
+        toleranceDays: preferences.toleranceDays || 0,
+        maxConsecutiveWeeks: preferences.maxConsecutiveWeeks || 0,
+        preferredShiftLength: preferences.preferredShiftLength || 0,
+        maxShiftsPerWeek: preferences.maxShiftsPerWeek || 0,
+        minDaysBetweenShifts: preferences.minDaysBetweenShifts || 0
+      });
+    }
+  }, [preferences]);
 
   const { mutate: updatePreferences, isPending: isUpdating } = useMutation({
-    mutationFn: async (data: typeof formData) => {
+    mutationFn: async (data) => {
       const res = await fetch(`/api/user-preferences/${userId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -66,7 +55,7 @@ export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
       queryClient.invalidateQueries({ queryKey: ["/api/user-preferences"] });
       toast({ title: "Success", description: "Preferences updated successfully" });
     },
-    onError: (error: Error) => {
+    onError: (error) => {
       toast({
         title: "Error",
         description: error.message,
@@ -75,19 +64,7 @@ export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
     },
   });
 
-  useEffect(() => {
-    if (preferences) {
-      setFormData(prev => ({
-        ...prev,
-        preferredShiftLength: preferences.preferredShiftLength || 0,
-        maxShiftsPerWeek: preferences.maxShiftsPerWeek || 0,
-        minDaysBetweenShifts: preferences.minDaysBetweenShifts || 0,
-        holidayPreferences: preferences.holidayPreferences || []
-      }));
-    }
-  }, [preferences]);
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
@@ -95,12 +72,34 @@ export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const validateAgainstAdminConstraints = (data) => {
+    const conflicts = [];
+    if (data.maxShiftsPerWeek > preferences?.adminConstraints?.maxShiftsPerWeek) {
+      conflicts.push(`Cannot exceed admin-set maximum of ${preferences.adminConstraints.maxShiftsPerWeek} shifts per week`);
+    }
+    if (data.minDaysBetweenShifts < preferences?.adminConstraints?.minDaysBetweenShifts) {
+      conflicts.push(`Must maintain at least ${preferences.adminConstraints.minDaysBetweenShifts} days between shifts`);
+    }
+    return conflicts;
+  };
+
+  const handleSubmit = (e) => {
     e.preventDefault();
+    const conflicts = validateAgainstAdminConstraints(formData);
+
+    if (conflicts.length > 0) {
+      toast({
+        title: "Cannot save preferences",
+        description: conflicts.join(". "),
+        variant: "destructive"
+      });
+      return;
+    }
+
     updatePreferences(formData);
   };
 
-  if (preferencesLoading || holidaysLoading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center py-8">
         <Loader2 className="h-6 w-6 animate-spin" />
@@ -109,133 +108,87 @@ export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
   }
 
   return (
-    <div className="space-y-8">
-      <form onSubmit={handleSubmit} className="space-y-8">
-        <Card>
-          <CardHeader>
-            <CardTitle>Shift Preferences</CardTitle>
-            <CardDescription>Set your preferred shift schedule</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4">
-              <div>
-                <Label htmlFor="preferredShiftLength">Preferred Shift Length (days)</Label>
-                <Input
-                  id="preferredShiftLength"
-                  name="preferredShiftLength"
-                  type="number"
-                  value={formData.preferredShiftLength}
-                  onChange={handleInputChange}
-                  min={1}
-                  max={14}
-                />
-              </div>
-              <div>
-                <Label htmlFor="maxShiftsPerWeek">Maximum Shifts per Week</Label>
-                <Input
-                  id="maxShiftsPerWeek"
-                  name="maxShiftsPerWeek"
-                  type="number"
-                  value={formData.maxShiftsPerWeek}
-                  onChange={handleInputChange}
-                  min={1}
-                  max={7}
-                />
-              </div>
-              <div>
-                <Label htmlFor="minDaysBetweenShifts">Minimum Days Between Shifts</Label>
-                <Input
-                  id="minDaysBetweenShifts"
-                  name="minDaysBetweenShifts"
-                  type="number"
-                  value={formData.minDaysBetweenShifts}
-                  onChange={handleInputChange}
-                  min={0}
-                  max={90}
-                />
-              </div>
+    <form onSubmit={handleSubmit} className="space-y-8">
+      <Card>
+        <CardHeader>
+          <CardTitle>Schedule Duration</CardTitle>
+          <CardDescription>Configure your scheduling period preferences</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <Label htmlFor="targetDays">Target Days</Label>
+              <Input
+                id="targetDays"
+                name="targetDays"
+                type="number"
+                value={formData.targetDays}
+                onChange={handleInputChange}
+                min={1}
+                max={90}
+              />
             </div>
-          </CardContent>
-        </Card>
-
-        <Button type="submit" className="w-full" disabled={isUpdating}>
-          {isUpdating ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Saving...
-            </>
-          ) : (
-            "Save Preferences"
-          )}
-        </Button>
-      </form>
+            <div>
+              <Label htmlFor="toleranceDays">Tolerance Days</Label>
+              <Input
+                id="toleranceDays"
+                name="toleranceDays"
+                type="number"
+                value={formData.toleranceDays}
+                onChange={handleInputChange}
+                min={0}
+                max={14}
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>Holiday Assignments</CardTitle>
-          <CardDescription>Your holiday schedule and preferences</CardDescription>
+          <CardTitle>Schedule Constraints</CardTitle>
+          <CardDescription>Set your scheduling limits and consecutive work preferences</CardDescription>
         </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Holiday</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>History</TableHead>
-                <TableHead>Preference</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {HOLIDAYS.map((holiday) => {
-                const assignment = holidayAssignments?.find(
-                  (a: any) => a.holidayId === holiday.id
-                );
-                return (
-                  <TableRow key={holiday.id}>
-                    <TableCell>{holiday.name}</TableCell>
-                    <TableCell>
-                      <Badge variant={assignment?.status === 'assigned' ? 'default' : 'secondary'}>
-                        {assignment?.status || 'Not Assigned'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {assignment?.previousYears?.map((year: string) => (
-                        <Badge key={year} variant="outline" className="mr-2">
-                          {year}
-                        </Badge>
-                      )) || 'No history'}
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          const preferences = [...formData.holidayPreferences];
-                          const index = preferences.indexOf(holiday.id);
-                          if (index > -1) {
-                            preferences.splice(index, 1);
-                          } else {
-                            preferences.push(holiday.id);
-                          }
-                          setFormData(prev => ({
-                            ...prev,
-                            holidayPreferences: preferences
-                          }));
-                        }}
-                      >
-                        <Calendar className="h-4 w-4 mr-2" />
-                        {formData.holidayPreferences.includes(holiday.id)
-                          ? 'Preferred'
-                          : 'No Preference'}
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <Label htmlFor="maxConsecutiveWeeks">Maximum Consecutive Weeks</Label>
+              <Input
+                id="maxConsecutiveWeeks"
+                name="maxConsecutiveWeeks"
+                type="number"
+                value={formData.maxConsecutiveWeeks}
+                onChange={handleInputChange}
+                min={1}
+                max={52}
+              />
+            </div>
+            <div>
+              <Label htmlFor="maxShiftsPerWeek">Maximum Shifts per Week</Label>
+              <Input
+                id="maxShiftsPerWeek"
+                name="maxShiftsPerWeek"
+                type="number"
+                value={formData.maxShiftsPerWeek}
+                onChange={handleInputChange}
+                min={1}
+                max={7}
+              />
+            </div>
+          </div>
         </CardContent>
       </Card>
-    </div>
+
+      <Button type="submit" className="w-full" disabled={isUpdating}>
+        {isUpdating ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Saving...
+          </>
+        ) : (
+          "Save Preferences"
+        )}
+      </Button>
+    </form>
   );
 }

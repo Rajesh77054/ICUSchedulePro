@@ -80,13 +80,16 @@ export function PreferencesForm({ userId, isAdmin, adminOverrides }) {
   }
 
   const initialValues = {
-    preferredShiftLength: preferences?.preferredShiftLength || 7,
-    maxShiftsPerWeek: preferences?.maxShiftsPerWeek || 1,
-    minDaysBetweenShifts: preferences?.minDaysBetweenShifts || 0,
-    preferredDaysOfWeek: preferences?.preferredDaysOfWeek || [],
-    avoidedDaysOfWeek: preferences?.avoidedDaysOfWeek || [],
-    preferredHolidays: preferences?.preferredHolidays || [],
+    ...(preferences || {}),
+    preferredShiftLength: preferences?.preferredShiftLength ?? 7,
+    maxShiftsPerWeek: preferences?.maxShiftsPerWeek ?? 1,
+    minDaysBetweenShifts: preferences?.minDaysBetweenShifts ?? 0,
+    preferredDaysOfWeek: preferences?.preferredDaysOfWeek ?? [],
+    avoidedDaysOfWeek: preferences?.avoidedDaysOfWeek ?? [],
+    preferredHolidays: preferences?.preferredHolidays ?? [],
   };
+
+  console.log("Initial values:", initialValues);
 
   return (
     <Formik

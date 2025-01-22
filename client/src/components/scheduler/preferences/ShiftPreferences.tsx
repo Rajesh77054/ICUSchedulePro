@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -73,8 +72,30 @@ export function ShiftPreferences({ userId }) {
     }));
   };
 
+  const validateAgainstAdminConstraints = (data) => {
+    const conflicts = [];
+    if (data.maxShiftsPerWeek > preferences?.adminConstraints?.maxShiftsPerWeek) {
+      conflicts.push(`Cannot exceed admin-set maximum of ${preferences.adminConstraints.maxShiftsPerWeek} shifts per week`);
+    }
+    if (data.minDaysBetweenShifts < preferences?.adminConstraints?.minDaysBetweenShifts) {
+      conflicts.push(`Must maintain at least ${preferences.adminConstraints.minDaysBetweenShifts} days between shifts`);
+    }
+    return conflicts;
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
+    const conflicts = validateAgainstAdminConstraints(formData);
+
+    if (conflicts.length > 0) {
+      toast({
+        title: "Cannot save preferences",
+        description: conflicts.join(". "),
+        variant: "destructive"
+      });
+      return;
+    }
+
     updatePreferences(formData);
   };
 

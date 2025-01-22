@@ -27,16 +27,47 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 
 const DAYS_OF_WEEK = [
-  { label: "Sunday", value: "0" },
-  { label: "Monday", value: "1" },
-  { label: "Tuesday", value: "2" },
-  { label: "Wednesday", value: "3" },
-  { label: "Thursday", value: "4" },
-  { label: "Friday", value: "5" },
-  { label: "Saturday", value: "6" },
+  { label: "Sunday", value: 0 },
+  { label: "Monday", value: 1 },
+  { label: "Tuesday", value: 2 },
+  { label: "Wednesday", value: 3 },
+  { label: "Thursday", value: 4 },
+  { label: "Friday", value: 5 },
+  { label: "Saturday", value: 6 },
 ];
+
+const preferencesSchema = z.object({
+  preferredShiftLength: z.number().min(1).max(14),
+  maxShiftsPerWeek: z.number().min(1).max(7),
+  minDaysBetweenShifts: z.number().min(0).max(90),
+  preferredDaysOfWeek: z.array(z.number()),
+  avoidedDaysOfWeek: z.array(z.number()),
+  defaultView: z.string(),
+  defaultCalendarDuration: z.string(),
+  notificationPreferences: z.object({
+    emailNotifications: z.boolean(),
+    inAppNotifications: z.boolean(),
+    notifyOnNewShifts: z.boolean(),
+    notifyOnSwapRequests: z.boolean(),
+    notifyOnTimeOffUpdates: z.boolean(),
+    notifyBeforeShift: z.number(),
+  }),
+});
+
+type PreferencesFormData = z.infer<typeof preferencesSchema>;
 
 interface UserPreferences {
   id: number;
@@ -72,93 +103,54 @@ export function PreferencesForm({ userId, onSuccess }: PreferencesFormProps) {
     queryKey: ["/api/user-preferences", userId],
   });
 
-  const { mutate: updatePreferences, isPending: isUpdating } = useMutation({
-    mutationFn: async (data: Partial<UserPreferences>) => {
-      const payload = {
-        id: preferences?.id,
-        userId,
-        preferredShiftLength: Number(data.preferredShiftLength) || 7,
-        maxShiftsPerWeek: Number(data.maxShiftsPerWeek) || 1,
-        minDaysBetweenShifts: Number(data.minDaysBetweenShifts) || 0,
-        preferredDaysOfWeek: data.preferredDaysOfWeek?.map(Number) || [],
-        avoidedDaysOfWeek: data.avoidedDaysOfWeek?.map(Number) || [],
-      };
+  const form = useForm<PreferencesFormData>({
+    resolver: zodResolver(preferencesSchema),
+    defaultValues: {
+      preferredShiftLength: preferences?.preferredShiftLength || 7,
+      maxShiftsPerWeek: preferences?.maxShiftsPerWeek || 1,
+      minDaysBetweenShifts: preferences?.minDaysBetweenShifts || 0,
+      preferredDaysOfWeek: preferences?.preferredDaysOfWeek || [],
+      avoidedDaysOfWeek: preferences?.avoidedDaysOfWeek || [],
+      defaultView: preferences?.defaultView || "",
+      defaultCalendarDuration: preferences?.defaultCalendarDuration || "",
+      notificationPreferences: preferences?.notificationPreferences || {
+        emailNotifications: false,
+        inAppNotifications: false,
+        notifyOnNewShifts: false,
+        notifyOnSwapRequests: false,
+        notifyOnTimeOffUpdates: false,
+        notifyBeforeShift: 0,
+      },
+    },
+  });
+
+  const { mutate: updatePreferences, isPending } = useMutation({
+    mutationFn: async (data: PreferencesFormData) => {
       const res = await fetch(`/api/user-preferences/${userId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ ...data, userId }),
       });
 
       if (!res.ok) {
-        const errorText = await res.text();
-        throw new Error(`Failed to update preferences: ${errorText}`);
+        throw new Error("Failed to update preferences");
       }
 
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/user-preferences"] });
-      toast({
-        title: "Success",
-        description: "Preferences updated successfully",
-      });
+      toast({ title: "Success", description: "Preferences updated successfully" });
       onSuccess?.();
     },
-    onError: (error: Error) => {
+    onError: () => {
       toast({
         title: "Error",
-        description: error.message,
+        description: "Failed to update preferences",
         variant: "destructive",
       });
     },
   });
-
-  const [formData, setFormData] = useState<UserPreferences>({
-    id: 0,
-    userId,
-    preferredShiftLength: 7,
-    maxShiftsPerWeek: 1,
-    minDaysBetweenShifts: 0,
-    preferredDaysOfWeek: [],
-    avoidedDaysOfWeek: [],
-    defaultView: "",
-    defaultCalendarDuration: "",
-    notificationPreferences: {
-      emailNotifications: false,
-      inAppNotifications: false,
-      notifyOnNewShifts: false,
-      notifyOnSwapRequests: false,
-      notifyOnTimeOffUpdates: false,
-      notifyBeforeShift: 0,
-    },
-  });
-
-  // Update form data when preferences are loaded
-  useEffect(() => {
-    if (preferences) {
-      setFormData({
-        ...formData,
-        ...preferences,
-      });
-    }
-  }, [preferences]);
-
-  useEffect(() => {
-    if (preferences) {
-      setFormData({
-        ...preferences,
-        notificationPreferences: {
-          ...formData.notificationPreferences,
-          ...preferences.notificationPreferences,
-        },
-      });
-    }
-  }, [preferences]);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    updatePreferences(formData);
-  };
 
   if (isLoading) {
     return (
@@ -169,236 +161,263 @@ export function PreferencesForm({ userId, onSuccess }: PreferencesFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit}>
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="general">General</TabsTrigger>
-          <TabsTrigger value="shifts">Shift Preferences</TabsTrigger>
-        </TabsList>
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit((data) => updatePreferences(data))}>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="general">General</TabsTrigger>
+            <TabsTrigger value="shifts">Shift Preferences</TabsTrigger>
+          </TabsList>
 
-        <TabsContent value="general">
-          <Card>
-            <CardHeader>
-              <CardTitle>General Preferences</CardTitle>
-              <CardDescription>
-                Customize your calendar view and notification settings
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-4">
-                <div>
-                  <Label>Default Calendar View</Label>
-                  <Select
-                    value={formData.defaultView}
-                    onValueChange={(value) => setFormData(prev => ({
-                      ...prev,
-                      defaultView: value,
-                    }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select view" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="dayGridMonth">Month</SelectItem>
-                      <SelectItem value="dayGridWeek">Week</SelectItem>
-                      <SelectItem value="listWeek">List</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label>Default Calendar Duration</Label>
-                  <Select
-                    value={formData.defaultCalendarDuration}
-                    onValueChange={(value) => setFormData(prev => ({
-                      ...prev,
-                      defaultCalendarDuration: value,
-                    }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select duration" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="month">Month</SelectItem>
-                      <SelectItem value="week">Week</SelectItem>
-                      <SelectItem value="year">Year</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <h3 className="text-lg font-medium">Notifications</h3>
+          <TabsContent value="general">
+            <Card>
+              <CardHeader>
+                <CardTitle>General Preferences</CardTitle>
+                <CardDescription>
+                  Customize your calendar view and notification settings
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="emailNotifications">Email Notifications</Label>
-                    <Switch
-                      id="emailNotifications"
-                      checked={formData.notificationPreferences.emailNotifications}
-                      onCheckedChange={(checked) => setFormData(prev => ({
-                        ...prev,
-                        notificationPreferences: {
-                          ...prev.notificationPreferences,
-                          emailNotifications: checked,
-                        },
-                      }))}
-                    />
+                  <div>
+                    <Label>Default Calendar View</Label>
+                    <Select
+                      value={form.watch("defaultView")}
+                      onValueChange={(value) => form.setValue("defaultView", value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select view" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="dayGridMonth">Month</SelectItem>
+                        <SelectItem value="dayGridWeek">Week</SelectItem>
+                        <SelectItem value="listWeek">List</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
 
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="inAppNotifications">In-App Notifications</Label>
-                    <Switch
-                      id="inAppNotifications"
-                      checked={formData.notificationPreferences.inAppNotifications}
-                      onCheckedChange={(checked) => setFormData(prev => ({
-                        ...prev,
-                        notificationPreferences: {
-                          ...prev.notificationPreferences,
-                          inAppNotifications: checked,
-                        },
-                      }))}
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="notifyBeforeShift">Hours Before Shift</Label>
-                    <Input
-                      id="notifyBeforeShift"
-                      type="number"
-                      min={1}
-                      max={72}
-                      value={formData.notificationPreferences.notifyBeforeShift}
-                      onChange={(e) => setFormData(prev => ({
-                        ...prev,
-                        notificationPreferences: {
-                          ...prev.notificationPreferences,
-                          notifyBeforeShift: parseInt(e.target.value),
-                        },
-                      }))}
-                      className="w-24"
-                    />
+                  <div>
+                    <Label>Default Calendar Duration</Label>
+                    <Select
+                      value={form.watch("defaultCalendarDuration")}
+                      onValueChange={(value) =>
+                        form.setValue("defaultCalendarDuration", value)
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select duration" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="month">Month</SelectItem>
+                        <SelectItem value="week">Week</SelectItem>
+                        <SelectItem value="year">Year</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
 
-        <TabsContent value="shifts">
-          <Card>
-            <CardHeader>
-              <CardTitle>Shift Preferences</CardTitle>
-              <CardDescription>
-                Set your preferred shift schedule and working patterns
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-4">
-                <div>
-                  <Label>Preferred Shift Length (days)</Label>
-                  <Input
-                    type="number"
-                    value={formData.preferredShiftLength}
-                    onChange={(e) => setFormData(prev => ({
-                      ...prev,
-                      preferredShiftLength: parseInt(e.target.value),
-                    }))}
-                    min={1}
-                    max={14}
-                  />
+                <div className="space-y-4">
+                  <h3 className="text-lg font-medium">Notifications</h3>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="emailNotifications">
+                        Email Notifications
+                      </Label>
+                      <Switch
+                        id="emailNotifications"
+                        checked={form.watch("notificationPreferences.emailNotifications")}
+                        onCheckedChange={(checked) =>
+                          form.setValue("notificationPreferences.emailNotifications", checked)
+                        }
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="inAppNotifications">
+                        In-App Notifications
+                      </Label>
+                      <Switch
+                        id="inAppNotifications"
+                        checked={form.watch("notificationPreferences.inAppNotifications")}
+                        onCheckedChange={(checked) =>
+                          form.setValue("notificationPreferences.inAppNotifications", checked)
+                        }
+                      />
+                    </div>
+
+                    <FormField
+                      control={form.control}
+                      name="notificationPreferences.notifyBeforeShift"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel htmlFor="notifyBeforeShift">
+                            Hours Before Shift
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              id="notifyBeforeShift"
+                              type="number"
+                              min={1}
+                              max={72}
+                              {...field}
+                              onChange={(e) =>
+                                field.onChange(parseInt(e.target.value, 10))
+                              }
+                              className="w-24"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
                 </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-                <div>
-                  <Label>Maximum Shifts per Week</Label>
-                  <Input
-                    type="number"
-                    value={formData.maxShiftsPerWeek}
-                    onChange={(e) => setFormData(prev => ({
-                      ...prev,
-                      maxShiftsPerWeek: parseInt(e.target.value),
-                    }))}
-                    min={1}
-                    max={7}
-                  />
-                </div>
-
-                <div>
-                  <Label>Minimum Days Between Shifts</Label>
-                  <Input
-                    type="number"
-                    value={formData.minDaysBetweenShifts}
-                    onChange={(e) => setFormData(prev => ({
-                      ...prev,
-                      minDaysBetweenShifts: parseInt(e.target.value),
-                    }))}
-                    min={0}
-                    max={90}
-                  />
-                </div>
-
-                <div>
-                  <Label className="mb-2 block">Preferred Days of Week</Label>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    {DAYS_OF_WEEK.map((day) => (
-                      <div key={day.value} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={`preferred_${day.value}`}
-                          checked={formData.preferredDaysOfWeek.includes(parseInt(day.value))}
-                          onCheckedChange={(checked) => {
-                            const value = parseInt(day.value);
-                            setFormData(prev => ({
-                              ...prev,
-                              preferredDaysOfWeek: checked
-                                ? [...prev.preferredDaysOfWeek, value]
-                                : prev.preferredDaysOfWeek.filter(d => d !== value),
-                            }));
-                          }}
+          <TabsContent value="shifts">
+            <Card>
+              <CardHeader>
+                <CardTitle>Shift Preferences</CardTitle>
+                <CardDescription>
+                  Set your preferred shift schedule and working patterns
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <FormField
+                  control={form.control}
+                  name="preferredShiftLength"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Preferred Shift Length (days)</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min={1}
+                          max={14}
+                          {...field}
+                          onChange={(e) => field.onChange(Number(e.target.value))}
                         />
-                        <Label htmlFor={`preferred_${day.value}`}>{day.label}</Label>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-                <div>
-                  <Label className="mb-2 block">Days to Avoid</Label>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    {DAYS_OF_WEEK.map((day) => (
-                      <div key={day.value} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={`avoided_${day.value}`}
-                          checked={formData.avoidedDaysOfWeek.includes(parseInt(day.value))}
-                          onCheckedChange={(checked) => {
-                            const value = parseInt(day.value);
-                            setFormData(prev => ({
-                              ...prev,
-                              avoidedDaysOfWeek: checked
-                                ? [...prev.avoidedDaysOfWeek, value]
-                                : prev.avoidedDaysOfWeek.filter(d => d !== value),
-                            }));
-                          }}
+                <FormField
+                  control={form.control}
+                  name="maxShiftsPerWeek"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Maximum Shifts per Week</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min={1}
+                          max={7}
+                          {...field}
+                          onChange={(e) => field.onChange(Number(e.target.value))}
                         />
-                        <Label htmlFor={`avoided_${day.value}`}>{day.label}</Label>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-      <Button type="submit" className="w-full mt-6" disabled={isUpdating}>
-        {isUpdating ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Saving...
-          </>
-        ) : (
-          "Save Preferences"
-        )}
-      </Button>
-    </form>
+                <FormField
+                  control={form.control}
+                  name="minDaysBetweenShifts"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Minimum Days Between Shifts</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min={0}
+                          max={90}
+                          {...field}
+                          onChange={(e) => field.onChange(Number(e.target.value))}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="preferredDaysOfWeek"
+                  render={() => (
+                    <FormItem>
+                      <FormLabel>Preferred Days of Week</FormLabel>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        {DAYS_OF_WEEK.map((day) => (
+                          <div key={day.value} className="flex items-center space-x-2">
+                            <Checkbox
+                              checked={form.watch("preferredDaysOfWeek").includes(day.value)}
+                              onCheckedChange={(checked) => {
+                                const current = form.watch("preferredDaysOfWeek");
+                                const updated = checked
+                                  ? [...current, day.value]
+                                  : current.filter((d) => d !== day.value);
+                                form.setValue("preferredDaysOfWeek", updated);
+                              }}
+                            />
+                            <FormLabel className="font-normal">
+                              {day.label}
+                            </FormLabel>
+                          </div>
+                        ))}
+                      </div>
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="avoidedDaysOfWeek"
+                  render={() => (
+                    <FormItem>
+                      <FormLabel>Days to Avoid</FormLabel>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        {DAYS_OF_WEEK.map((day) => (
+                          <div key={day.value} className="flex items-center space-x-2">
+                            <Checkbox
+                              checked={form.watch("avoidedDaysOfWeek").includes(day.value)}
+                              onCheckedChange={(checked) => {
+                                const current = form.watch("avoidedDaysOfWeek");
+                                const updated = checked
+                                  ? [...current, day.value]
+                                  : current.filter((d) => d !== day.value);
+                                form.setValue("avoidedDaysOfWeek", updated);
+                              }}
+                            />
+                            <FormLabel className="font-normal">
+                              {day.label}
+                            </FormLabel>
+                          </div>
+                        ))}
+                      </div>
+                    </FormItem>
+                  )}
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+
+        <Button type="submit" className="w-full mt-6" disabled={isPending}>
+          {isPending ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Saving...
+            </>
+          ) : (
+            "Save Preferences"
+          )}
+        </Button>
+      </form>
+    </Form>
   );
 }

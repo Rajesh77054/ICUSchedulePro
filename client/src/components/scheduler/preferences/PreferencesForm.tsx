@@ -257,6 +257,7 @@ export function PreferencesForm({ userId }: PreferencesFormProps) {
                   )}
                 </Button>
               </div>
+            </div>
           </Form>
           <div className="mt-8">
             <HolidayPreferences userId={userId} />

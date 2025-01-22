@@ -102,8 +102,8 @@ export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
   }
 
   return (
-    <ScrollArea className="h-[calc(100vh-10rem)] px-4">
-      <form onSubmit={handleSubmit} className="space-y-6">
+    <ScrollArea className="h-[calc(100vh-12rem)] px-4 py-2">
+      <form onSubmit={handleSubmit} className="space-y-6 pb-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <Card>
             <CardHeader>

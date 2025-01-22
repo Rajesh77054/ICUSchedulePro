@@ -37,9 +37,16 @@ export function PreferencesForm({ userId, isAdmin }) {
     queryFn: async () => {
       const res = await fetch(`/api/user-preferences/${userId}`);
       if (!res.ok) throw new Error("Failed to fetch preferences");
-      return res.json();
+      const data = await res.json();
+      console.log("Fetched preferences:", data);
+      return data;
     },
   });
+
+  useEffect(() => {
+    console.log("Current formData:", formData);
+    console.log("Holiday preferences section:", formData.preferredHolidays);
+  }, [formData]);
 
   useEffect(() => {
     if (preferences) {

@@ -1,14 +1,14 @@
-
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Calendar } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
+import { HOLIDAYS_2024_2025 } from "@/lib/constants";
 
 const HOLIDAYS = [
   { id: 'new_year', name: "New Year's Day" },
@@ -48,6 +48,15 @@ export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
     queryFn: async () => {
       const res = await fetch(`/api/holiday-assignments/${userId}`);
       if (!res.ok) throw new Error("Failed to fetch holiday assignments");
+      return res.json();
+    },
+  });
+
+  const { data: holidayStats } = useQuery({
+    queryKey: ["/api/holiday-stats", userId],
+    queryFn: async () => {
+      const res = await fetch(`/api/holiday-stats/${userId}`);
+      if (!res.ok) throw new Error("Failed to fetch holiday stats");
       return res.json();
     },
   });
@@ -100,7 +109,7 @@ export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
     updatePreferences(formData);
   };
 
-  if (preferencesLoading || holidaysLoading) {
+  if (preferencesLoading || holidaysLoading || !holidayStats) {
     return (
       <div className="flex items-center justify-center py-8">
         <Loader2 className="h-6 w-6 animate-spin" />
@@ -172,68 +181,64 @@ export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
 
       <Card>
         <CardHeader>
-          <CardTitle>Holiday Assignments</CardTitle>
-          <CardDescription>Your holiday schedule and preferences</CardDescription>
+          <CardTitle>Holiday Schedule</CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Holiday</TableHead>
+                <TableHead>Date</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>History</TableHead>
-                <TableHead>Preference</TableHead>
+                <TableHead>Priority</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {HOLIDAYS.map((holiday) => {
+              {HOLIDAYS_2024_2025.map((holiday) => {
                 const assignment = holidayAssignments?.find(
-                  (a: any) => a.holidayId === holiday.id
+                  (a: any) => a.date === holiday.date
                 );
                 return (
-                  <TableRow key={holiday.id}>
+                  <TableRow key={holiday.date}>
                     <TableCell>{holiday.name}</TableCell>
+                    <TableCell>{new Date(holiday.date).toLocaleDateString()}</TableCell>
                     <TableCell>
-                      <Badge variant={assignment?.status === 'assigned' ? 'default' : 'secondary'}>
-                        {assignment?.status || 'Not Assigned'}
+                      <Badge variant={assignment?.assigned ? "default" : "secondary"}>
+                        {assignment?.assigned ? "Assigned" : "Unassigned"}
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      {assignment?.previousYears?.map((year: string) => (
-                        <Badge key={year} variant="outline" className="mr-2">
-                          {year}
-                        </Badge>
-                      )) || 'No history'}
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          const preferences = [...formData.holidayPreferences];
-                          const index = preferences.indexOf(holiday.id);
-                          if (index > -1) {
-                            preferences.splice(index, 1);
-                          } else {
-                            preferences.push(holiday.id);
-                          }
-                          setFormData(prev => ({
-                            ...prev,
-                            holidayPreferences: preferences
-                          }));
-                        }}
-                      >
-                        <Calendar className="h-4 w-4 mr-2" />
-                        {formData.holidayPreferences.includes(holiday.id)
-                          ? 'Preferred'
-                          : 'No Preference'}
-                      </Button>
+                      <Badge variant="outline">
+                        {holidayStats?.priorities?.[holiday.date] || "Standard"}
+                      </Badge>
                     </TableCell>
                   </TableRow>
                 );
               })}
             </TableBody>
           </Table>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Holiday Statistics</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4">
+            <div>
+              <p className="font-medium">Historical Coverage</p>
+              <p className="text-sm text-muted-foreground">
+                {holidayStats?.totalWorked || 0} holidays worked in the past year
+              </p>
+            </div>
+            <div>
+              <p className="font-medium">Distribution Fairness</p>
+              <p className="text-sm text-muted-foreground">
+                {holidayStats?.fairnessScore ? `${holidayStats.fairnessScore}% fair distribution` : 'No data available'}
+              </p>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>

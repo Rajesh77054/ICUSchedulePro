@@ -9,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2 } from "lucide-react";
 import * as z from "zod";
 import { toFormikValidationSchema } from "zod-formik-adapter";
+import { ShiftPreferences } from "./ShiftPreferences";
 
 const DAYS_OF_WEEK = [
   { label: "Sunday", value: 0 },
@@ -30,9 +31,10 @@ const preferencesSchema = z.object({
 
 type PreferencesFormProps = {
   userId: number;
+  onSuccess?: () => void; // Added onSuccess prop
 };
 
-export function PreferencesForm({ userId }: PreferencesFormProps) {
+export function PreferencesForm({ userId, onSuccess }: PreferencesFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -61,6 +63,7 @@ export function PreferencesForm({ userId }: PreferencesFormProps) {
         title: "Success",
         description: "Preferences updated successfully"
       });
+      onSuccess && onSuccess(); // Call onSuccess if provided
     },
     onError: (error: Error) => {
       toast({
@@ -105,99 +108,99 @@ export function PreferencesForm({ userId }: PreferencesFormProps) {
       {({ values, setFieldValue }) => (
         <>
           <Form className="space-y-6">
-          <div className="space-y-4">
-            <div>
-              <Label>Preferred Shift Length (days)</Label>
-              <Field
-                name="preferredShiftLength"
-                type="number"
-                min={1}
-                max={14}
-                as={Input}
-                className="mt-1"
-              />
-            </div>
+            <div className="space-y-4">
+              <div>
+                <Label>Preferred Shift Length (days)</Label>
+                <Field
+                  name="preferredShiftLength"
+                  type="number"
+                  min={1}
+                  max={14}
+                  as={Input}
+                  className="mt-1"
+                />
+              </div>
 
-            <div>
-              <Label>Maximum Shifts per Week</Label>
-              <Field
-                name="maxShiftsPerWeek"
-                type="number"
-                min={1}
-                max={7}
-                as={Input}
-                className="mt-1"
-              />
-            </div>
+              <div>
+                <Label>Maximum Shifts per Week</Label>
+                <Field
+                  name="maxShiftsPerWeek"
+                  type="number"
+                  min={1}
+                  max={7}
+                  as={Input}
+                  className="mt-1"
+                />
+              </div>
 
-            <div>
-              <Label>Minimum Days Between Shifts</Label>
-              <Field
-                name="minDaysBetweenShifts"
-                type="number"
-                min={0}
-                max={90}
-                as={Input}
-                className="mt-1"
-              />
-            </div>
+              <div>
+                <Label>Minimum Days Between Shifts</Label>
+                <Field
+                  name="minDaysBetweenShifts"
+                  type="number"
+                  min={0}
+                  max={90}
+                  as={Input}
+                  className="mt-1"
+                />
+              </div>
 
-            <div>
-              <Label className="mb-2 block">Preferred Days</Label>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                {DAYS_OF_WEEK.map((day) => (
-                  <div key={day.value} className="flex items-center space-x-2">
-                    <Checkbox
-                      checked={values.preferredDaysOfWeek.includes(day.value)}
-                      onCheckedChange={(checked) => {
-                        const current = values.preferredDaysOfWeek;
-                        const updated = checked
-                          ? [...current, day.value]
-                          : current.filter((d) => d !== day.value);
-                        setFieldValue("preferredDaysOfWeek", updated);
-                      }}
-                    />
-                    <Label>{day.label}</Label>
-                  </div>
-                ))}
+              <div>
+                <Label className="mb-2 block">Preferred Days</Label>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {DAYS_OF_WEEK.map((day) => (
+                    <div key={day.value} className="flex items-center space-x-2">
+                      <Checkbox
+                        checked={values.preferredDaysOfWeek.includes(day.value)}
+                        onCheckedChange={(checked) => {
+                          const current = values.preferredDaysOfWeek;
+                          const updated = checked
+                            ? [...current, day.value]
+                            : current.filter((d) => d !== day.value);
+                          setFieldValue("preferredDaysOfWeek", updated);
+                        }}
+                      />
+                      <Label>{day.label}</Label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <Label className="mb-2 block">Days to Avoid</Label>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {DAYS_OF_WEEK.map((day) => (
+                    <div key={day.value} className="flex items-center space-x-2">
+                      <Checkbox
+                        checked={values.avoidedDaysOfWeek.includes(day.value)}
+                        onCheckedChange={(checked) => {
+                          const current = values.avoidedDaysOfWeek;
+                          const updated = checked
+                            ? [...current, day.value]
+                            : current.filter((d) => d !== day.value);
+                          setFieldValue("avoidedDaysOfWeek", updated);
+                        }}
+                      />
+                      <Label>{day.label}</Label>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
 
-            <div>
-              <Label className="mb-2 block">Days to Avoid</Label>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                {DAYS_OF_WEEK.map((day) => (
-                  <div key={day.value} className="flex items-center space-x-2">
-                    <Checkbox
-                      checked={values.avoidedDaysOfWeek.includes(day.value)}
-                      onCheckedChange={(checked) => {
-                        const current = values.avoidedDaysOfWeek;
-                        const updated = checked
-                          ? [...current, day.value]
-                          : current.filter((d) => d !== day.value);
-                        setFieldValue("avoidedDaysOfWeek", updated);
-                      }}
-                    />
-                    <Label>{day.label}</Label>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <Button type="submit" className="w-full" disabled={isUpdating}>
-            {isUpdating ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              "Save Preferences"
-            )}
-          </Button>
-        </Form>
+            <Button type="submit" className="w-full" disabled={isUpdating}>
+              {isUpdating ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save Preferences"
+              )}
+            </Button>
+          </Form>
           <div className="mt-8">
-            <HolidayPreferences userId={userId} />
+            <ShiftPreferences userId={userId} />
           </div>
         </>
       )}

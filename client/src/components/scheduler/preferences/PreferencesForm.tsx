@@ -10,6 +10,7 @@ import { Loader2 } from "lucide-react";
 import * as z from "zod";
 import { toFormikValidationSchema } from "zod-formik-adapter";
 import { ShiftPreferences } from "./ShiftPreferences";
+import { HolidayPreferences } from "./HolidayPreferences"; // Added import
 
 const DAYS_OF_WEEK = [
   { label: "Sunday", value: 0 },

@@ -46,10 +46,14 @@ export function ShiftPreferences({ userId }) {
 
   const { mutate: updatePreferences, isPending: isUpdating } = useMutation({
     mutationFn: async (data) => {
+      console.log("Submitting preferences:", data); // Debug log
       const res = await fetch(`/api/user-preferences/${userId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          ...data,
+          preferredHolidays: data.preferredHolidays || []
+        }),
       });
       if (!res.ok) throw new Error("Failed to update preferences");
       return res.json();
@@ -103,7 +107,11 @@ export function ShiftPreferences({ userId }) {
       return;
     }
 
-    updatePreferences(formData);
+    console.log("Form data being submitted:", formData); // Debug log
+    updatePreferences({
+      ...formData,
+      preferredHolidays: formData.preferredHolidays || []
+    });
   };
 
   if (isLoading) {

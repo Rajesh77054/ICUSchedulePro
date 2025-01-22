@@ -20,7 +20,7 @@ export function HolidayPreferences({
   onHolidayChange: (holidays: string[]) => void 
 }) {
   return (
-    <div className="grid gap-4">
+    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
       {HOLIDAYS.map((holiday) => (
         <div key={holiday.id} className="flex items-center space-x-2">
           <Checkbox

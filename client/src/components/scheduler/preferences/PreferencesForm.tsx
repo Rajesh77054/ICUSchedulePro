@@ -1,3 +1,4 @@
+
 import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -31,20 +32,7 @@ const preferencesSchema = z.object({
   preferredHolidays: z.array(z.string()),
 });
 
-type PreferencesFormProps = {
-  userId: number;
-  isAdmin?: boolean;
-  adminOverrides?: {
-    preferredShiftLength?: boolean;
-    maxShiftsPerWeek?: boolean;
-    minDaysBetweenShifts?: boolean;
-    preferredDaysOfWeek?: boolean;
-    avoidedDaysOfWeek?: boolean;
-    preferredHolidays?: boolean;
-  };
-};
-
-export function PreferencesForm({ userId, isAdmin, adminOverrides }: PreferencesFormProps) {
+export function PreferencesForm({ userId, isAdmin, adminOverrides }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -58,7 +46,7 @@ export function PreferencesForm({ userId, isAdmin, adminOverrides }: Preferences
   });
 
   const { mutate: updatePreferences, isPending: isUpdating } = useMutation({
-    mutationFn: async (values: z.infer<typeof preferencesSchema>) => {
+    mutationFn: async (values) => {
       const res = await fetch(`/api/user-preferences/${userId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -74,7 +62,7 @@ export function PreferencesForm({ userId, isAdmin, adminOverrides }: Preferences
         description: "Preferences updated successfully"
       });
     },
-    onError: (error: Error) => {
+    onError: (error) => {
       toast({
         title: "Error",
         description: error.message,
@@ -104,25 +92,17 @@ export function PreferencesForm({ userId, isAdmin, adminOverrides }: Preferences
     <Formik
       initialValues={initialValues}
       validationSchema={toFormikValidationSchema(preferencesSchema)}
-      onSubmit={(values) => {
-        const parsedValues = {
-          ...values,
-          preferredShiftLength: Number(values.preferredShiftLength),
-          maxShiftsPerWeek: Number(values.maxShiftsPerWeek),
-          minDaysBetweenShifts: Number(values.minDaysBetweenShifts),
-        };
-        updatePreferences(parsedValues);
-      }}
+      onSubmit={updatePreferences}
       enableReinitialize
     >
       {({ values, setFieldValue }) => (
-        <Form className="space-y-8 max-h-[calc(100vh-8rem)] overflow-y-auto px-4 py-6">
+        <Form className="space-y-8 max-h-[calc(100vh-8rem)] overflow-y-auto p-6">
           <Card>
             <CardHeader>
               <CardTitle>Schedule Duration</CardTitle>
               <CardDescription>Configure your scheduling period preferences</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-6">
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
                   <Label>Preferred Shift Length (days)</Label>
@@ -135,7 +115,6 @@ export function PreferencesForm({ userId, isAdmin, adminOverrides }: Preferences
                     className="mt-1"
                   />
                 </div>
-
                 <div>
                   <Label>Maximum Shifts per Week</Label>
                   <Field
@@ -147,7 +126,6 @@ export function PreferencesForm({ userId, isAdmin, adminOverrides }: Preferences
                     className="mt-1"
                   />
                 </div>
-
                 <div>
                   <Label>Minimum Days Between Shifts</Label>
                   <Field
@@ -159,47 +137,55 @@ export function PreferencesForm({ userId, isAdmin, adminOverrides }: Preferences
                     className="mt-1"
                   />
                 </div>
+              </div>
+            </CardContent>
+          </Card>
 
-                <div>
-                  <Label className="mb-2 block">Preferred Days</Label>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    {DAYS_OF_WEEK.map((day) => (
-                      <div key={day.value} className="flex items-center space-x-2">
-                        <Checkbox
-                          checked={values.preferredDaysOfWeek.includes(day.value)}
-                          onCheckedChange={(checked) => {
-                            const current = values.preferredDaysOfWeek;
-                            const updated = checked
-                              ? [...current, day.value]
-                              : current.filter((d) => d !== day.value);
-                            setFieldValue("preferredDaysOfWeek", updated);
-                          }}
-                        />
-                        <Label>{day.label}</Label>
-                      </div>
-                    ))}
-                  </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>Days of Week</CardTitle>
+              <CardDescription>Select your preferred and avoided days</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div>
+                <Label className="mb-2 block">Preferred Days</Label>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {DAYS_OF_WEEK.map((day) => (
+                    <div key={day.value} className="flex items-center space-x-2">
+                      <Checkbox
+                        checked={values.preferredDaysOfWeek.includes(day.value)}
+                        onCheckedChange={(checked) => {
+                          const current = values.preferredDaysOfWeek;
+                          const updated = checked
+                            ? [...current, day.value]
+                            : current.filter((d) => d !== day.value);
+                          setFieldValue("preferredDaysOfWeek", updated);
+                        }}
+                      />
+                      <Label>{day.label}</Label>
+                    </div>
+                  ))}
                 </div>
+              </div>
 
-                <div>
-                  <Label className="mb-2 block">Days to Avoid</Label>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    {DAYS_OF_WEEK.map((day) => (
-                      <div key={day.value} className="flex items-center space-x-2">
-                        <Checkbox
-                          checked={values.avoidedDaysOfWeek.includes(day.value)}
-                          onCheckedChange={(checked) => {
-                            const current = values.avoidedDaysOfWeek;
-                            const updated = checked
-                              ? [...current, day.value]
-                              : current.filter((d) => d !== day.value);
-                            setFieldValue("avoidedDaysOfWeek", updated);
-                          }}
-                        />
-                        <Label>{day.label}</Label>
-                      </div>
-                    ))}
-                  </div>
+              <div>
+                <Label className="mb-2 block">Days to Avoid</Label>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {DAYS_OF_WEEK.map((day) => (
+                    <div key={day.value} className="flex items-center space-x-2">
+                      <Checkbox
+                        checked={values.avoidedDaysOfWeek.includes(day.value)}
+                        onCheckedChange={(checked) => {
+                          const current = values.avoidedDaysOfWeek;
+                          const updated = checked
+                            ? [...current, day.value]
+                            : current.filter((d) => d !== day.value);
+                          setFieldValue("avoidedDaysOfWeek", updated);
+                        }}
+                      />
+                      <Label>{day.label}</Label>
+                    </div>
+                  ))}
                 </div>
               </div>
             </CardContent>
@@ -210,13 +196,11 @@ export function PreferencesForm({ userId, isAdmin, adminOverrides }: Preferences
               <CardTitle>Holiday Preferences</CardTitle>
               <CardDescription>Select your preferred holidays for scheduling</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-4">
-                <HolidayPreferences
-                  selectedHolidays={values.preferredHolidays || []}
-                  onHolidayChange={(holidays) => setFieldValue('preferredHolidays', holidays)}
-                />
-              </div>
+            <CardContent>
+              <HolidayPreferences
+                selectedHolidays={values.preferredHolidays}
+                onHolidayChange={(holidays) => setFieldValue('preferredHolidays', holidays)}
+              />
             </CardContent>
           </Card>
 

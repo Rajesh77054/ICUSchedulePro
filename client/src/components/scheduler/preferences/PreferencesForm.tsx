@@ -115,10 +115,16 @@ export function PreferencesForm({ userId, isAdmin, adminOverrides }: Preferences
       enableReinitialize
     >
       {({ values, setFieldValue }) => (
-        <Form className="space-y-6 max-h-[calc(100vh-8rem)] overflow-y-auto px-4">
-          <div className="space-y-4">
-            <div>
-              <Label>Preferred Shift Length (days)</Label>
+        <Form className="space-y-8 max-h-[calc(100vh-8rem)] overflow-y-auto px-4 py-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Schedule Duration</CardTitle>
+              <CardDescription>Configure your scheduling period preferences</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <Label>Preferred Shift Length (days)</Label>
               <Field
                 name="preferredShiftLength"
                 type="number"

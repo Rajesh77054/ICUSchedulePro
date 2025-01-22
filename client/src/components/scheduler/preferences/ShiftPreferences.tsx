@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,9 +15,6 @@ export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [formData, setFormData] = useState({
-    targetDays: 0,
-    toleranceDays: 0,
-    maxConsecutiveWeeks: 0,
     preferredShiftLength: 0,
     maxShiftsPerWeek: 0,
     minDaysBetweenShifts: 0
@@ -36,9 +32,6 @@ export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
   useEffect(() => {
     if (preferences) {
       setFormData({
-        targetDays: preferences.targetDays || 0,
-        toleranceDays: preferences.toleranceDays || 0,
-        maxConsecutiveWeeks: preferences.maxConsecutiveWeeks || 0,
         preferredShiftLength: preferences.preferredShiftLength || 0,
         maxShiftsPerWeek: preferences.maxShiftsPerWeek || 0,
         minDaysBetweenShifts: preferences.minDaysBetweenShifts || 0
@@ -47,7 +40,7 @@ export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
   }, [preferences]);
 
   const { mutate: updatePreferences, isPending: isUpdating } = useMutation({
-    mutationFn: async (data) => {
+    mutationFn: async (data: typeof formData) => {
       const res = await fetch(`/api/user-preferences/${userId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -60,7 +53,7 @@ export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
       queryClient.invalidateQueries({ queryKey: ["/api/user-preferences"] });
       toast({ title: "Success", description: "Preferences updated successfully" });
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       toast({
         title: "Error",
         description: error.message,
@@ -69,7 +62,7 @@ export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
     },
   });
 
-  const handleInputChange = (e) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
@@ -77,7 +70,7 @@ export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
     }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     updatePreferences(formData);
   };
@@ -94,56 +87,21 @@ export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
     <form onSubmit={handleSubmit} className="space-y-8">
       <Card>
         <CardHeader>
-          <CardTitle>Schedule Duration</CardTitle>
-          <CardDescription>Configure your scheduling period preferences</CardDescription>
+          <CardTitle>Shift Preferences</CardTitle>
+          <CardDescription>Set your preferred shift schedule</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4">
             <div>
-              <Label htmlFor="targetDays">Target Days</Label>
+              <Label htmlFor="preferredShiftLength">Preferred Shift Length (days)</Label>
               <Input
-                id="targetDays"
-                name="targetDays"
+                id="preferredShiftLength"
+                name="preferredShiftLength"
                 type="number"
-                value={formData.targetDays}
+                value={formData.preferredShiftLength}
                 onChange={handleInputChange}
                 min={1}
-                max={90}
-              />
-            </div>
-            <div>
-              <Label htmlFor="toleranceDays">Tolerance Days</Label>
-              <Input
-                id="toleranceDays"
-                name="toleranceDays"
-                type="number"
-                value={formData.toleranceDays}
-                onChange={handleInputChange}
-                min={0}
                 max={14}
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Schedule Constraints</CardTitle>
-          <CardDescription>Set your scheduling limits and consecutive work preferences</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <Label htmlFor="maxConsecutiveWeeks">Maximum Consecutive Weeks</Label>
-              <Input
-                id="maxConsecutiveWeeks"
-                name="maxConsecutiveWeeks"
-                type="number"
-                value={formData.maxConsecutiveWeeks}
-                onChange={handleInputChange}
-                min={1}
-                max={52}
               />
             </div>
             <div>
@@ -156,6 +114,18 @@ export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
                 onChange={handleInputChange}
                 min={1}
                 max={7}
+              />
+            </div>
+            <div>
+              <Label htmlFor="minDaysBetweenShifts">Minimum Days Between Shifts</Label>
+              <Input
+                id="minDaysBetweenShifts"
+                name="minDaysBetweenShifts"
+                type="number"
+                value={formData.minDaysBetweenShifts}
+                onChange={handleInputChange}
+                min={0}
+                max={90}
               />
             </div>
           </div>

@@ -47,26 +47,42 @@ export function PreferencesForm({ userId }: PreferencesFormProps) {
 
   const { mutate: updatePreferences, isPending: isUpdating } = useMutation({
     mutationFn: async (values: z.infer<typeof preferencesSchema>) => {
-      const payload = {
-        preferredShiftLength: Number(values.preferredShiftLength),
-        maxShiftsPerWeek: Number(values.maxShiftsPerWeek),
-        minDaysBetweenShifts: Number(values.minDaysBetweenShifts),
-        preferredDaysOfWeek: values.preferredDaysOfWeek,
-        avoidedDaysOfWeek: values.avoidedDaysOfWeek,
+      const validatedValues = {
+        preferredShiftLength: Math.max(1, Math.min(14, Number(values.preferredShiftLength) || 7)),
+        maxShiftsPerWeek: Math.max(1, Math.min(7, Number(values.maxShiftsPerWeek) || 1)),
+        minDaysBetweenShifts: Math.max(0, Math.min(90, Number(values.minDaysBetweenShifts) || 0)),
+        preferredDaysOfWeek: Array.isArray(values.preferredDaysOfWeek) ? values.preferredDaysOfWeek : [],
+        avoidedDaysOfWeek: Array.isArray(values.avoidedDaysOfWeek) ? values.avoidedDaysOfWeek : [],
         userId
       };
+
       const res = await fetch(`/api/user-preferences/${userId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(validatedValues),
       });
+
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to update preferences");
+      if (!res.ok) {
+        const errorMsg = data.error || "Failed to update preferences";
+        console.error("Update failed:", errorMsg);
+        throw new Error(errorMsg);
+      }
+
+      if (!data.id) {
+        throw new Error("Server returned invalid data");
+      }
+
       return data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/user-preferences"] });
-      toast({ title: "Success", description: "Preferences updated successfully" });
+    onSuccess: (data) => {
+      if (data.id) {
+        queryClient.invalidateQueries({ queryKey: ["/api/user-preferences"] });
+        toast({
+          title: "Success",
+          description: "Preferences updated successfully"
+        });
+      }
     },
     onError: () => {
       toast({

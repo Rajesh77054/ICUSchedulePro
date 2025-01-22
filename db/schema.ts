@@ -5,6 +5,24 @@ import type { InferModel } from "drizzle-orm";
 
 // Define enums
 export const TimeOffRequestStatus = ['pending', 'approved', 'rejected'] as const;
+export const HolidayType = ['new_year', 'easter', 'memorial', 'independence', 'labor', 'thanksgiving', 'christmas'] as const;
+
+export const holidays = pgTable("holidays", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  date: date("date").notNull(),
+  type: text("type", { enum: HolidayType }).notNull(),
+  year: integer("year").notNull(),
+});
+
+export const holidayAssignments = pgTable("holiday_assignments", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  holidayId: integer("holiday_id").references(() => holidays.id).notNull(),
+  year: integer("year").notNull(),
+  status: text("status", { enum: ['assigned', 'requested_off', 'confirmed'] }).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
 export type TimeOffRequestStatus = typeof TimeOffRequestStatus[number];
 
 export const ShiftStatus = ['confirmed', 'pending_swap', 'swapped', 'archived'] as const;

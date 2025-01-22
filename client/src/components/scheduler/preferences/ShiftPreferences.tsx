@@ -185,7 +185,10 @@ export function ShiftPreferences({ userId }) {
           </div>
         </CardContent>
       </Card>
-      <HolidayPreferences onChange={handleHolidayChange} selectedHolidays={formData.preferredHolidays}/>
+      <HolidayPreferences 
+          selectedHolidays={formData.preferredHolidays} 
+          onHolidayChange={handleHolidayChange}
+        />
       <Button type="submit" className="w-full" disabled={isUpdating}>
         {isUpdating ? (
           <>

@@ -198,12 +198,10 @@ export function PreferencesForm({ userId, isAdmin, adminOverrides }: Preferences
 
           <div>
             <Label className="mb-2 block">Holiday Preferences</Label>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              <HolidayPreferences
-                selectedHolidays={values.preferredHolidays || []}
-                onHolidayChange={(holidays) => setFieldValue('preferredHolidays', holidays)}
-              />
-            </div>
+            <HolidayPreferences
+              selectedHolidays={values.preferredHolidays || []}
+              onHolidayChange={(holidays) => setFieldValue('preferredHolidays', holidays)}
+            />
           </div>
 
           <Button type="submit" className="w-full" disabled={isUpdating}>

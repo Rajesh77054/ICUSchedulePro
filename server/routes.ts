@@ -248,11 +248,11 @@ export function registerRoutes(app: Express) {
       let result;
       const values = {
         userId,
-        preferredShiftLength: parseInt(updates.preferredShiftLength) || 7,
-        maxShiftsPerWeek: parseInt(updates.maxShiftsPerWeek) || 1,
-        minDaysBetweenShifts: parseInt(updates.minDaysBetweenShifts) || 0,
-        preferredDaysOfWeek: Array.isArray(updates.preferredDaysOfWeek) ? updates.preferredDaysOfWeek : [],
-        avoidedDaysOfWeek: Array.isArray(updates.avoidedDaysOfWeek) ? updates.avoidedDaysOfWeek : [],
+        preferredShiftLength: Number(updates.preferredShiftLength) || 7,
+        maxShiftsPerWeek: Number(updates.maxShiftsPerWeek) || 1,
+        minDaysBetweenShifts: Number(updates.minDaysBetweenShifts) || 0,
+        preferredDaysOfWeek: Array.isArray(updates.preferredDaysOfWeek) ? updates.preferredDaysOfWeek.map(Number) : [],
+        avoidedDaysOfWeek: Array.isArray(updates.avoidedDaysOfWeek) ? updates.avoidedDaysOfWeek.map(Number) : [],
         updatedAt: new Date()
       };
 

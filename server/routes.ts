@@ -247,6 +247,7 @@ export function registerRoutes(app: Express) {
 
       let result;
       const values = {
+        userId,
         preferredShiftLength: parseInt(updates.preferredShiftLength) || 7,
         maxShiftsPerWeek: parseInt(updates.maxShiftsPerWeek) || 1,
         minDaysBetweenShifts: parseInt(updates.minDaysBetweenShifts) || 0,
@@ -261,6 +262,19 @@ export function registerRoutes(app: Express) {
           .update(userPreferences)
           .set(values)
           .where(eq(userPreferences.userId, userId))
+          .returning({
+            id: userPreferences.id,
+            userId: userPreferences.userId,
+            preferredShiftLength: userPreferences.preferredShiftLength,
+            maxShiftsPerWeek: userPreferences.maxShiftsPerWeek,
+            minDaysBetweenShifts: userPreferences.minDaysBetweenShifts,
+            preferredDaysOfWeek: userPreferences.preferredDaysOfWeek,
+            avoidedDaysOfWeek: userPreferences.avoidedDaysOfWeek,
+            createdAt: userPreferences.createdAt,
+            updatedAt: userPreferences.updatedAt
+          });
+          .set(values)
+          .where(eq(userPreferences.userId, userId))
           .returning();
       } else {
         // Create new preferences
@@ -268,10 +282,19 @@ export function registerRoutes(app: Express) {
           .insert(userPreferences)
           .values({
             ...values,
-            userId,
             createdAt: new Date()
           })
-          .returning();
+          .returning({
+            id: userPreferences.id,
+            userId: userPreferences.userId,
+            preferredShiftLength: userPreferences.preferredShiftLength,
+            maxShiftsPerWeek: userPreferences.maxShiftsPerWeek,
+            minDaysBetweenShifts: userPreferences.minDaysBetweenShifts,
+            preferredDaysOfWeek: userPreferences.preferredDaysOfWeek,
+            avoidedDaysOfWeek: userPreferences.avoidedDaysOfWeek,
+            createdAt: userPreferences.createdAt,
+            updatedAt: userPreferences.updatedAt
+          });
       }
 
       if (!result.length) {

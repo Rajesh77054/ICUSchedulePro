@@ -194,16 +194,21 @@ export function PreferencesForm({ userId, isAdmin, adminOverrides }) {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="w-full">
             <CardHeader>
               <CardTitle>Holiday Preferences</CardTitle>
               <CardDescription>Select your preferred holidays for scheduling</CardDescription>
             </CardHeader>
             <CardContent>
-              <HolidayPreferences
-                selectedHolidays={values.preferredHolidays}
-                onHolidayChange={(holidays) => setFieldValue('preferredHolidays', holidays)}
-              />
+              <div className="w-full">
+                <HolidayPreferences
+                  selectedHolidays={values.preferredHolidays || []}
+                  onHolidayChange={(holidays) => {
+                    console.log('Updating holidays:', holidays);
+                    setFieldValue('preferredHolidays', holidays);
+                  }}
+                />
+              </div>
             </CardContent>
           </Card>
 

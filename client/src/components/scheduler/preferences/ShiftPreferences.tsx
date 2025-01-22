@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
+import { HolidayPreferences } from "./HolidayPreferences";
 
 export function ShiftPreferences({ userId }) {
   const { toast } = useToast();
@@ -16,7 +17,8 @@ export function ShiftPreferences({ userId }) {
     maxConsecutiveWeeks: 0,
     preferredShiftLength: 0,
     maxShiftsPerWeek: 0,
-    minDaysBetweenShifts: 0
+    minDaysBetweenShifts: 0,
+    preferredHolidays: []
   });
 
   const { data: preferences, isLoading } = useQuery({
@@ -36,7 +38,8 @@ export function ShiftPreferences({ userId }) {
         maxConsecutiveWeeks: preferences.maxConsecutiveWeeks || 0,
         preferredShiftLength: preferences.preferredShiftLength || 0,
         maxShiftsPerWeek: preferences.maxShiftsPerWeek || 0,
-        minDaysBetweenShifts: preferences.minDaysBetweenShifts || 0
+        minDaysBetweenShifts: preferences.minDaysBetweenShifts || 0,
+        preferredHolidays: preferences.preferredHolidays || []
       });
     }
   }, [preferences]);
@@ -71,6 +74,10 @@ export function ShiftPreferences({ userId }) {
       [name]: parseInt(value) || 0
     }));
   };
+
+  const handleHolidayChange = (selectedHolidays) => {
+    setFormData(prev => ({...prev, preferredHolidays: selectedHolidays}));
+  }
 
   const validateAgainstAdminConstraints = (data) => {
     const conflicts = [];
@@ -178,7 +185,7 @@ export function ShiftPreferences({ userId }) {
           </div>
         </CardContent>
       </Card>
-
+      <HolidayPreferences onChange={handleHolidayChange} selectedHolidays={formData.preferredHolidays}/>
       <Button type="submit" className="w-full" disabled={isUpdating}>
         {isUpdating ? (
           <>

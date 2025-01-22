@@ -52,11 +52,13 @@ export function PreferencesForm({ userId }: PreferencesFormProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...values,
-          userId,
-          id: preferences?.id, // Include existing ID in update
+          userId
         }),
       });
-      if (!res.ok) throw new Error("Failed to update preferences");
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Failed to update preferences");
+      }
       return res.json();
     },
     onSuccess: () => {

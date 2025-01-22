@@ -1,3 +1,4 @@
+
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -7,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Loader2 } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
 import { useState, useEffect } from "react";
 
 const HOLIDAYS = [
@@ -108,16 +110,16 @@ export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
   }
 
   return (
-    <div className="space-y-8">
-      <form onSubmit={handleSubmit} className="space-y-8">
+    <div className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-6">
         <Card>
           <CardHeader>
-            <CardTitle>Shift Preferences</CardTitle>
-            <CardDescription>Set your preferred shift schedule</CardDescription>
+            <CardTitle>Shift Settings</CardTitle>
+            <CardDescription>Configure your basic shift preferences</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4">
-              <div>
+          <CardContent className="space-y-6">
+            <div className="grid gap-6 md:grid-cols-2">
+              <div className="space-y-2">
                 <Label htmlFor="preferredShiftLength">Preferred Shift Length (days)</Label>
                 <Input
                   id="preferredShiftLength"
@@ -127,9 +129,10 @@ export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
                   onChange={handleInputChange}
                   min={1}
                   max={14}
+                  className="w-full"
                 />
               </div>
-              <div>
+              <div className="space-y-2">
                 <Label htmlFor="maxShiftsPerWeek">Maximum Shifts per Week</Label>
                 <Input
                   id="maxShiftsPerWeek"
@@ -139,9 +142,10 @@ export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
                   onChange={handleInputChange}
                   min={1}
                   max={7}
+                  className="w-full"
                 />
               </div>
-              <div>
+              <div className="space-y-2 md:col-span-2">
                 <Label htmlFor="minDaysBetweenShifts">Minimum Days Between Shifts</Label>
                 <Input
                   id="minDaysBetweenShifts"
@@ -151,6 +155,7 @@ export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
                   onChange={handleInputChange}
                   min={0}
                   max={90}
+                  className="w-full"
                 />
               </div>
             </div>
@@ -160,6 +165,7 @@ export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
         <Card>
           <CardHeader>
             <CardTitle>Holiday Schedule</CardTitle>
+            <CardDescription>View and manage your holiday assignments</CardDescription>
           </CardHeader>
           <CardContent>
             <Table>
@@ -177,7 +183,7 @@ export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
                   );
                   return (
                     <TableRow key={holiday.id}>
-                      <TableCell>{holiday.name}</TableCell>
+                      <TableCell className="font-medium">{holiday.name}</TableCell>
                       <TableCell>
                         <Badge variant={assignment?.assigned ? "default" : "secondary"}>
                           {assignment?.assigned ? "Assigned" : "Unassigned"}
@@ -185,7 +191,7 @@ export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline">
-                          {preferences?.holidayPreferences?.includes(holiday.id) ? "Preferred Off" : "Standard"}
+                          {formData.holidayPreferences?.includes(holiday.id) ? "Preferred Off" : "Standard"}
                         </Badge>
                       </TableCell>
                     </TableRow>
@@ -196,16 +202,18 @@ export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
           </CardContent>
         </Card>
 
-        <Button type="submit" className="w-full" disabled={isUpdating}>
-          {isUpdating ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Saving...
-            </>
-          ) : (
-            "Save Preferences"
-          )}
-        </Button>
+        <div className="flex justify-end">
+          <Button type="submit" disabled={isUpdating} className="min-w-[120px]">
+            {isUpdating ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              "Save Preferences"
+            )}
+          </Button>
+        </div>
       </form>
     </div>
   );

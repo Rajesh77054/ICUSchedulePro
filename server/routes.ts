@@ -262,9 +262,9 @@ export function registerRoutes(app: Express) {
           .update(userPreferences)
           .set({
             ...values,
-            id: existing[0].id // Preserve existing ID
+            updatedAt: new Date()
           })
-          .where(eq(userPreferences.userId, userId))
+          .where(eq(userPreferences.id, existing[0].id))
           .returning();
       } else {
         // Create new preferences

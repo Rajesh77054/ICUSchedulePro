@@ -74,18 +74,20 @@ export function PreferencesForm({ userId, onSuccess }: PreferencesFormProps) {
 
   const { mutate: updatePreferences, isPending: isUpdating } = useMutation({
     mutationFn: async (data: Partial<UserPreferences>) => {
+      const payload = {
+        ...data,
+        id: preferences?.id, // Preserve existing ID
+        userId,
+        preferredShiftLength: parseInt(data.preferredShiftLength?.toString() || "7"),
+        maxShiftsPerWeek: parseInt(data.maxShiftsPerWeek?.toString() || "1"),
+        minDaysBetweenShifts: parseInt(data.minDaysBetweenShifts?.toString() || "0"),
+        preferredDaysOfWeek: data.preferredDaysOfWeek || [],
+        avoidedDaysOfWeek: data.avoidedDaysOfWeek || [],
+      };
       const res = await fetch(`/api/user-preferences/${userId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...data,
-          userId,
-          preferredShiftLength: parseInt(data.preferredShiftLength?.toString() || "7"),
-          maxShiftsPerWeek: parseInt(data.maxShiftsPerWeek?.toString() || "1"),
-          minDaysBetweenShifts: parseInt(data.minDaysBetweenShifts?.toString() || "0"),
-          preferredDaysOfWeek: data.preferredDaysOfWeek || [],
-          avoidedDaysOfWeek: data.avoidedDaysOfWeek || [],
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (!res.ok) {
@@ -120,6 +122,16 @@ export function PreferencesForm({ userId, onSuccess }: PreferencesFormProps) {
     minDaysBetweenShifts: 0,
     preferredDaysOfWeek: [],
     avoidedDaysOfWeek: [],
+    defaultView: "",
+    defaultCalendarDuration: "",
+    notificationPreferences: {
+      emailNotifications: false,
+      inAppNotifications: false,
+      notifyOnNewShifts: false,
+      notifyOnSwapRequests: false,
+      notifyOnTimeOffUpdates: false,
+      notifyBeforeShift: 0,
+    },
   });
 
   // Update form data when preferences are loaded

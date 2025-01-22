@@ -21,11 +21,7 @@ const HOLIDAYS = [
   { id: 'christmas', name: "Christmas Day" },
 ];
 
-interface ShiftPreferencesProps {
-  userId: number;
-}
-
-export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
+export function ShiftPreferences({ userId }: { userId: number }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [formData, setFormData] = useState({
@@ -93,102 +89,105 @@ export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
   }
 
   return (
-    <div className="flex flex-col h-full max-h-[calc(100vh-8rem)]">
-      <ScrollArea className="flex-grow px-4">
-        <form onSubmit={handleSubmit} className="space-y-6 pb-20">
-          <div className="grid grid-cols-1 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Shift Settings</CardTitle>
-                <CardDescription>Configure your basic shift preferences</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="preferredShiftLength">Preferred Shift Length (days)</Label>
-                  <Input
-                    id="preferredShiftLength"
-                    type="number"
-                    value={formData.preferredShiftLength}
-                    onChange={(e) => setFormData(prev => ({
-                      ...prev,
-                      preferredShiftLength: parseInt(e.target.value) || 0
-                    }))}
-                    min={1}
-                    max={14}
-                  />
-                </div>
+    <div className="flex flex-col h-full">
+      <ScrollArea className="flex-grow pb-20">
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Shift Settings</CardTitle>
+              <CardDescription>Configure your basic shift preferences</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="preferredShiftLength">Preferred Shift Length (days)</Label>
+                <Input
+                  id="preferredShiftLength"
+                  type="number"
+                  value={formData.preferredShiftLength}
+                  onChange={(e) => setFormData(prev => ({
+                    ...prev,
+                    preferredShiftLength: parseInt(e.target.value) || 0
+                  }))}
+                  min={1}
+                  max={14}
+                />
+              </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="maxShiftsPerWeek">Maximum Shifts per Week</Label>
-                  <Input
-                    id="maxShiftsPerWeek"
-                    type="number"
-                    value={formData.maxShiftsPerWeek}
-                    onChange={(e) => setFormData(prev => ({
-                      ...prev,
-                      maxShiftsPerWeek: parseInt(e.target.value) || 0
-                    }))}
-                    min={1}
-                    max={7}
-                  />
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="maxShiftsPerWeek">Maximum Shifts per Week</Label>
+                <Input
+                  id="maxShiftsPerWeek"
+                  type="number"
+                  value={formData.maxShiftsPerWeek}
+                  onChange={(e) => setFormData(prev => ({
+                    ...prev,
+                    maxShiftsPerWeek: parseInt(e.target.value) || 0
+                  }))}
+                  min={1}
+                  max={7}
+                />
+              </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="minDaysBetweenShifts">Minimum Days Between Shifts</Label>
-                  <Input
-                    id="minDaysBetweenShifts"
-                    type="number"
-                    value={formData.minDaysBetweenShifts}
-                    onChange={(e) => setFormData(prev => ({
-                      ...prev,
-                      minDaysBetweenShifts: parseInt(e.target.value) || 0
-                    }))}
-                    min={0}
-                    max={90}
-                  />
-                </div>
-              </CardContent>
-            </Card>
+              <div className="space-y-2">
+                <Label htmlFor="minDaysBetweenShifts">Minimum Days Between Shifts</Label>
+                <Input
+                  id="minDaysBetweenShifts"
+                  type="number"
+                  value={formData.minDaysBetweenShifts}
+                  onChange={(e) => setFormData(prev => ({
+                    ...prev,
+                    minDaysBetweenShifts: parseInt(e.target.value) || 0
+                  }))}
+                  min={0}
+                  max={90}
+                />
+              </div>
+            </CardContent>
+          </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Holiday Schedule</CardTitle>
-                <CardDescription>View your holiday assignments and preferences</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Holiday</TableHead>
-                      <TableHead>Status</TableHead>
+          <Card>
+            <CardHeader>
+              <CardTitle>Holiday Schedule</CardTitle>
+              <CardDescription>Set your holiday preferences</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Holiday</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {HOLIDAYS.map((holiday) => (
+                    <TableRow key={holiday.id}>
+                      <TableCell>{holiday.name}</TableCell>
+                      <TableCell>
+                        <Badge 
+                          variant={formData.holidayPreferences.includes(holiday.id) ? "secondary" : "outline"}
+                          className="cursor-pointer"
+                          onClick={() => {
+                            setFormData(prev => ({
+                              ...prev,
+                              holidayPreferences: prev.holidayPreferences.includes(holiday.id)
+                                ? prev.holidayPreferences.filter(h => h !== holiday.id)
+                                : [...prev.holidayPreferences, holiday.id]
+                            }));
+                          }}
+                        >
+                          {formData.holidayPreferences.includes(holiday.id) ? "Preferred Off" : "No Preference"}
+                        </Badge>
+                      </TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {HOLIDAYS.map((holiday) => (
-                      <TableRow key={holiday.id}>
-                        <TableCell>{holiday.name}</TableCell>
-                        <TableCell>
-                          <Badge variant={
-                            formData.holidayPreferences.includes(holiday.id) 
-                              ? "secondary"
-                              : "outline"
-                          }>
-                            {formData.holidayPreferences.includes(holiday.id) 
-                              ? "Preferred Off" 
-                              : "No Preference"}
-                          </Badge>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </div>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
         </form>
       </ScrollArea>
       
-      <div className="sticky bottom-0 bg-background p-4 border-t">
+      <div className="sticky bottom-0 bg-background p-4 border-t mt-6">
         <Button type="submit" className="w-full" disabled={isUpdating} onClick={handleSubmit}>
           {isUpdating ? (
             <>

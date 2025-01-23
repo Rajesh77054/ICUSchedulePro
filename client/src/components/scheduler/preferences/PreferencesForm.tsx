@@ -30,7 +30,7 @@ export function PreferencesForm({ userId, isAdmin }) {
     minDaysBetweenShifts: 0,
     preferredDaysOfWeek: [],
     avoidedDaysOfWeek: [],
-    preferredHolidays: []
+    preferredHolidays: preferences?.preferredHolidays || []
   });
 
   const { data: preferences, isLoading } = useQuery({
@@ -198,8 +198,9 @@ export function PreferencesForm({ userId, isAdmin }) {
           </CardHeader>
           <CardContent>
             <HolidayPreferences 
-              selectedHolidays={preferences?.preferredHolidays || []}
+              selectedHolidays={formData.preferredHolidays}
               onHolidayChange={(holidays) => {
+                console.log('Holiday selection changed:', holidays);
                 setFormData(prev => ({
                   ...prev,
                   preferredHolidays: holidays

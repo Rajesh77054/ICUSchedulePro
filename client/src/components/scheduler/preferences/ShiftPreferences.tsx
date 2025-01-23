@@ -123,7 +123,8 @@ export function ShiftPreferences({ userId, isAdmin }: SharedPreferencesProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-8 overflow-y-auto max-h-[calc(100vh-200px)] p-4">
+    <div className="overflow-y-auto max-h-[calc(100vh-200px)]">
+      <form onSubmit={handleSubmit} className="space-y-8 p-4">
       <Card>
         <CardHeader>
           <CardTitle>Schedule Duration</CardTitle>
@@ -220,5 +221,6 @@ export function ShiftPreferences({ userId, isAdmin }: SharedPreferencesProps) {
         )}
       </Button>
     </form>
+    </div>
   );
 }

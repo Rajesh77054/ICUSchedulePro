@@ -8,7 +8,7 @@ const HOLIDAYS = [
   { id: "memorial", label: "Memorial Day" },
   { id: "july4", label: "July 4th" },
   { id: "labor", label: "Labor Day" },
-  { id: "thanksgiving", label: "Thanksgiving (2 days)" },
+  { id: "thanksgiving", label: "Thanksgiving Thursday and Friday" },
   { id: "christmas", label: "Christmas Day" },
 ]
 
@@ -20,7 +20,7 @@ export function HolidayPreferences({
   onHolidayChange: (holidays: string[]) => void 
 }) {
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+    <div className="grid gap-4">
       {HOLIDAYS.map((holiday) => (
         <div key={holiday.id} className="flex items-center space-x-2">
           <Checkbox

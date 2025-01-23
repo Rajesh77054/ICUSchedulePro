@@ -8,7 +8,7 @@ import { Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { HolidayPreferences } from "./HolidayPreferences";
 
-export function ShiftPreferences({ userId, isAdmin }: SharedPreferencesProps) {
+export function ShiftPreferences({ userId }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [formData, setFormData] = useState({
@@ -123,8 +123,7 @@ export function ShiftPreferences({ userId, isAdmin }: SharedPreferencesProps) {
   }
 
   return (
-    <div className="overflow-y-auto max-h-[calc(100vh-200px)]">
-      <form onSubmit={handleSubmit} className="space-y-8 p-4">
+    <form onSubmit={handleSubmit} className="space-y-8">
       <Card>
         <CardHeader>
           <CardTitle>Schedule Duration</CardTitle>
@@ -221,6 +220,5 @@ export function ShiftPreferences({ userId, isAdmin }: SharedPreferencesProps) {
         )}
       </Button>
     </form>
-    </div>
   );
 }

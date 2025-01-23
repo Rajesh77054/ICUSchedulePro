@@ -30,8 +30,21 @@ export function PreferencesForm({ userId, isAdmin }) {
     minDaysBetweenShifts: 0,
     preferredDaysOfWeek: [],
     avoidedDaysOfWeek: [],
-    preferredHolidays: preferences?.preferredHolidays || []
+    preferredHolidays: []
   });
+
+  useEffect(() => {
+    if (preferences) {
+      setFormData({
+        preferredShiftLength: preferences.preferredShiftLength || 0,
+        maxShiftsPerWeek: preferences.maxShiftsPerWeek || 0,
+        minDaysBetweenShifts: preferences.minDaysBetweenShifts || 0,
+        preferredDaysOfWeek: preferences.preferredDaysOfWeek || [],
+        avoidedDaysOfWeek: preferences.avoidedDaysOfWeek || [],
+        preferredHolidays: preferences.preferredHolidays || []
+      });
+    }
+  }, [preferences]);
 
   const { data: preferences, isLoading } = useQuery({
     queryKey: ["/api/user-preferences", userId],

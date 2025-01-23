@@ -200,18 +200,22 @@ export function PreferencesForm({ userId, isAdmin }) {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="w-full">
         <CardHeader>
           <CardTitle>Holiday Preferences</CardTitle>
           <CardDescription>Select your preferred holidays for scheduling</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4">
-            <HolidayPreferences 
-              selectedHolidays={formData.preferredHolidays} 
-              onHolidayChange={handleHolidayChange}
-            />
-          </div>
+        <CardContent>
+          <HolidayPreferences 
+            selectedHolidays={formData.preferredHolidays} 
+            onHolidayChange={(holidays) => {
+              console.log('Selected holidays:', holidays);
+              setFormData(prev => ({
+                ...prev,
+                preferredHolidays: holidays
+              }));
+            }}
+          />
         </CardContent>
       </Card>
 

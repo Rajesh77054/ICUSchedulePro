@@ -1,4 +1,3 @@
-
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -66,13 +65,21 @@ export function ScheduleManagement() {
                     <p className="mt-1 text-muted-foreground">8:00 PM - 8:00 AM</p>
                   </div>
                 </div>
-                <div className="mt-4 space-y-1">
-                  <p className="font-medium">Shift Overlap Rules:</p>
-                  <ul className="list-disc pl-6 space-y-1 text-muted-foreground">
-                    <li>Day shift APPs may not overlap shifts with other day shift APPs</li>
-                    <li>Night shift APPs may not overlap shifts with other night shift APPs</li>
-                  </ul>
-                </div>
+                <div className="mt-4 space-y-4">
+                    <div>
+                      <p className="font-medium">Shift Overlap Rules:</p>
+                      <ul className="list-disc pl-6 space-y-1 text-muted-foreground">
+                        <li>Day shift APPs may not overlap shifts with other day shift APPs</li>
+                        <li>Night shift APPs may not overlap shifts with other night shift APPs</li>
+                      </ul>
+                    </div>
+                    <div>
+                      <p className="font-medium">Consecutive Week Rules:</p>
+                      <ul className="list-disc pl-6 space-y-1 text-muted-foreground">
+                        <li>Avoid back-to-back weeks</li>
+                      </ul>
+                    </div>
+                  </div>
               </div>
             </TabsContent>
 

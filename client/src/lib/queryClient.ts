@@ -24,7 +24,6 @@ export const queryClient = new QueryClient({
       refetchOnReconnect: true,
       refetchInterval: 1000,
       networkMode: 'always',
-      retry: 1,
       retry: false,
     },
     mutations: {

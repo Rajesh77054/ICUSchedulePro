@@ -53,15 +53,14 @@ export function ShiftActionsDialog({
       return { previousShifts };
     },
     onSuccess: async (deletedShiftId) => {
-      // Force a fresh refetch
+      // Clear the cache first
+      await queryClient.resetQueries({ queryKey: ["/api/shifts"] });
+      
+      // Force immediate refetch
       await queryClient.invalidateQueries({ 
         queryKey: ["/api/shifts"],
-        refetchType: 'all',
-        exact: true
+        refetchType: 'all'
       });
-      
-      // Ensure cache is updated
-      queryClient.removeQueries({ queryKey: ["/api/shifts"], exact: true });
       
       toast({
         title: "Success",

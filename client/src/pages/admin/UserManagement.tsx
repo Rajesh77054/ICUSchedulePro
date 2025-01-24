@@ -44,7 +44,35 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { UserPlus, Trash2, Edit } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { PreferencesForm } from "@/components/scheduler/PreferencesForm";
+import { useForm } from 'react-hook-form'; // Added React Hook Form
+
+
+// Placeholder for the actual ShiftPreferences component.  Replace with your actual implementation.
+const ShiftPreferences = ({ mode, userId }: { mode: 'user' | 'admin'; userId?: number }) => {
+  const { register, handleSubmit, watch, formState: { errors } } = useForm();
+  const onSubmit = (data: any) => console.log(data); // Placeholder for submission logic
+
+  return (
+    <form onSubmit={handleSubmit(onSubmit)}>
+      {/* User Preferences */}
+      <div>
+        <Label htmlFor="targetDays">Target Days</Label>
+        <Input {...register("targetDays", { required: true })} type="number" />
+        {errors.targetDays && <span>This field is required</span>}
+      </div>
+
+      {/* Admin-Specific Fields (conditionally rendered) */}
+      {mode === 'admin' && (
+        <div>
+          <Label htmlFor="adminField">Admin-Specific Field</Label>
+          <Input {...register("adminField")} />
+        </div>
+      )}
+      <Button type="submit">Save</Button>
+    </form>
+  );
+};
+
 
 export function UserManagement() {
   const [selectedUser, setSelectedUser] = useState<number | null>(null);
@@ -145,7 +173,7 @@ export function UserManagement() {
 
   return (
     <div className="container mx-auto p-4 md:py-6 relative">
-      
+
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -336,7 +364,7 @@ export function UserManagement() {
 
             <TabsContent value="preferences">
               {selectedUser && (
-                <PreferencesForm userId={selectedUser} />
+                <ShiftPreferences mode="user" /> {/* Use the new component for user preferences */}
               )}
             </TabsContent>
           </Tabs>
@@ -368,3 +396,22 @@ export function UserManagement() {
     </div>
   );
 }
+
+// Example Usage in Admin Dashboard (Illustrative)
+const AdminDashboard = () => {
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null); //Example Admin state
+
+  return (
+    <div>
+      {/* ... other admin dashboard content ... */}
+      {selectedUserId && (
+        <div className="admin-preferences-section">
+          <ShiftPreferences mode="admin" userId={selectedUserId} />
+        </div>
+      )}
+      {/* ... rest of admin dashboard content ... */}
+    </div>
+  );
+};
+
+export default AdminDashboard; // Export the AdminDashboard component

@@ -1,3 +1,5 @@
+import { useEffect } from "react";
+import { useForm, Controller } from "react-hook-form";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -5,26 +7,38 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
-import { useState, useEffect } from "react";
 import { HolidayPreferences } from "./HolidayPreferences";
 
-export function ShiftPreferences({ userId }) {
+interface ShiftPreferencesProps {
+  mode: 'user' | 'admin';
+  userId?: number;
+}
+
+const defaultValues = {
+  targetDays: 0,
+  toleranceDays: 0,
+  maxConsecutiveWeeks: 0,
+  preferredShiftLength: 7,
+  maxShiftsPerWeek: 1,
+  minDaysBetweenShifts: 0,
+  preferredHolidays: [],
+};
+
+export function ShiftPreferences({ mode, userId }: ShiftPreferencesProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [formData, setFormData] = useState({
-    targetDays: 0,
-    toleranceDays: 0,
-    maxConsecutiveWeeks: 0,
-    preferredShiftLength: 0,
-    maxShiftsPerWeek: 0,
-    minDaysBetweenShifts: 0,
-    preferredHolidays: []
+
+  const { control, handleSubmit, reset } = useForm({
+    defaultValues
   });
 
+  const targetUserId = mode === 'admin' ? userId : undefined;
+  const apiEndpoint = `/api/user-preferences/${targetUserId || ''}`;
+
   const { data: preferences, isLoading } = useQuery({
-    queryKey: ["/api/user-preferences", userId],
+    queryKey: [apiEndpoint, targetUserId],
     queryFn: async () => {
-      const res = await fetch(`/api/user-preferences/${userId}`);
+      const res = await fetch(apiEndpoint);
       if (!res.ok) throw new Error("Failed to fetch preferences");
       return res.json();
     },
@@ -32,37 +46,28 @@ export function ShiftPreferences({ userId }) {
 
   useEffect(() => {
     if (preferences) {
-      setFormData({
-        targetDays: preferences.targetDays || 0,
-        toleranceDays: preferences.toleranceDays || 0,
-        maxConsecutiveWeeks: preferences.maxConsecutiveWeeks || 0,
-        preferredShiftLength: preferences.preferredShiftLength || 0,
-        maxShiftsPerWeek: preferences.maxShiftsPerWeek || 0,
-        minDaysBetweenShifts: preferences.minDaysBetweenShifts || 0,
-        preferredHolidays: preferences.preferredHolidays || []
-      });
+      reset(preferences);
     }
-  }, [preferences]);
+  }, [preferences, reset]);
 
   const { mutate: updatePreferences, isPending: isUpdating } = useMutation({
     mutationFn: async (data) => {
-      console.log("Submitting preferences:", data); // Debug log
-      const res = await fetch(`/api/user-preferences/${userId}`, {
+      const res = await fetch(apiEndpoint, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...data,
-          preferredHolidays: data.preferredHolidays || []
-        }),
+        body: JSON.stringify(data),
       });
       if (!res.ok) throw new Error("Failed to update preferences");
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/user-preferences"] });
-      toast({ title: "Success", description: "Preferences updated successfully" });
+      queryClient.invalidateQueries({ queryKey: [apiEndpoint] });
+      toast({
+        title: "Success",
+        description: "Preferences updated successfully",
+      });
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       toast({
         title: "Error",
         description: error.message,
@@ -70,49 +75,6 @@ export function ShiftPreferences({ userId }) {
       });
     },
   });
-
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: parseInt(value) || 0
-    }));
-  };
-
-  const handleHolidayChange = (selectedHolidays) => {
-    setFormData(prev => ({...prev, preferredHolidays: selectedHolidays}));
-  }
-
-  const validateAgainstAdminConstraints = (data) => {
-    const conflicts = [];
-    if (data.maxShiftsPerWeek > preferences?.adminConstraints?.maxShiftsPerWeek) {
-      conflicts.push(`Cannot exceed admin-set maximum of ${preferences.adminConstraints.maxShiftsPerWeek} shifts per week`);
-    }
-    if (data.minDaysBetweenShifts < preferences?.adminConstraints?.minDaysBetweenShifts) {
-      conflicts.push(`Must maintain at least ${preferences.adminConstraints.minDaysBetweenShifts} days between shifts`);
-    }
-    return conflicts;
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    const conflicts = validateAgainstAdminConstraints(formData);
-
-    if (conflicts.length > 0) {
-      toast({
-        title: "Cannot save preferences",
-        description: conflicts.join(". "),
-        variant: "destructive"
-      });
-      return;
-    }
-
-    console.log("Form data being submitted:", formData); // Debug log
-    updatePreferences({
-      ...formData,
-      preferredHolidays: formData.preferredHolidays || []
-    });
-  };
 
   if (isLoading) {
     return (
@@ -122,90 +84,96 @@ export function ShiftPreferences({ userId }) {
     );
   }
 
+  const onSubmit = (data) => {
+    updatePreferences(data);
+  };
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-8">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
       <Card>
         <CardHeader>
           <CardTitle>Schedule Duration</CardTitle>
-          <CardDescription>Configure your scheduling period preferences</CardDescription>
+          <CardDescription>Configure scheduling period preferences</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <Label htmlFor="targetDays">Target Days</Label>
-              <Input
-                id="targetDays"
-                name="targetDays"
-                type="number"
-                value={formData.targetDays}
-                onChange={handleInputChange}
-                min={1}
-                max={90}
-              />
-            </div>
-            <div>
-              <Label htmlFor="toleranceDays">Tolerance Days</Label>
-              <Input
-                id="toleranceDays"
-                name="toleranceDays"
-                type="number"
-                value={formData.toleranceDays}
-                onChange={handleInputChange}
-                min={0}
-                max={14}
-              />
-            </div>
+            <Controller
+              name="preferredShiftLength"
+              control={control}
+              rules={{ required: true, min: 1, max: 14 }}
+              render={({ field }) => (
+                <div>
+                  <Label>Preferred Shift Length (days)</Label>
+                  <Input type="number" {...field} min={1} max={14} />
+                </div>
+              )}
+            />
+            <Controller
+              name="maxShiftsPerWeek"
+              control={control}
+              rules={{ required: true, min: 1, max: 7 }}
+              render={({ field }) => (
+                <div>
+                  <Label>Maximum Shifts per Week</Label>
+                  <Input type="number" {...field} min={1} max={7} />
+                </div>
+              )}
+            />
           </div>
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Schedule Constraints</CardTitle>
-          <CardDescription>Set your scheduling limits and consecutive work preferences</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <Label htmlFor="maxConsecutiveWeeks">Maximum Consecutive Weeks</Label>
-              <Input
-                id="maxConsecutiveWeeks"
-                name="maxConsecutiveWeeks"
-                type="number"
-                value={formData.maxConsecutiveWeeks}
-                onChange={handleInputChange}
-                min={1}
-                max={52}
+      {mode === 'admin' && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Admin Settings</CardTitle>
+            <CardDescription>Additional settings for administrators</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              <Controller
+                name="targetDays"
+                control={control}
+                rules={{ required: true, min: 1 }}
+                render={({ field }) => (
+                  <div>
+                    <Label>Target Days</Label>
+                    <Input type="number" {...field} min={1} />
+                  </div>
+                )}
+              />
+              <Controller
+                name="toleranceDays"
+                control={control}
+                rules={{ required: true, min: 0 }}
+                render={({ field }) => (
+                  <div>
+                    <Label>Tolerance Days</Label>
+                    <Input type="number" {...field} min={0} />
+                  </div>
+                )}
               />
             </div>
-            <div>
-              <Label htmlFor="maxShiftsPerWeek">Maximum Shifts per Week</Label>
-              <Input
-                id="maxShiftsPerWeek"
-                name="maxShiftsPerWeek"
-                type="number"
-                value={formData.maxShiftsPerWeek}
-                onChange={handleInputChange}
-                min={1}
-                max={7}
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
           <CardTitle>Holiday Preferences</CardTitle>
-          <CardDescription>Select your preferred holidays for scheduling</CardDescription>
+          <CardDescription>Select preferred holidays for scheduling</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4">
-            <HolidayPreferences 
-              selectedHolidays={formData.preferredHolidays || []} 
-              onHolidayChange={handleHolidayChange}
-            />
-          </div>
+        <CardContent>
+          <Controller
+            name="preferredHolidays"
+            control={control}
+            render={({ field }) => (
+              <HolidayPreferences
+                selectedHolidays={field.value}
+                onHolidayChange={field.onChange}
+              />
+            )}
+          />
         </CardContent>
       </Card>
 

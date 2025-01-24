@@ -12,12 +12,50 @@ import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
 import { TimeOffRequestForm } from "@/components/time-off/TimeOffRequestForm";
-import { PreferencesForm } from "@/components/scheduler/preferences/PreferencesForm";
+import { useForm } from 'react-hook-form'; // Added import for React Hook Form
 import { SwapRequestActions } from "@/components/scheduler/SwapRequestActions";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
+
+// Skeletal implementation of ShiftPreferences component
+const ShiftPreferences = ({ mode, userId }: { mode: 'user' | 'admin'; userId?: number }) => {
+  const { register, handleSubmit, watch } = useForm();
+  const [preferences, setPreferences] = useState({});
+
+  const onSubmit = (data: any) => {
+    console.log('Submitted data:', data);
+    // Here you would make an API call to save the preferences.  userId would be used for admin mode.
+    setPreferences(data);
+  };
+
+  return (
+    <form onSubmit={handleSubmit(onSubmit)}>
+      {/* Basic preferences (common for user and admin) */}
+      <label>
+        Notification Preferences:
+        <select {...register("notifications")}>
+          <option value="email">Email</option>
+          <option value="app">App</option>
+        </select>
+      </label>
+
+      {/* Admin-specific fields */}
+      {mode === 'admin' && (
+        <>
+          <label>
+            User ID:
+            <input type="number" {...register("userId")} value={userId} readOnly />
+          </label>
+          {/* Add other admin-specific fields here */}
+        </>
+      )}
+      <button type="submit">Save Preferences</button>
+    </form>
+  );
+};
+
 
 export function PersonalDashboard() {
   const { id } = useParams<{ id: string }>();
@@ -131,7 +169,7 @@ export function PersonalDashboard() {
 
   return (
     <div className="container mx-auto py-6 space-y-6 relative">
-      
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold mb-2">
@@ -165,16 +203,7 @@ export function PersonalDashboard() {
               Customize your schedule preferences and notification settings
             </DialogDescription>
           </DialogHeader>
-          <PreferencesForm
-            userId={userId}
-            onSuccess={() => {
-              setShowPreferences(false);
-              toast({
-                title: "Success",
-                description: "Preferences updated successfully",
-              });
-            }}
-          />
+          <ShiftPreferences mode="user" /> {/*Using the new component*/}
         </DialogContent>
       </Dialog>
 

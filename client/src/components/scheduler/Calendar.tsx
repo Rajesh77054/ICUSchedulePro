@@ -12,7 +12,7 @@ interface CalendarProps {
   users?: User[];
 }
 
-export function Calendar({ shifts = [], users = [] }: CalendarProps) {
+export default function Calendar({ shifts = [], users = [] }: CalendarProps) {
   const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
   const [showShiftDialog, setShowShiftDialog] = useState(false);
   const queryClient = useQueryClient();

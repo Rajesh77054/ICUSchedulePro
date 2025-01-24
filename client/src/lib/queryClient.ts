@@ -18,10 +18,11 @@ export const queryClient = new QueryClient({
         return res.json();
       },
       staleTime: 0,
-      cacheTime: 1000,
+      cacheTime: 0,
       refetchOnMount: 'always',
       refetchOnWindowFocus: true,
       refetchOnReconnect: true,
+      refetchInterval: 1000,
       retry: false,
     },
     mutations: {

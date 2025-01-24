@@ -271,7 +271,7 @@ export function UserManagement() {
                       </SelectContent>
                     </Select>
                   </div>
-                  {formData?.get("userType") === "app" && (
+                  {currentUser?.userType === "app" && (
                     <div>
                       <Label htmlFor="shiftType">Shift Type</Label>
                       <Select

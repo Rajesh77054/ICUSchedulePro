@@ -45,29 +45,21 @@ export function ShiftActionsDialog({
       // Cancel any outgoing refetches
       await queryClient.cancelQueries({ queryKey: ["/api/shifts"] });
 
-      // Snapshot the previous value
+      // Get current data
       const previousShifts = queryClient.getQueryData(["/api/shifts"]);
-      
-      // Optimistically remove from all related queries
-      queryClient.setQueriesData({ queryKey: ["/api/shifts"] }, (oldData: any) => {
-        if (!Array.isArray(oldData)) return [];
-        return oldData.filter((s: any) => s.id !== shift.id);
+
+      // Optimistically update cache
+      queryClient.setQueryData(["/api/shifts"], (old: any) => {
+        if (!Array.isArray(old)) return [];
+        return old.filter((s: any) => s.id !== shift.id);
       });
 
       return { previousShifts };
     },
     onSuccess: async () => {
-      // Remove from cache immediately
-      queryClient.setQueryData(["/api/shifts"], (old: any) => {
-        return old?.filter((s: any) => s.id !== shift.id) ?? [];
-      });
+      // Force a complete cache reset and refetch
+      await queryClient.resetQueries({ queryKey: ["/api/shifts"] });
       
-      // Then invalidate to ensure consistency
-      await queryClient.invalidateQueries({ 
-        queryKey: ["/api/shifts"],
-        exact: true
-      });
-
       toast({
         title: "Success",
         description: "Shift deleted successfully",

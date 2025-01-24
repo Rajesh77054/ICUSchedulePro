@@ -233,7 +233,7 @@ export function ShiftPreferences({ mode, userId }: ShiftPreferencesProps) {
       <Card>
         <CardHeader>
           <CardTitle>Holiday Preferences</CardTitle>
-          <CardDescription>Select preferred holidays for scheduling</CardDescription>
+          <CardDescription>Select holidays you prefer to have off from work</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4">

@@ -52,8 +52,17 @@ export function ShiftActionsDialog({
       });
       return { previousShifts };
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/shifts"] });
+    onSuccess: async (deletedShiftId) => {
+      // Force a fresh refetch
+      await queryClient.invalidateQueries({ 
+        queryKey: ["/api/shifts"],
+        refetchType: 'all',
+        exact: true
+      });
+      
+      // Ensure cache is updated
+      queryClient.removeQueries({ queryKey: ["/api/shifts"], exact: true });
+      
       toast({
         title: "Success",
         description: "Shift deleted successfully",

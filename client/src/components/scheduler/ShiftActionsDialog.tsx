@@ -29,12 +29,13 @@ export function ShiftActionsDialog({
   // Delete shift mutation
   const { mutate: deleteShift, isPending: isDeleting } = useMutation({
     mutationFn: async () => {
-      if (!shift) return;
+      if (!shift) throw new Error("No shift selected");
       const res = await fetch(`/api/shifts/${shift.id}`, {
         method: "DELETE",
       });
-      if (!res.ok) throw new Error("Failed to delete shift");
-      return res.json();
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to delete shift");
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/shifts"] });

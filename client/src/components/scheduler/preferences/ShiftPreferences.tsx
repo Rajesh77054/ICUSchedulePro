@@ -202,6 +202,30 @@ export function ShiftPreferences({ mode, userId }: ShiftPreferencesProps) {
                 max={7}
               />
             </div>
+            <div>
+              <Label htmlFor="preferredShiftLength">Preferred Shift Length (days)</Label>
+              <Input
+                id="preferredShiftLength"
+                name="preferredShiftLength"
+                type="number"
+                value={formData.preferredShiftLength}
+                onChange={handleInputChange}
+                min={1}
+                max={14}
+              />
+            </div>
+            <div>
+              <Label htmlFor="minDaysBetweenShifts">Minimum Days Between Shifts</Label>
+              <Input
+                id="minDaysBetweenShifts"
+                name="minDaysBetweenShifts"
+                type="number"
+                value={formData.minDaysBetweenShifts}
+                onChange={handleInputChange}
+                min={0}
+                max={14}
+              />
+            </div>
           </div>
         </CardContent>
       </Card>

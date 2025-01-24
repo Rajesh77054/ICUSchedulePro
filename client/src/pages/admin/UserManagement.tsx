@@ -44,7 +44,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { UserPlus, Trash2, Edit } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { PreferencesForm } from "@/components/scheduler/PreferencesForm";
+import { ShiftPreferences } from "@/components/scheduler/preferences/ShiftPreferences";
 
 export function UserManagement() {
   const [selectedUser, setSelectedUser] = useState<number | null>(null);

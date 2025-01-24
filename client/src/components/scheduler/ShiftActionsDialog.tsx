@@ -32,10 +32,15 @@ export function ShiftActionsDialog({
       if (!shift) throw new Error("No shift selected");
       const res = await fetch(`/api/shifts/${shift.id}`, {
         method: "DELETE",
+        headers: {
+          "Content-Type": "application/json"
+        }
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to delete shift");
-      return data;
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: "Failed to delete shift" }));
+        throw new Error(errorData.error || "Failed to delete shift");
+      }
+      return await res.json().catch(() => ({}));
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/shifts"] });

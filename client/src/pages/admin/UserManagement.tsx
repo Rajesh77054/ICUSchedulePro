@@ -128,6 +128,7 @@ export function UserManagement() {
       name: formData.get("name"),
       title: formData.get("title"),
       userType: formData.get("userType"),
+      shiftType: formData.get("userType") === "app" ? formData.get("shiftType") : null,
       targetDays: parseInt(formData.get("targetDays") as string),
       tolerance: parseInt(formData.get("tolerance") as string),
       maxConsecutiveWeeks: parseInt(formData.get("maxConsecutiveWeeks") as string),
@@ -270,6 +271,24 @@ export function UserManagement() {
                       </SelectContent>
                     </Select>
                   </div>
+                  {formData?.get("userType") === "app" && (
+                    <div>
+                      <Label htmlFor="shiftType">Shift Type</Label>
+                      <Select
+                        name="shiftType"
+                        defaultValue={currentUser?.shiftType}
+                        required
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select shift type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="day">Day Shift</SelectItem>
+                          <SelectItem value="night">Night Shift</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                   <div>
                     <Label htmlFor="color">Color</Label>
                     <Input

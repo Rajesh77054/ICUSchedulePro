@@ -43,6 +43,15 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
 
   const calendarRef = useRef<FullCalendar>(null);
 
+  // Add force refresh handler
+  useEffect(() => {
+    const handleForceRefresh = () => {
+      calendarRef.current?.getApi().refetchEvents();
+    };
+    window.addEventListener('forceCalendarRefresh', handleForceRefresh);
+    return () => window.removeEventListener('forceCalendarRefresh', handleForceRefresh);
+  }, []);
+
   // Fetch users for shift assignment
   const { data: users = [] } = useQuery<User[]>({
     queryKey: ["/api/users"],

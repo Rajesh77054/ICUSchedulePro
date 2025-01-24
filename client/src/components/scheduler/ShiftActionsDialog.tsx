@@ -36,30 +36,16 @@ export function ShiftActionsDialog({
           "Content-Type": "application/json"
         }
       });
-      if (!res.ok) {
-        const errorText = await res.text();
-        try {
-          const errorData = JSON.parse(errorText);
-          throw new Error(errorData.error || "Failed to delete shift");
-        } catch {
-          throw new Error(errorText || "Failed to delete shift");
-        }
-      }
-      const responseText = await res.text();
-      try {
-        await JSON.parse(responseText);
-      } catch {
-        // Handle empty or invalid response
-      }
+      if (!res.ok) throw new Error("Failed to delete shift");
       return shift.id;
     },
     onSuccess: (deletedShiftId) => {
-      queryClient.setQueryData(["/api/shifts"], (oldData: any) => {
-        if (!oldData) return [];
-        return oldData.filter((s: any) => s.id !== deletedShiftId);
+      // Immediately update cache
+      queryClient.setQueryData(["/api/shifts"], (oldData: any[]) => {
+        return oldData?.filter(s => s.id !== deletedShiftId) ?? [];
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/shifts"] });
-      queryClient.refetchQueries({ queryKey: ["/api/shifts"] });
+      // Force refetch to ensure consistency
+      queryClient.invalidateQueries({ queryKey: ["/api/shifts"], refetchType: 'all' });
       toast({
         title: "Success",
         description: "Shift deleted successfully",

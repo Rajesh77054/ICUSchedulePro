@@ -308,5 +308,27 @@ export function registerRoutes(app: Express) {
     }
   });
 
+  app.post('/api/shifts', async (req, res) => {
+    try {
+      const { userId, startDate, endDate, status, source, schedulingNotes } = req.body;
+
+      const newShift = await db.insert(shifts).values({
+        userId: parseInt(userId),
+        startDate,
+        endDate,
+        status: status || 'confirmed',
+        source: source || 'manual',
+        schedulingNotes: schedulingNotes || {},
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }).returning();
+
+      res.json(newShift[0]);
+    } catch (error) {
+      console.error('Error creating shift:', error);
+      res.status(500).json({ error: 'Failed to create shift' });
+    }
+  });
+
   return app;
 }

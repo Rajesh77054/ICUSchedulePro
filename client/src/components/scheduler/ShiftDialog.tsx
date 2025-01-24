@@ -76,11 +76,23 @@ export function ShiftDialog({ open, onOpenChange, startDate, endDate }: ShiftDia
 
   const handleCreateShift = () => {
     if (!userId) return;
-    createShift({
-      userId: parseInt(userId),
-      startDate: format(startDate, 'yyyy-MM-dd'),
-      endDate: format(endDate, 'yyyy-MM-dd')
-    });
+    try {
+      createShift({
+        userId: parseInt(userId),
+        startDate: format(startDate, 'yyyy-MM-dd'),
+        endDate: format(endDate, 'yyyy-MM-dd'),
+        status: 'confirmed',
+        source: 'manual',
+        schedulingNotes: {}
+      });
+    } catch (error) {
+      console.error('Shift creation error:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create shift. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   return (

@@ -81,28 +81,12 @@ export function detectShiftConflicts(shift: Shift | null | undefined, allShifts:
         if (consecutiveCount > user.maxConsecutiveWeeks) {
           conflicts.push({
             type: 'consecutive',
-            message: `Exceeds maximum ${user.maxConsecutiveWeeks} consecutive weeks`,
-          });
-          break;
-        }
-      } else {
-        consecutiveCount = 1;
-      }
-    }
-
-      if (weekDiff === 1) {
-        consecutiveCount++;
-        if (consecutiveCount > user.maxConsecutiveWeeks) {
-          conflicts.push({
-            type: 'consecutive',
             message: `Exceeds maximum ${user.maxConsecutiveWeeks} consecutive weeks for ${user.userType}s`,
           });
           break;
         }
-        lastWeekStart = existingWeekStart;
       } else {
         consecutiveCount = 1;
-        lastWeekStart = existingWeekStart;
       }
     }
   }

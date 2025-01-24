@@ -86,7 +86,7 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
   });
 
   const calendarEvents = useMemo(() => {
-    if (!Array.isArray(initialShifts)) {
+    if (!Array.isArray(initialShifts) || initialShifts.length === 0) {
       return [];
     }
 

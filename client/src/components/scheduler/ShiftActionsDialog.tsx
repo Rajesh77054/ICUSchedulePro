@@ -39,13 +39,15 @@ export function ShiftActionsDialog({
       if (!res.ok) throw new Error("Failed to delete shift");
       return shift.id;
     },
-    onSuccess: (deletedShiftId) => {
-      // Immediately update cache
+    onSuccess: async (deletedShiftId) => {
+      // Immediately remove from cache
       queryClient.setQueryData(["/api/shifts"], (oldData: any[]) => {
-        return oldData?.filter(s => s.id !== deletedShiftId) ?? [];
+        if (!Array.isArray(oldData)) return [];
+        return oldData.filter(s => s.id !== deletedShiftId);
       });
-      // Force refetch to ensure consistency
-      queryClient.invalidateQueries({ queryKey: ["/api/shifts"], refetchType: 'all' });
+      // Force immediate cache invalidation and refetch
+      await queryClient.invalidateQueries({ queryKey: ["/api/shifts"] });
+      await queryClient.refetchQueries({ queryKey: ["/api/shifts"], type: 'active' });
       toast({
         title: "Success",
         description: "Shift deleted successfully",

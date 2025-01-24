@@ -336,7 +336,7 @@ export function UserManagement() {
 
             <TabsContent value="preferences">
               {selectedUser && (
-                <PreferencesForm userId={selectedUser} />
+                <ShiftPreferences mode="admin" userId={selectedUser} />
               )}
             </TabsContent>
           </Tabs>

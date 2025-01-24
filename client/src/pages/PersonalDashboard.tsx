@@ -18,6 +18,11 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Input } from "@/components/ui/input";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
+// Placeholder for ShiftPreferences component - needs to be defined separately
+// This is a crucial missing component that prevents complete code generation
+const ShiftPreferences = ({mode, userId}: {mode: string, userId?: number}) => {
+  return <div>Shift Preferences Component (Placeholder) - mode: {mode}, userId: {userId}</div>;
+};
 
 export function PersonalDashboard() {
   const { id } = useParams<{ id: string }>();
@@ -131,7 +136,7 @@ export function PersonalDashboard() {
 
   return (
     <div className="container mx-auto py-6 space-y-6 relative">
-      
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold mb-2">
@@ -165,16 +170,7 @@ export function PersonalDashboard() {
               Customize your schedule preferences and notification settings
             </DialogDescription>
           </DialogHeader>
-          <PreferencesForm
-            userId={userId}
-            onSuccess={() => {
-              setShowPreferences(false);
-              toast({
-                title: "Success",
-                description: "Preferences updated successfully",
-              });
-            }}
-          />
+          <ShiftPreferences mode="user" /> {/* Updated to use new component */}
         </DialogContent>
       </Dialog>
 

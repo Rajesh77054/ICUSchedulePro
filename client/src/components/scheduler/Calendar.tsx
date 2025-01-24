@@ -86,9 +86,11 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
   });
 
   const calendarEvents = useMemo(() => {
-    if (!Array.isArray(initialShifts) || initialShifts.length === 0) {
+    if (!Array.isArray(initialShifts)) {
       return [];
     }
+    // Force recalculation on length change
+    const shiftsLength = initialShifts.length;
 
     return initialShifts.map(shift => {
       const normalizedDays = getShiftDuration(shift);

@@ -342,3 +342,13 @@ export function getSwapRecommendations(
   // Sort recommendations by score in descending order
   return recommendations.sort((a, b) => b.score - a.score);
 }
+export function normalizeShiftDays(startDate: string, endDate: string): number {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  const diffTime = Math.abs(end.getTime() - start.getTime());
+  return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+}
+
+export function getShiftDuration(shift: Shift): number {
+  return normalizeShiftDays(shift.startDate, shift.endDate);
+}

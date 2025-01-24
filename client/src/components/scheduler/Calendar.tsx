@@ -89,7 +89,9 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
       console.warn('Calendar: Received empty shifts array');
       return [];
     }
+
     return initialShifts.map(shift => {
+      const normalizedDays = getShiftDuration(shift);
       // For swapped shifts, find the swap request to determine the new owner
       const swapRequest = swapRequests?.find(req => 
         req.shiftId === shift.id && 
@@ -113,7 +115,9 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
           shift,
           swapped: shift.status === 'swapped',
           originalUserId: shift.userId,
-          effectiveUserId
+          effectiveUserId,
+          normalizedDays,
+          isMultiDay: normalizedDays > 1
         },
         editable: true,
         durationEditable: true,

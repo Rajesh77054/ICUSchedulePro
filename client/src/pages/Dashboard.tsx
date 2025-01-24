@@ -1,4 +1,4 @@
-import Calendar from "@/components/scheduler/Calendar";
+import { Calendar } from "@/components/scheduler/Calendar";
 import { ProviderList } from "@/components/scheduler/ProviderList";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";

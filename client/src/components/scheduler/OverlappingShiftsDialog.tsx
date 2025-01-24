@@ -10,7 +10,6 @@ import { Calendar as CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Calendar } from "@/components/ui/calendar";
-import FullCalendar from '@fullcalendar/react';
 import {
   Popover,
   PopoverContent,

@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -5,6 +6,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,26 +35,27 @@ export function ShiftDialog({ open, onOpenChange, startDate, endDate }: ShiftDia
 
   const { mutate: createShift } = useMutation({
     mutationFn: async (data: Partial<Shift>) => {
-      try {
-        const payload = {
-          ...data,
-          status: 'confirmed',
-          source: 'manual',
-          schedulingNotes: {},
-        };
-        const res = await fetch("/api/shifts", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        if (!res.ok) {
-          const errorData = await res.json();
-          throw new Error(errorData.error || "Failed to create shift");
-        }
-        return res.json();
-      } catch (err) {
-        throw new Error(err instanceof Error ? err.message : "Failed to create shift");
+      const payload = {
+        userId: data.userId,
+        startDate: data.startDate,
+        endDate: data.endDate,
+        status: 'confirmed',
+        source: 'manual',
+        schedulingNotes: {}
+      };
+
+      const res = await fetch("/api/shifts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: 'Failed to create shift' }));
+        throw new Error(errorData.error || 'Failed to create shift');
       }
+
+      return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/shifts"] });
@@ -76,7 +79,7 @@ export function ShiftDialog({ open, onOpenChange, startDate, endDate }: ShiftDia
     createShift({
       userId: parseInt(userId),
       startDate: format(startDate, 'yyyy-MM-dd'),
-      endDate: format(endDate, 'yyyy-MM-dd'),
+      endDate: format(endDate, 'yyyy-MM-dd')
     });
   };
 
@@ -85,6 +88,9 @@ export function ShiftDialog({ open, onOpenChange, startDate, endDate }: ShiftDia
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Create New Shift</DialogTitle>
+          <DialogDescription>
+            Select a healthcare provider for this shift period.
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div className="grid gap-2">

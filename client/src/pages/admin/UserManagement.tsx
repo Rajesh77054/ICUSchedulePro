@@ -271,37 +271,6 @@ export function UserManagement() {
                     </Select>
                   </div>
                   <div>
-                    <Label htmlFor="targetDays">Target Days</Label>
-                    <Input
-                      id="targetDays"
-                      name="targetDays"
-                      type="number"
-                      min={1}
-                      defaultValue={currentUser?.targetDays}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="tolerance">Tolerance (days)</Label>
-                    <Input
-                      id="tolerance"
-                      name="tolerance"
-                      type="number"
-                      min={0}
-                      defaultValue={currentUser?.tolerance}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="maxConsecutiveWeeks">Max Consecutive Weeks</Label>
-                    <Input
-                      id="maxConsecutiveWeeks"
-                      name="maxConsecutiveWeeks"
-                      type="number"
-                      min={1}
-                      defaultValue={currentUser?.maxConsecutiveWeeks}
-                    />
-                  </div>
-                  <div>
                     <Label htmlFor="color">Color</Label>
                     <Input
                       id="color"

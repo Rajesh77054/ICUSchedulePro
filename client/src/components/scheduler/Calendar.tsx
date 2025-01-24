@@ -89,8 +89,8 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
     if (!Array.isArray(initialShifts)) {
       return [];
     }
-    // Force recalculation on any shifts change
-    const shiftsKey = JSON.stringify(initialShifts);
+    // Force recalculation on shifts array changes
+    const shiftsHash = initialShifts.map(s => s.id).join(',');
 
     return initialShifts.map(shift => {
       const normalizedDays = getShiftDuration(shift);

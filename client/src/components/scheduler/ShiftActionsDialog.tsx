@@ -41,8 +41,11 @@ export function ShiftActionsDialog({
     },
     onMutate: async () => {
       if (!shift) return;
+      // Cancel any outgoing refetches
       await queryClient.cancelQueries({ queryKey: ["/api/shifts"] });
+      // Snapshot the previous value
       const previousShifts = queryClient.getQueryData(["/api/shifts"]);
+      // Optimistically update cache
       queryClient.setQueryData(["/api/shifts"], (oldData: any[]) => {
         if (!Array.isArray(oldData)) return [];
         return oldData.filter(s => s.id !== shift.id);

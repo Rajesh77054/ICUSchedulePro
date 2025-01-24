@@ -39,19 +39,44 @@ export function ShiftActionsDialog({
       if (!res.ok) throw new Error("Failed to delete shift");
       return shift.id;
     },
-    onSuccess: async (deletedShiftId) => {
+    onMutate: async (shiftId) => {
+      // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: ["/api/shifts"] });
+      // Snapshot the previous value
+      const previousShifts = queryClient.getQueryData(["/api/shifts"]);
+      return { previousShifts };
+    },
+    onSuccess: async (deletedShiftId) => {
+      // Optimistically update cache
       queryClient.setQueryData(["/api/shifts"], (oldData: any[]) => {
         if (!Array.isArray(oldData)) return [];
         return oldData.filter(s => s.id !== deletedShiftId);
       });
-      await queryClient.invalidateQueries({ queryKey: ["/api/shifts"] });
-      await queryClient.refetchQueries({ queryKey: ["/api/shifts"], exact: true });
+      
+      // Force a fresh refetch
+      await queryClient.invalidateQueries({ 
+        queryKey: ["/api/shifts"],
+        refetchType: 'all'
+      });
+      
       toast({
         title: "Success",
         description: "Shift deleted successfully",
       });
+      
+      // Only close after operations complete
       onOpenChange(false);
+    },
+    onError: (err, shiftId, context: any) => {
+      // Rollback on error
+      if (context?.previousShifts) {
+        queryClient.setQueryData(["/api/shifts"], context.previousShifts);
+      }
+      toast({
+        title: "Error",
+        description: err.message,
+        variant: "destructive",
+      });
     },
     onError: (error: Error) => {
       toast({

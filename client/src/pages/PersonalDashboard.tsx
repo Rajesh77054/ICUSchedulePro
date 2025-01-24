@@ -18,11 +18,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Input } from "@/components/ui/input";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
-// Placeholder for ShiftPreferences component - needs to be defined separately
-// This is a crucial missing component that prevents complete code generation
-const ShiftPreferences = ({mode, userId}: {mode: string, userId?: number}) => {
-  return <div>Shift Preferences Component (Placeholder) - mode: {mode}, userId: {userId}</div>;
-};
+import { ShiftPreferences } from "@/components/scheduler/preferences/ShiftPreferences";
 
 export function PersonalDashboard() {
   const { id } = useParams<{ id: string }>();

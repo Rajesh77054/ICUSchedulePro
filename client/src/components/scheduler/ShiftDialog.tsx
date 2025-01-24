@@ -74,8 +74,26 @@ export function ShiftDialog({ open, onOpenChange, startDate, endDate }: ShiftDia
     },
   });
 
-  const handleCreateShift = () => {
+  const handleCreateShift = async () => {
     if (!userId) return;
+    
+    // Validate shift before creation
+    const conflicts = detectShiftConflicts({
+      userId: parseInt(userId),
+      startDate: format(startDate, 'yyyy-MM-dd'),
+      endDate: format(endDate, 'yyyy-MM-dd'),
+      status: 'confirmed',
+    }, shifts);
+
+    if (conflicts.length > 0) {
+      toast({
+        title: "Validation Error",
+        description: conflicts[0].message,
+        variant: "destructive"
+      });
+      return;
+    }
+
     try {
       createShift({
         userId: parseInt(userId),

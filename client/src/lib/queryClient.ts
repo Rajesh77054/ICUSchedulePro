@@ -12,15 +12,15 @@ export const queryClient = new QueryClient({
           if (res.status >= 500) {
             throw new Error(`${res.status}: ${res.statusText}`);
           }
-
           throw new Error(`${res.status}: ${await res.text()}`);
         }
 
         return res.json();
       },
-      refetchInterval: false,
-      refetchOnWindowFocus: false,
-      staleTime: Infinity,
+      staleTime: 0,
+      cacheTime: 5 * 60 * 1000,
+      refetchOnMount: true,
+      refetchOnWindowFocus: true,
       retry: false,
     },
     mutations: {

@@ -141,8 +141,13 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
 
   const handleEventDrop = async (dropInfo: EventDropArg) => {
     const shiftId = parseInt(dropInfo.event.id);
-    const startDate = dropInfo.event.startStr;
-    const endDate = dropInfo.event.endStr;
+    const startDate = dropInfo.event.start?.toISOString().split('T')[0];
+    const endDate = dropInfo.event.end?.toISOString().split('T')[0];
+
+    if (!startDate || !endDate) {
+      dropInfo.revert();
+      return;
+    }
 
     try {
       await updateShiftMutation.mutateAsync({
@@ -152,6 +157,11 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
       });
     } catch (error) {
       dropInfo.revert();
+      toast({
+        title: "Error",
+        description: "Failed to update shift dates",
+        variant: "destructive"
+      });
     }
   };
 

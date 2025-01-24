@@ -51,16 +51,10 @@ export function ShiftActionsDialog({
       // Snapshot the previous value
       const previousShifts = queryClient.getQueryData(["/api/shifts"]);
       
-      // Optimistically update cache
-      queryClient.setQueryData(["/api/shifts"], (oldData: any) => {
+      // Optimistically remove from all related queries
+      queryClient.setQueriesData({ queryKey: ["/api/shifts"] }, (oldData: any) => {
         if (!Array.isArray(oldData)) return [];
         return oldData.filter((s: any) => s.id !== shift.id);
-      });
-
-      // Force immediate cache update
-      queryClient.invalidateQueries({
-        queryKey: ["/api/shifts"],
-        refetchType: 'active'
       });
 
       return { previousShifts };

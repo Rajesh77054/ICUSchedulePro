@@ -85,6 +85,18 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
     },
   });
 
+  // Add event listener for manual refresh
+  useEffect(() => {
+    const handleRefresh = () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/shifts"] });
+      if (calendarRef.current) {
+        calendarRef.current.getApi().refetchEvents();
+      }
+    };
+    window.addEventListener('forceCalendarRefresh', handleRefresh);
+    return () => window.removeEventListener('forceCalendarRefresh', handleRefresh);
+  }, [queryClient]);
+
   const calendarEvents = useMemo(() => {
     if (!Array.isArray(initialShifts)) {
       return [];

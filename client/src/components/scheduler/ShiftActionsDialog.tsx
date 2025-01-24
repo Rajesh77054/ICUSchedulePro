@@ -37,10 +37,20 @@ export function ShiftActionsDialog({
         }
       });
       if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ error: "Failed to delete shift" }));
-        throw new Error(errorData.error || "Failed to delete shift");
+        const errorText = await res.text();
+        try {
+          const errorData = JSON.parse(errorText);
+          throw new Error(errorData.error || "Failed to delete shift");
+        } catch {
+          throw new Error(errorText || "Failed to delete shift");
+        }
       }
-      await res.json();
+      const responseText = await res.text();
+      try {
+        await JSON.parse(responseText);
+      } catch {
+        // Handle empty or invalid response
+      }
       return shift.id;
     },
     onSuccess: (deletedShiftId) => {

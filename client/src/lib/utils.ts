@@ -57,26 +57,38 @@ export function detectShiftConflicts(shift: Shift | null | undefined, allShifts:
 
   // Check for consecutive weeks within the same user type
   if (user.maxConsecutiveWeeks) {
-    const userTypeShifts = validShifts.filter(s => {
-      const shiftUser = USERS.find(u => u.id === s.userId);
-      return shiftUser?.userType === user.userType;
-    });
-
-    let consecutiveCount = 1; // Count current shift
+    const userShifts = validShifts.filter(s => s.userId === user.id);
+    let consecutiveCount = 1;
     let lastWeekStart = startOfWeek(shiftStart);
 
-    const sortedShifts = [...userTypeShifts]
-      .map(s => ({ ...s, startDate: new Date(s.startDate) }))
-      .sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
+    const sortedShifts = [...userShifts, { ...shift, startDate: shiftStart, endDate: shiftEnd }]
+      .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
 
-    for (const existingShift of sortedShifts) {
-      const existingStart = new Date(existingShift.startDate);
-      const existingWeekStart = startOfWeek(existingStart);
-
-      const weekDiff = Math.abs(
-        (existingWeekStart.getTime() - lastWeekStart.getTime()) / 
+    for (let i = 1; i < sortedShifts.length; i++) {
+      const currentStart = new Date(sortedShifts[i].startDate);
+      const prevStart = new Date(sortedShifts[i-1].startDate);
+      
+      const currentWeekStart = startOfWeek(currentStart);
+      const prevWeekStart = startOfWeek(prevStart);
+      
+      const weekDiff = Math.round(
+        (currentWeekStart.getTime() - prevWeekStart.getTime()) / 
         (7 * 24 * 60 * 60 * 1000)
       );
+
+      if (weekDiff === 1) {
+        consecutiveCount++;
+        if (consecutiveCount > user.maxConsecutiveWeeks) {
+          conflicts.push({
+            type: 'consecutive',
+            message: `Exceeds maximum ${user.maxConsecutiveWeeks} consecutive weeks`,
+          });
+          break;
+        }
+      } else {
+        consecutiveCount = 1;
+      }
+    }
 
       if (weekDiff === 1) {
         consecutiveCount++;

@@ -8,7 +8,7 @@ const HOLIDAYS = [
   { id: "memorial", label: "Memorial Day" },
   { id: "july4", label: "July 4th" },
   { id: "labor", label: "Labor Day" },
-  { id: "thanksgiving", label: "Thanksgiving Thursday and Friday" },
+  { id: "thanksgiving", label: "Thanksgiving (2 days)" },
   { id: "christmas", label: "Christmas Day" },
 ]
 

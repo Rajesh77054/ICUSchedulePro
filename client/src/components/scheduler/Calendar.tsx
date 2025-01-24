@@ -28,7 +28,7 @@ export default function Calendar({ shifts = [], users = [] }: CalendarProps) {
     return () => window.removeEventListener('forceCalendarRefresh', handleForceRefresh);
   }, []);
 
-  const handleEventClick = (clickInfo: any) => {
+  const handleEventClick = (clickInfo: { event: { id: string } }) => {
     const shift = shifts.find(s => s.id.toString() === clickInfo.event.id);
     if (shift) {
       setSelectedShift(shift);
@@ -36,7 +36,7 @@ export default function Calendar({ shifts = [], users = [] }: CalendarProps) {
     }
   };
 
-  const handleEventDrop = async (dropInfo: any) => {
+  const handleEventDrop = async (dropInfo: { event: { id: string, startStr: string, endStr: string } }) => {
     const shiftId = parseInt(dropInfo.event.id);
     const shift = shifts.find(s => s.id === shiftId);
     if (!shift) return;

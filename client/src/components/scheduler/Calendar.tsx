@@ -86,8 +86,7 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
   });
 
   const calendarEvents = useMemo(() => {
-    if (!initialShifts?.length) {
-      console.warn('Calendar: Received empty shifts array');
+    if (!initialShifts) {
       return [];
     }
 

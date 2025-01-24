@@ -44,7 +44,8 @@ export function ShiftActionsDialog({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/shifts"] });
-      queryClient.refetchQueries({ queryKey: ["/api/shifts"] });
+      queryClient.refetchQueries({ queryKey: ["/api/shifts"], exact: true });
+      queryClient.resetQueries({ queryKey: ["/api/shifts"] });
       toast({
         title: "Success",
         description: "Shift deleted successfully",

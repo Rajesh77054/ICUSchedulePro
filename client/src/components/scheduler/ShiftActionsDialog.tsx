@@ -40,13 +40,16 @@ export function ShiftActionsDialog({
         const errorData = await res.json().catch(() => ({ error: "Failed to delete shift" }));
         throw new Error(errorData.error || "Failed to delete shift");
       }
+      await res.json();
       return shift.id;
     },
     onSuccess: (deletedShiftId) => {
       queryClient.setQueryData(["/api/shifts"], (oldData: any) => {
-        return oldData?.filter((s: any) => s.id !== deletedShiftId) ?? [];
+        if (!oldData) return [];
+        return oldData.filter((s: any) => s.id !== deletedShiftId);
       });
       queryClient.invalidateQueries({ queryKey: ["/api/shifts"] });
+      queryClient.refetchQueries({ queryKey: ["/api/shifts"] });
       toast({
         title: "Success",
         description: "Shift deleted successfully",

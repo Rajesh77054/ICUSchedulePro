@@ -53,14 +53,21 @@ export function ShiftActionsDialog({
       return { previousShifts };
     },
     onSuccess: async (deletedShiftId) => {
-      // Clear the cache first
-      await queryClient.resetQueries({ queryKey: ["/api/shifts"] });
-      
-      // Force immediate refetch
+      // Invalidate and remove from cache
       await queryClient.invalidateQueries({ 
         queryKey: ["/api/shifts"],
-        refetchType: 'all'
+        refetchType: 'all',
+        exact: true
       });
+      
+      // Force update the cache immediately
+      queryClient.setQueryData(["/api/shifts"], (old: any[]) => {
+        if (!Array.isArray(old)) return [];
+        return old.filter(shift => shift.id !== deletedShiftId);
+      });
+
+      // Dispatch custom event for calendar refresh
+      window.dispatchEvent(new CustomEvent('forceCalendarRefresh'));
       
       toast({
         title: "Success",

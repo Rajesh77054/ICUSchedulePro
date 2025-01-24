@@ -33,13 +33,26 @@ export function ShiftDialog({ open, onOpenChange, startDate, endDate }: ShiftDia
 
   const { mutate: createShift } = useMutation({
     mutationFn: async (data: Partial<Shift>) => {
-      const res = await fetch("/api/shifts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-      if (!res.ok) throw new Error("Failed to create shift");
-      return res.json();
+      try {
+        const payload = {
+          ...data,
+          status: 'confirmed',
+          source: 'manual',
+          schedulingNotes: {},
+        };
+        const res = await fetch("/api/shifts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) {
+          const errorData = await res.json();
+          throw new Error(errorData.error || "Failed to create shift");
+        }
+        return res.json();
+      } catch (err) {
+        throw new Error(err instanceof Error ? err.message : "Failed to create shift");
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/shifts"] });
@@ -49,7 +62,7 @@ export function ShiftDialog({ open, onOpenChange, startDate, endDate }: ShiftDia
       });
       onOpenChange(false);
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       toast({
         title: "Error",
         description: error.message,

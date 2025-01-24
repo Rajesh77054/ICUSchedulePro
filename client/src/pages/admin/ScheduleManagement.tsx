@@ -40,6 +40,12 @@ export function ScheduleManagement() {
                       <li>Other physicians: No back-to-back weeks permitted</li>
                     </ul>
                   </div>
+                  <div className="space-y-1 mt-4">
+                    <p className="font-medium">Shift Overlap Rules:</p>
+                    <ul className="list-disc pl-6 space-y-1 text-muted-foreground">
+                      <li>Physician shifts may not overlap with other physician shifts</li>
+                    </ul>
+                  </div>
                 </div>
               </div>
             </TabsContent>
@@ -59,6 +65,13 @@ export function ScheduleManagement() {
                     <Badge variant="secondary">Night time APPs</Badge>
                     <p className="mt-1 text-muted-foreground">8:00 PM - 8:00 AM</p>
                   </div>
+                </div>
+                <div className="mt-4 space-y-1">
+                  <p className="font-medium">Shift Overlap Rules:</p>
+                  <ul className="list-disc pl-6 space-y-1 text-muted-foreground">
+                    <li>Day shift APPs may not overlap shifts with other day shift APPs</li>
+                    <li>Night shift APPs may not overlap shifts with other night shift APPs</li>
+                  </ul>
                 </div>
               </div>
             </TabsContent>

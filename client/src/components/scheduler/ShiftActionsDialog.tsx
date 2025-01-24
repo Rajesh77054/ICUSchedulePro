@@ -57,7 +57,7 @@ export function ShiftActionsDialog({
       });
       onOpenChange(false);
     },
-    onError: (err, shiftId, context: any) => {
+    onError: (err: Error, shiftId: number, context: any) => {
       // Rollback on error
       if (context?.previousShifts) {
         queryClient.setQueryData(["/api/shifts"], context.previousShifts);
@@ -65,13 +65,6 @@ export function ShiftActionsDialog({
       toast({
         title: "Error",
         description: err.message,
-        variant: "destructive",
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message,
         variant: "destructive",
       });
     },

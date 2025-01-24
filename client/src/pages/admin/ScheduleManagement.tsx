@@ -94,11 +94,21 @@ export function ScheduleManagement() {
                   <UserCheck className="h-5 w-5 text-muted-foreground" />
                   <h3 className="font-semibold">Annual Coverage Requirements</h3>
                 </div>
-                <div className="ml-7 space-y-2">
-                  <ul className="list-disc pl-6 space-y-1 text-muted-foreground">
-                    <li>Total coverage must equal 365 days annually</li>
-                    <li>All shifts must be covered without gaps</li>
-                  </ul>
+                <div className="ml-7 space-y-4">
+                  <div>
+                    <p className="font-medium">Annual Requirements:</p>
+                    <ul className="list-disc pl-6 space-y-1 text-muted-foreground">
+                      <li>Total coverage must equal 365 days annually</li>
+                      <li>All shifts must be covered without gaps</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <p className="font-medium">Daily Coverage Requirements:</p>
+                    <ul className="list-disc pl-6 space-y-1 text-muted-foreground">
+                      <li>Physicians: Full daily coverage requires 24-hour coverage</li>
+                      <li>APPs: Full daily coverage requires daytime plus night time shifts coverage (24-hour coverage)</li>
+                    </ul>
+                  </div>
                 </div>
 
                 <Alert className="mt-4">

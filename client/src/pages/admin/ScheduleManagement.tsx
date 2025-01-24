@@ -96,7 +96,7 @@ export function ScheduleManagement() {
                 </div>
                 <div className="ml-7 space-y-2">
                   <ul className="list-disc pl-6 space-y-1 text-muted-foreground">
-                    <li>Total coverage must equal 52 weeks annually</li>
+                    <li>Total coverage must equal 365 days annually</li>
                     <li>All shifts must be covered without gaps</li>
                   </ul>
                 </div>

@@ -321,7 +321,7 @@ export function UserManagement() {
               </form>
             </TabsContent>
 
-            <TabsContent value="preferences" className="h-[75vh] overflow-y-auto px-1 py-4">
+            <TabsContent value="preferences" className="px-1 py-4">
               {selectedUser && (
                 <ShiftPreferences mode="admin" userId={selectedUser} />
               )}

@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -18,6 +17,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { USERS } from "@/lib/constants";
+import { detectShiftConflicts } from "@/lib/utils";
 import type { Shift } from "@/lib/types";
 import { format } from "date-fns";
 
@@ -35,23 +35,14 @@ export function ShiftDialog({ open, onOpenChange, startDate, endDate }: ShiftDia
 
   const { mutate: createShift } = useMutation({
     mutationFn: async (data: Partial<Shift>) => {
-      const payload = {
-        userId: data.userId,
-        startDate: data.startDate,
-        endDate: data.endDate,
-        status: 'confirmed',
-        source: 'manual',
-        schedulingNotes: {}
-      };
-
       const res = await fetch("/api/shifts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(data)
       });
 
       if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ error: 'Failed to create shift' }));
+        const errorData = await res.json();
         throw new Error(errorData.error || 'Failed to create shift');
       }
 
@@ -59,11 +50,11 @@ export function ShiftDialog({ open, onOpenChange, startDate, endDate }: ShiftDia
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/shifts"] });
+      onOpenChange(false);
       toast({
         title: "Success",
         description: "Shift created successfully",
       });
-      onOpenChange(false);
     },
     onError: (error: Error) => {
       toast({
@@ -93,14 +84,8 @@ export function ShiftDialog({ open, onOpenChange, startDate, endDate }: ShiftDia
       return;
     }
 
-    if (new Date(endDate) < new Date(startDate)) {
-      toast({
-        title: "Validation Error",
-        description: "End date cannot be before start date",
-        variant: "destructive"
-      });
-      return;
-    }
+    // Get existing shifts for conflict detection
+    const existingShifts = queryClient.getQueryData<Shift[]>(["/api/shifts"]) || [];
 
     // Check for schedule rule violations
     const conflicts = detectShiftConflicts({
@@ -108,7 +93,7 @@ export function ShiftDialog({ open, onOpenChange, startDate, endDate }: ShiftDia
       startDate: format(startDate, 'yyyy-MM-dd'),
       endDate: format(endDate, 'yyyy-MM-dd'),
       status: 'confirmed'
-    }, queryClient.getQueryData(["/api/shifts"]) || []);
+    }, existingShifts);
 
     if (conflicts.length > 0) {
       toast({
@@ -119,31 +104,14 @@ export function ShiftDialog({ open, onOpenChange, startDate, endDate }: ShiftDia
       return;
     }
 
-    const shiftData = {
+    // Create shift if no conflicts
+    createShift({
       userId: parseInt(userId),
       startDate: format(startDate, 'yyyy-MM-dd'),
       endDate: format(endDate, 'yyyy-MM-dd'),
       status: 'confirmed',
       source: 'manual',
       schedulingNotes: {}
-    };
-
-    createShift(shiftData, {
-      onSuccess: () => {
-        onOpenChange(false);
-        toast({
-          title: "Success",
-          description: "Shift created successfully"
-        });
-      },
-      onError: (error: Error) => {
-        console.error('Shift creation error:', error);
-        toast({
-          title: "Error",
-          description: error.message || "Failed to create shift. Please try again.",
-          variant: "destructive"
-        });
-      }
     });
   };
 

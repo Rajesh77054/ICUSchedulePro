@@ -335,17 +335,34 @@ export function registerRoutes(app: Express) {
   app.delete('/api/shifts/:id', async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      
+
       // First delete associated swap requests
       await db.delete(swapRequests).where(eq(swapRequests.shiftId, id));
-      
+
       // Then delete the shift
       await db.delete(shifts).where(eq(shifts.id, id));
-      
+
       res.status(200).json({ message: 'Shift deleted successfully' });
     } catch (error) {
       console.error('Error deleting shift:', error);
       res.status(500).json({ error: 'Failed to delete shift' });
+    }
+  });
+
+  app.put('/api/shifts/:id', async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updatedShift = await db.update(shifts)
+        .set({
+          ...req.body,
+          updatedAt: new Date()
+        })
+        .where(eq(shifts.id, id))
+        .returning();
+      res.status(200).json(updatedShift[0]);
+    } catch (error) {
+      console.error('Error updating shift:', error);
+      res.status(500).json({ error: 'Failed to update shift' });
     }
   });
 

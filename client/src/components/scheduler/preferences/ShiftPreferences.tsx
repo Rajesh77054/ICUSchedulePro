@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,7 +29,7 @@ export function ShiftPreferences({ mode, userId }: ShiftPreferencesProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const effectiveUserId = mode === 'admin' ? userId : undefined;
-  
+
   const [formData, setFormData] = useState({
     targetDays: 0,
     toleranceDays: 0,
@@ -110,7 +109,7 @@ export function ShiftPreferences({ mode, userId }: ShiftPreferencesProps) {
   const handleDayChange = (type: 'preferred' | 'avoided', dayValue: string, checked: boolean) => {
     const value = parseInt(dayValue);
     const field = type === 'preferred' ? 'preferredDaysOfWeek' : 'avoidedDaysOfWeek';
-    
+
     setFormData(prev => ({
       ...prev,
       [field]: checked 
@@ -125,7 +124,7 @@ export function ShiftPreferences({ mode, userId }: ShiftPreferencesProps) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    
+
     if (mode === 'user') {
       const conflicts = validateAgainstAdminConstraints(formData);
       if (conflicts.length > 0) {
@@ -143,7 +142,7 @@ export function ShiftPreferences({ mode, userId }: ShiftPreferencesProps) {
 
   const validateAgainstAdminConstraints = (data) => {
     if (mode === 'admin') return [];
-    
+
     const conflicts = [];
     if (data.maxShiftsPerWeek > preferences?.adminConstraints?.maxShiftsPerWeek) {
       conflicts.push(`Cannot exceed admin-set maximum of ${preferences.adminConstraints.maxShiftsPerWeek} shifts per week`);
@@ -254,7 +253,7 @@ export function ShiftPreferences({ mode, userId }: ShiftPreferencesProps) {
                 value={formData.minDaysBetweenShifts}
                 onChange={handleInputChange}
                 min={0}
-                max={14}
+                max={120}
               />
             </div>
           </div>

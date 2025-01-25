@@ -227,8 +227,11 @@ export function registerRoutes(app: Express) {
   });
 
   app.get('/api/user-preferences/:userId', (req, res, next) => {
-  if (!req.isAuthenticated()) {
+  if (!req.isAuthenticated() || !req.user) {
     return res.status(401).json({ error: 'User not authenticated' });
+  }
+  if (req.params.userId !== 'me' && parseInt(req.params.userId) !== req.user.id) {
+    return res.status(403).json({ error: 'Unauthorized access' });
   }
   next();
 }, async (req, res) => {

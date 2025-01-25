@@ -75,7 +75,32 @@ export function ShiftDialog({ open, onOpenChange, startDate, endDate }: ShiftDia
   });
 
   const handleCreateShift = async () => {
-    if (!userId) return;
+    if (!userId) {
+      toast({
+        title: "Validation Error",
+        description: "Please select a healthcare provider",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!startDate || !endDate) {
+      toast({
+        title: "Validation Error",
+        description: "Please select both start and end dates",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (new Date(endDate) < new Date(startDate)) {
+      toast({
+        title: "Validation Error",
+        description: "End date cannot be before start date",
+        variant: "destructive"
+      });
+      return;
+    }
     
     // Validate shift before creation
     const conflicts = detectShiftConflicts({
@@ -103,11 +128,17 @@ export function ShiftDialog({ open, onOpenChange, startDate, endDate }: ShiftDia
         source: 'manual',
         schedulingNotes: {}
       });
-    } catch (error) {
+      
+      onOpenChange(false);
+      toast({
+        title: "Success",
+        description: "Shift created successfully"
+      });
+    } catch (error: any) {
       console.error('Shift creation error:', error);
       toast({
         title: "Error",
-        description: "Failed to create shift. Please try again.",
+        description: error.message || "Failed to create shift. Please try again.",
         variant: "destructive"
       });
     }

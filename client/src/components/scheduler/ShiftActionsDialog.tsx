@@ -41,24 +41,13 @@ export function ShiftActionsDialog({
     },
     onMutate: async () => {
       if (!shift) return;
-      
-      // Cancel any outgoing refetches
-      await queryClient.cancelQueries({ queryKey: ["/api/shifts"] });
-
-      // Get current data
-      const previousShifts = queryClient.getQueryData(["/api/shifts"]);
-
-      // Optimistically update cache
-      queryClient.setQueryData(["/api/shifts"], (old: any) => {
-        if (!Array.isArray(old)) return [];
-        return old.filter((s: any) => s.id !== shift.id);
-      });
-
-      return { previousShifts };
+      await queryClient.cancelQueries();
+      queryClient.removeQueries({ queryKey: ["/api/shifts"] });
+      return { shift };
     },
     onSuccess: async () => {
-      // Force a complete cache reset and refetch
-      await queryClient.resetQueries({ queryKey: ["/api/shifts"] });
+      queryClient.clear();
+      await queryClient.fetchQuery({ queryKey: ["/api/shifts"] });
       
       toast({
         title: "Success",

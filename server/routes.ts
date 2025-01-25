@@ -226,15 +226,16 @@ export function registerRoutes(app: Express) {
     }
   });
 
-  app.get('/api/user-preferences/:userId', async (req, res) => {
+  app.get('/api/user-preferences/:userId', (req, res, next) => {
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ error: 'User not authenticated' });
+  }
+  next();
+}, async (req, res) => {
     try {
       const userId = req.params.userId === 'me' 
         ? req.user?.id 
         : parseInt(req.params.userId);
-
-      if (!userId) {
-        return res.status(401).json({ error: 'User not authenticated' });
-      }
 
       const userPreferences = await db.query.userPreferences.findFirst({
         where: (preferences, { eq }) => eq(preferences.userId, userId)
@@ -246,15 +247,16 @@ export function registerRoutes(app: Express) {
     }
   });
 
-  app.patch('/api/user-preferences/:userId', async (req, res) => {
+  app.patch('/api/user-preferences/:userId', (req, res, next) => {
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ error: 'User not authenticated' });
+  }
+  next();
+}, async (req, res) => {
     try {
       const userId = req.params.userId === 'me'
         ? req.user?.id
         : parseInt(req.params.userId);
-
-      if (!userId) {
-        return res.status(401).json({ error: 'User not authenticated' });
-      }
       
       const updates = req.body;
       if (!updates) {

@@ -48,8 +48,9 @@ export function ShiftDialog({ open, onOpenChange, startDate, endDate }: ShiftDia
 
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (newShift) => {
       queryClient.invalidateQueries({ queryKey: ["/api/shifts"] });
+      queryClient.refetchQueries({ queryKey: ["/api/shifts"] });
       onOpenChange(false);
       toast({
         title: "Success",

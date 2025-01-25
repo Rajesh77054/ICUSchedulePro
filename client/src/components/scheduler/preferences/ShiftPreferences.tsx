@@ -5,9 +5,20 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { HolidayPreferences } from "./HolidayPreferences";
+
+const DAYS_OF_WEEK = [
+  { label: "Sunday", value: "0" },
+  { label: "Monday", value: "1" },
+  { label: "Tuesday", value: "2" },
+  { label: "Wednesday", value: "3" },
+  { label: "Thursday", value: "4" },
+  { label: "Friday", value: "5" },
+  { label: "Saturday", value: "6" },
+];
 
 interface ShiftPreferencesProps {
   mode: 'user' | 'admin';
@@ -26,6 +37,9 @@ export function ShiftPreferences({ mode, userId }: ShiftPreferencesProps) {
     preferredShiftLength: 0,
     maxShiftsPerWeek: 0,
     minDaysBetweenShifts: 0,
+    preferredDaysOfWeek: [],
+    avoidedDaysOfWeek: [],
+    preferredCoworkers: [],
     preferredHolidays: []
   });
 
@@ -50,6 +64,9 @@ export function ShiftPreferences({ mode, userId }: ShiftPreferencesProps) {
         preferredShiftLength: preferences.preferredShiftLength || 0,
         maxShiftsPerWeek: preferences.maxShiftsPerWeek || 0,
         minDaysBetweenShifts: preferences.minDaysBetweenShifts || 0,
+        preferredDaysOfWeek: preferences.preferredDaysOfWeek || [],
+        avoidedDaysOfWeek: preferences.avoidedDaysOfWeek || [],
+        preferredCoworkers: preferences.preferredCoworkers || [],
         preferredHolidays: preferences.preferredHolidays || []
       });
     }
@@ -86,6 +103,18 @@ export function ShiftPreferences({ mode, userId }: ShiftPreferencesProps) {
     setFormData(prev => ({
       ...prev,
       [name]: parseInt(value) || 0
+    }));
+  };
+
+  const handleDayChange = (type: 'preferred' | 'avoided', dayValue: string, checked: boolean) => {
+    const value = parseInt(dayValue);
+    const field = type === 'preferred' ? 'preferredDaysOfWeek' : 'avoidedDaysOfWeek';
+    
+    setFormData(prev => ({
+      ...prev,
+      [field]: checked 
+        ? [...prev[field], value]
+        : prev[field].filter(d => d !== value)
     }));
   };
 
@@ -225,6 +254,46 @@ export function ShiftPreferences({ mode, userId }: ShiftPreferencesProps) {
                 min={0}
                 max={14}
               />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Day Preferences</CardTitle>
+          <CardDescription>Select your preferred and avoided days of the week</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div>
+            <Label className="mb-2 block">Preferred Days</Label>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              {DAYS_OF_WEEK.map((day) => (
+                <div key={`preferred_${day.value}`} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={`preferred_${day.value}`}
+                    checked={formData.preferredDaysOfWeek.includes(parseInt(day.value))}
+                    onCheckedChange={(checked) => handleDayChange('preferred', day.value, checked)}
+                  />
+                  <Label htmlFor={`preferred_${day.value}`}>{day.label}</Label>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <Label className="mb-2 block">Days to Avoid</Label>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              {DAYS_OF_WEEK.map((day) => (
+                <div key={`avoided_${day.value}`} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={`avoided_${day.value}`}
+                    checked={formData.avoidedDaysOfWeek.includes(parseInt(day.value))}
+                    onCheckedChange={(checked) => handleDayChange('avoided', day.value, checked)}
+                  />
+                  <Label htmlFor={`avoided_${day.value}`}>{day.label}</Label>
+                </div>
+              ))}
             </div>
           </div>
         </CardContent>

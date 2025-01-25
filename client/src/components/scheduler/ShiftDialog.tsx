@@ -74,7 +74,7 @@ export function ShiftDialog({ open, onOpenChange, startDate, endDate }: ShiftDia
     },
   });
 
-  const handleCreateShift = async () => {
+  const handleCreateShift = () => {
     if (!userId) {
       toast({
         title: "Validation Error",
@@ -101,47 +101,33 @@ export function ShiftDialog({ open, onOpenChange, startDate, endDate }: ShiftDia
       });
       return;
     }
-    
-    // Validate shift before creation
-    const conflicts = detectShiftConflicts({
+
+    const shiftData = {
       userId: parseInt(userId),
       startDate: format(startDate, 'yyyy-MM-dd'),
       endDate: format(endDate, 'yyyy-MM-dd'),
       status: 'confirmed',
-    }, shifts);
+      source: 'manual',
+      schedulingNotes: {}
+    };
 
-    if (conflicts.length > 0) {
-      toast({
-        title: "Validation Error",
-        description: conflicts[0].message,
-        variant: "destructive"
-      });
-      return;
-    }
-
-    try {
-      createShift({
-        userId: parseInt(userId),
-        startDate: format(startDate, 'yyyy-MM-dd'),
-        endDate: format(endDate, 'yyyy-MM-dd'),
-        status: 'confirmed',
-        source: 'manual',
-        schedulingNotes: {}
-      });
-      
-      onOpenChange(false);
-      toast({
-        title: "Success",
-        description: "Shift created successfully"
-      });
-    } catch (error: any) {
-      console.error('Shift creation error:', error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to create shift. Please try again.",
-        variant: "destructive"
-      });
-    }
+    createShift(shiftData, {
+      onSuccess: () => {
+        onOpenChange(false);
+        toast({
+          title: "Success",
+          description: "Shift created successfully"
+        });
+      },
+      onError: (error: Error) => {
+        console.error('Shift creation error:', error);
+        toast({
+          title: "Error",
+          description: error.message || "Failed to create shift. Please try again.",
+          variant: "destructive"
+        });
+      }
+    });
   };
 
   return (

@@ -141,16 +141,8 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
     });
   }, [initialShifts, users, swapRequests]);
 
-  const detectShiftConflicts = (newShift: Shift, shifts: Shift[]): { message: string }[] => {
-    const conflicts: { message: string }[] = [];
-    shifts.forEach(shift => {
-      if (shift.id !== newShift.id && 
-          (newShift.startDate < shift.endDate && newShift.endDate > shift.startDate)) {
-        conflicts.push({ message: `Conflict with shift ${shift.id} for user ${shift.userId}` });
-      }
-    });
-    return conflicts;
-  };
+  // Remove local detectShiftConflicts as we'll use the one from utils.ts
+  import { detectShiftConflicts } from "@/lib/utils";
 
 
   const handleEventDrop = async (dropInfo: EventDropArg) => {
@@ -177,7 +169,7 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
     if (conflicts.length > 0) {
       toast({
         title: "Schedule Conflict",
-        description: conflicts.map(c => c.message).join("\n"),
+        description: conflicts.map(c => `${c.type === 'overlap' ? '🔄' : '⚠️'} ${c.message}`).join("\n"),
         variant: "destructive"
       });
       dropInfo.revert();
@@ -204,6 +196,28 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
     const shiftId = parseInt(resizeInfo.event.id);
     const startDate = resizeInfo.event.startStr;
     const endDate = resizeInfo.event.endStr;
+    const shift = initialShifts.find(s => s.id === shiftId);
+
+    if (!shift) {
+      resizeInfo.revert();
+      return;
+    }
+
+    const conflicts = detectShiftConflicts({
+      ...shift,
+      startDate,
+      endDate
+    }, initialShifts);
+
+    if (conflicts.length > 0) {
+      toast({
+        title: "Schedule Conflict",
+        description: conflicts.map(c => `${c.type === 'overlap' ? '🔄' : '⚠️'} ${c.message}`).join("\n"),
+        variant: "destructive"
+      });
+      resizeInfo.revert();
+      return;
+    }
 
     try {
       await updateShiftMutation.mutateAsync({
@@ -213,6 +227,11 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
       });
     } catch (error) {
       resizeInfo.revert();
+      toast({
+        title: "Error",
+        description: "Failed to update shift",
+        variant: "destructive"
+      });
     }
   };
 

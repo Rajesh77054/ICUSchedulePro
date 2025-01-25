@@ -226,14 +226,17 @@ export function registerRoutes(app: Express) {
     }
   });
 
-  app.get('/api/user-preferences/:userId', (req, res, next) => {
-  if (!req.isAuthenticated() || !req.user) {
-    return res.status(401).json({ error: 'User not authenticated' });
-  }
-  if (req.params.userId !== 'me' && parseInt(req.params.userId) !== req.user.id) {
-    return res.status(403).json({ error: 'Unauthorized access' });
-  }
-  next();
+  app.get('/api/user-preferences/:userId', async (req, res) => {
+  try {
+    if (!req.isAuthenticated() || !req.user) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    const targetUserId = req.params.userId === 'me' ? req.user.id : parseInt(req.params.userId);
+    
+    if (req.params.userId !== 'me' && targetUserId !== req.user.id) {
+      return res.status(403).json({ error: 'Unauthorized access' });
+    }
 }, async (req, res) => {
     try {
       const userId = req.params.userId === 'me' 

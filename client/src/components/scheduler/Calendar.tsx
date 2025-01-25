@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { Calendar as MiniCalendar } from "@/components/ui/calendar";
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight } from "lucide-react";
-import { getShiftDuration } from "@/lib/utils";
+import { getShiftDuration, detectShiftConflicts } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
@@ -141,8 +141,7 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
     });
   }, [initialShifts, users, swapRequests]);
 
-  // Remove local detectShiftConflicts as we'll use the one from utils.ts
-  import { detectShiftConflicts } from "@/lib/utils";
+  // Using detectShiftConflicts from utils.ts
 
 
   const handleEventDrop = async (dropInfo: EventDropArg) => {

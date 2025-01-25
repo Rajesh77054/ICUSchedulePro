@@ -250,11 +250,11 @@ export function registerRoutes(app: Express) {
       let result;
       const values = {
         userId,
-        preferredShiftLength: Number(updates.preferredShiftLength) || 7,
-        maxShiftsPerWeek: Number(updates.maxShiftsPerWeek) || 1,
-        minDaysBetweenShifts: Number(updates.minDaysBetweenShifts) || 0,
-        preferredDaysOfWeek: Array.isArray(updates.preferredDaysOfWeek) ? updates.preferredDaysOfWeek.map(Number) : [],
-        avoidedDaysOfWeek: Array.isArray(updates.avoidedDaysOfWeek) ? updates.avoidedDaysOfWeek.map(Number) : [],
+        preferredShiftLength: typeof updates.preferredShiftLength === 'number' ? updates.preferredShiftLength : 7,
+        maxShiftsPerWeek: typeof updates.maxShiftsPerWeek === 'number' ? updates.maxShiftsPerWeek : 1,
+        minDaysBetweenShifts: typeof updates.minDaysBetweenShifts === 'number' ? updates.minDaysBetweenShifts : 0,
+        preferredDaysOfWeek: Array.isArray(updates.preferredDaysOfWeek) ? updates.preferredDaysOfWeek.filter(n => !isNaN(Number(n))).map(Number) : [],
+        avoidedDaysOfWeek: Array.isArray(updates.avoidedDaysOfWeek) ? updates.avoidedDaysOfWeek.filter(n => !isNaN(Number(n))).map(Number) : [],
         updatedAt: new Date()
       };
 

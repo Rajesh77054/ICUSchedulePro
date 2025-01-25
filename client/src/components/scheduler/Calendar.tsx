@@ -159,11 +159,14 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
     const newEndDate = addDays(startDate, duration);
 
     // Check for conflicts before allowing the move
+    // Filter out the current shift from conflicts check
+    const otherShifts = initialShifts.filter(s => s.id !== shiftId);
+    
     const conflicts = detectShiftConflicts({
       ...shift,
       startDate: format(startDate, 'yyyy-MM-dd'),
       endDate: format(newEndDate, 'yyyy-MM-dd')
-    }, initialShifts);
+    }, otherShifts);
 
     if (conflicts.length > 0) {
       toast({
@@ -202,11 +205,14 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
       return;
     }
 
+    // Filter out the current shift from conflicts check
+    const otherShifts = initialShifts.filter(s => s.id !== shiftId);
+    
     const conflicts = detectShiftConflicts({
       ...shift,
       startDate,
       endDate
-    }, initialShifts);
+    }, otherShifts);
 
     if (conflicts.length > 0) {
       toast({

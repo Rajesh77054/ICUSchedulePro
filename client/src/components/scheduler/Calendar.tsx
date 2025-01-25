@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
-import { format } from "date-fns";
+import { format, differenceInDays, addDays } from "date-fns";
 import type { Shift, User } from "@/lib/types";
 import { ShiftDialog } from "./ShiftDialog";
 import { ShiftActionsDialog } from "./ShiftActionsDialog";
@@ -141,12 +141,45 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
     });
   }, [initialShifts, users, swapRequests]);
 
+  const detectShiftConflicts = (newShift: Shift, shifts: Shift[]): { message: string }[] => {
+    const conflicts: { message: string }[] = [];
+    shifts.forEach(shift => {
+      if (shift.id !== newShift.id && 
+          (newShift.startDate < shift.endDate && newShift.endDate > shift.startDate)) {
+        conflicts.push({ message: `Conflict with shift ${shift.id} for user ${shift.userId}` });
+      }
+    });
+    return conflicts;
+  };
+
+
   const handleEventDrop = async (dropInfo: EventDropArg) => {
     const shiftId = parseInt(dropInfo.event.id);
-    const startDate = dropInfo.event.start?.toISOString().split('T')[0];
-    const endDate = dropInfo.event.end?.toISOString().split('T')[0];
+    const startDate = dropInfo.event.start;
+    const endDate = dropInfo.event.end;
+    const shift = initialShifts.find(s => s.id === shiftId);
 
-    if (!startDate || !endDate) {
+    if (!startDate || !endDate || !shift) {
+      dropInfo.revert();
+      return;
+    }
+
+    const duration = differenceInDays(new Date(shift.endDate), new Date(shift.startDate));
+    const newEndDate = addDays(startDate, duration);
+
+    // Check for conflicts before allowing the move
+    const conflicts = detectShiftConflicts({
+      ...shift,
+      startDate: format(startDate, 'yyyy-MM-dd'),
+      endDate: format(newEndDate, 'yyyy-MM-dd')
+    }, initialShifts);
+
+    if (conflicts.length > 0) {
+      toast({
+        title: "Schedule Conflict",
+        description: conflicts.map(c => c.message).join("\n"),
+        variant: "destructive"
+      });
       dropInfo.revert();
       return;
     }
@@ -154,8 +187,8 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
     try {
       await updateShiftMutation.mutateAsync({
         id: shiftId,
-        startDate,
-        endDate,
+        startDate: format(startDate, 'yyyy-MM-dd'),
+        endDate: format(newEndDate, 'yyyy-MM-dd'),
       });
     } catch (error) {
       dropInfo.revert();

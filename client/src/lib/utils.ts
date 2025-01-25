@@ -43,10 +43,13 @@ export function detectShiftConflicts(shift: Shift | null | undefined, allShifts:
     const existingStart = new Date(existingShift.startDate);
     const existingEnd = new Date(existingShift.endDate);
 
-    if (
-      (isBefore(shiftStart, existingEnd) || isSameDay(shiftStart, existingEnd)) && 
-      (isAfter(shiftEnd, existingStart) || isSameDay(shiftEnd, existingStart))
-    ) {
+    // Check if shifts overlap, including same-day overlaps
+    const overlaps = (
+      (isBefore(shiftStart, existingEnd) || isSameDay(shiftStart, existingEnd) || isSameDay(shiftStart, existingStart)) && 
+      (isAfter(shiftEnd, existingStart) || isSameDay(shiftEnd, existingStart) || isSameDay(shiftEnd, existingEnd))
+    );
+    
+    if (overlaps) {
       conflicts.push({
         type: 'overlap',
         message: `Shift overlaps with another ${user.userType} shift`,

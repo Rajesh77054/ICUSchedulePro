@@ -59,8 +59,15 @@ export function ShiftActionsDialog({
       return { previousShifts };
     },
     onSuccess: async () => {
-      // Force a fresh refetch
-      await queryClient.invalidateQueries({ queryKey: ["/api/shifts"], refetchType: 'all' });
+      // Clear cache and force refetch
+      queryClient.removeQueries({ queryKey: ["/api/shifts"] });
+      await queryClient.fetchQuery({ 
+        queryKey: ["/api/shifts"],
+        options: { 
+          cacheTime: 0,
+          staleTime: 0
+        }
+      });
       
       // Dispatch a custom event to force calendar refresh
       window.dispatchEvent(new Event('forceCalendarRefresh'));

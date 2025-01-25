@@ -9,6 +9,8 @@ export function registerRoutes(app: Express) {
   app.get('/api/shifts', async (req, res) => {
     try {
       const allShifts = await db.select().from(shifts);
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('ETag', Date.now().toString());
       res.json(allShifts);
     } catch (error) {
       console.error('Error fetching shifts:', error);

@@ -5,5 +5,5 @@ import { type Handler } from "./types";
 
 export function registerRoutes(app: Express): Server {
   // Add your route handlers here
-  return require('http').createServer(app);
+  return (await import('node:http')).createServer(app);
 }

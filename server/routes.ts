@@ -233,25 +233,13 @@ export function registerRoutes(app: Express) {
       }
 
       const targetUserId = req.params.userId === 'me' ? req.user.id : parseInt(req.params.userId);
-      
+
       if (req.params.userId !== 'me' && targetUserId !== req.user.id) {
         return res.status(403).json({ error: 'Unauthorized access' });
       }
 
       const userPreferences = await db.query.userPreferences.findFirst({
         where: (preferences, { eq }) => eq(preferences.userId, targetUserId)
-      });
-      res.json(userPreferences || {});
-    } catch (error) {
-      console.error('Error fetching preferences:', error);
-      res.status(500).json({ error: 'Failed to fetch preferences' });
-    }
-  }); 
-        ? req.user.id 
-        : parseInt(req.params.userId);
-
-      const userPreferences = await db.query.userPreferences.findFirst({
-        where: (preferences, { eq }) => eq(preferences.userId, userId)
       });
       res.json(userPreferences || {});
     } catch (error) {
@@ -271,7 +259,7 @@ export function registerRoutes(app: Express) {
       const userId = req.params.userId === 'me'
         ? req.user?.id
         : parseInt(req.params.userId);
-      
+
       const updates = req.body;
       if (!updates) {
         return res.status(400).json({ error: 'No update data provided' });

@@ -2,6 +2,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -28,40 +29,34 @@ export function ShiftActionsDialog({
   // Delete shift mutation
   const { mutate: deleteShift, isPending: isDeleting } = useMutation({
     mutationFn: async () => {
-      if (!shift || shift.processing) return; //Added check for processing flag
-      shift.processing = true; // Added processing flag
-      try {
-        if (!shift) throw new Error("No shift selected");
-        const res = await fetch(`/api/shifts/${shift.id}`, {
-          method: "DELETE",
-          headers: {
-            "Content-Type": "application/json"
-          }
-        });
-        if (!res.ok) {
-          const error = await res.text();
-          throw new Error(error || "Failed to delete shift");
+      if (!shift) throw new Error("No shift selected");
+      const res = await fetch(`/api/shifts/${shift.id}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json"
         }
-        return shift.id;
-      } finally {
-        delete shift.processing; // Remove processing flag
+      });
+      if (!res.ok) {
+        const error = await res.text();
+        throw new Error(error || "Failed to delete shift");
       }
+      return shift.id;
     },
     onMutate: async () => {
       if (!shift) return;
-
+      
       // Cancel any outgoing refetches
       await queryClient.cancelQueries();
-
+      
       // Snapshot all related queries
       const previousShifts = queryClient.getQueriesData({ queryKey: ["/api/shifts"] });
-
+      
       // Optimistically remove the shift from all related queries
       queryClient.setQueriesData({ queryKey: ["/api/shifts"] }, (old: any) => {
         if (!Array.isArray(old)) return [];
         return old.filter(s => s.id !== shift.id);
       });
-
+      
       return { previousShifts };
     },
     onSuccess: async () => {
@@ -79,7 +74,7 @@ export function ShiftActionsDialog({
 
       // Force calendar refresh
       window.dispatchEvent(new Event('forceCalendarRefresh'));
-
+      
       toast({
         title: "Success",
         description: "Shift deleted successfully",

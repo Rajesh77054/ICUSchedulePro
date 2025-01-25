@@ -19,7 +19,7 @@ interface ChatClient extends WebSocket {
 
 export function setupWebSocket(server: Server) {
   const wss = new WebSocketServer({ 
-    port: 3001,
+    server,
     path: '/ws',
   });
 

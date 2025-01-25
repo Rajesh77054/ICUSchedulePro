@@ -8,16 +8,8 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-const config = {
+export const db = drizzle({
   connection: process.env.DATABASE_URL,
   schema,
   ws: ws,
-  transformValues: {
-    out: {
-      number: (value) => Number(value),
-      bigint: (value) => Number(value)
-    }
-  }
-};
-
-export const db = drizzle(config);
+});

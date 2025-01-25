@@ -332,5 +332,16 @@ export function registerRoutes(app: Express) {
     }
   });
 
+  app.delete('/api/shifts/:id', async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await db.delete(shifts).where(eq(shifts.id, id));
+      res.status(200).json({ message: 'Shift deleted successfully' });
+    } catch (error) {
+      console.error('Error deleting shift:', error);
+      res.status(500).json({ error: 'Failed to delete shift' });
+    }
+  });
+
   return app;
 }

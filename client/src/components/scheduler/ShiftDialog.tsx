@@ -102,6 +102,23 @@ export function ShiftDialog({ open, onOpenChange, startDate, endDate }: ShiftDia
       return;
     }
 
+    // Check for schedule rule violations
+    const conflicts = detectShiftConflicts({
+      userId: parseInt(userId),
+      startDate: format(startDate, 'yyyy-MM-dd'),
+      endDate: format(endDate, 'yyyy-MM-dd'),
+      status: 'confirmed'
+    }, queryClient.getQueryData(["/api/shifts"]) || []);
+
+    if (conflicts.length > 0) {
+      toast({
+        title: "Schedule Rule Violation",
+        description: conflicts.map(c => c.message).join("\n"),
+        variant: "destructive"
+      });
+      return;
+    }
+
     const shiftData = {
       userId: parseInt(userId),
       startDate: format(startDate, 'yyyy-MM-dd'),

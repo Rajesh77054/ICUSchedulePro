@@ -247,7 +247,7 @@ export function registerRoutes(app: Express) {
       res.status(500).json({ error: 'Failed to fetch preferences' });
     }
   }); 
-        ? req.user?.id 
+        ? req.user.id 
         : parseInt(req.params.userId);
 
       const userPreferences = await db.query.userPreferences.findFirst({

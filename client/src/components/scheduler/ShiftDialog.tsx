@@ -49,12 +49,24 @@ export function ShiftDialog({ open, onOpenChange, startDate, endDate }: ShiftDia
       return res.json();
     },
     onSuccess: async (newShift) => {
-      await queryClient.invalidateQueries({ queryKey: ["/api/shifts"] });
-      // Ensure calendar gets latest data
-      await queryClient.setQueryData(["/api/shifts"], (oldData: Shift[] = []) => {
-        const filteredData = oldData.filter(shift => shift.id !== newShift.id);
-        return [...filteredData, newShift];
+      // Cancel any outgoing queries first
+      await queryClient.cancelQueries({ queryKey: ["/api/shifts"] });
+      
+      // Update the cache immediately
+      queryClient.setQueryData(["/api/shifts"], (oldData: Shift[] = []) => {
+        return [...oldData, newShift];
       });
+
+      // Force a refresh of all shift-related queries
+      await queryClient.invalidateQueries({
+        queryKey: ["/api/shifts"],
+        refetchType: 'all',
+        exact: false
+      });
+
+      // Trigger calendar refresh
+      window.dispatchEvent(new Event('forceCalendarRefresh'));
+      
       onOpenChange(false);
       toast({
         title: "Success",

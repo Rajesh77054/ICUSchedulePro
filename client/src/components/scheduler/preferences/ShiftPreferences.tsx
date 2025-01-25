@@ -79,9 +79,12 @@ export function ShiftPreferences({ mode, userId }: ShiftPreferencesProps) {
         : '/api/user-preferences/me';
       const res = await fetch(url, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        },
+        credentials: 'include',
         body: JSON.stringify(data),
-        credentials: 'include'
       });
       if (!res.ok) throw new Error("Failed to update preferences");
       return res.json();

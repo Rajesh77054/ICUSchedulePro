@@ -99,14 +99,18 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
     return () => window.removeEventListener('forceCalendarRefresh', handleRefresh);
   }, [queryClient]);
 
+  // Get shifts from the query cache
+  const { data: shifts = [] } = useQuery<Shift[]>({
+    queryKey: ["/api/shifts"],
+    staleTime: 0
+  });
+
   const calendarEvents = useMemo(() => {
-    if (!Array.isArray(initialShifts)) {
+    if (!Array.isArray(shifts)) {
       return [];
     }
-    // Force recalculation on any shift change
-    const shiftsKey = JSON.stringify(initialShifts);
 
-    return initialShifts.map(shift => {
+    return shifts.map(shift => {
       const normalizedDays = getShiftDuration(shift);
       // For swapped shifts, find the swap request to determine the new owner
       const swapRequest = swapRequests?.find(req => 

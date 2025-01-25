@@ -40,7 +40,9 @@ async function fetchUser(): Promise<SelectUser | null> {
   const response = await fetch('/api/user', {
     credentials: 'include',
     headers: {
-      'Content-Type': 'application/json'
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-cache'
     }
   });
 

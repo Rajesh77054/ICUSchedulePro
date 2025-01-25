@@ -56,8 +56,12 @@ export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
+        credentials: 'include'
       });
-      if (!res.ok) throw new Error("Failed to update preferences");
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: res.statusText }));
+        throw new Error(errorData.error || "Failed to update preferences");
+      }
       return res.json();
     },
     onSuccess: () => {

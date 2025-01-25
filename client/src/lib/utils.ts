@@ -43,10 +43,9 @@ export function detectShiftConflicts(shift: Shift | null | undefined, allShifts:
     const existingStart = new Date(existingShift.startDate);
     const existingEnd = new Date(existingShift.endDate);
 
-    // Check if shifts overlap, including same-day overlaps
+    // Check if shifts overlap, excluding adjacent shifts
     const overlaps = (
-      (isBefore(shiftStart, existingEnd) || isSameDay(shiftStart, existingEnd) || isSameDay(shiftStart, existingStart)) && 
-      (isAfter(shiftEnd, existingStart) || isSameDay(shiftEnd, existingStart) || isSameDay(shiftEnd, existingEnd))
+      isBefore(shiftStart, existingEnd) && isAfter(shiftEnd, existingStart)
     );
     
     if (overlaps) {

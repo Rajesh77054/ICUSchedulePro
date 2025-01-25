@@ -1,4 +1,3 @@
-
 import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -49,27 +48,34 @@ export function PreferencesForm({ userId }: PreferencesFormProps) {
   });
 
   const { mutate: updatePreferences, isPending: isUpdating } = useMutation({
-    mutationFn: async (values: z.infer<typeof preferencesSchema>) => {
+    mutationFn: async (data: any) => {
       const res = await fetch(`/api/user-preferences/${userId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(values),
+        body: JSON.stringify({
+          ...data,
+          preferredDaysOfWeek: Array.isArray(data.preferredDaysOfWeek) ? data.preferredDaysOfWeek : [],
+          avoidedDaysOfWeek: Array.isArray(data.avoidedDaysOfWeek) ? data.avoidedDaysOfWeek : [],
+        }),
       });
-      if (!res.ok) throw new Error("Failed to update preferences");
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || 'Failed to update preferences');
+      }
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/user-preferences"] });
       toast({
         title: "Success",
-        description: "Preferences updated successfully"
+        description: "Preferences updated successfully",
       });
     },
     onError: (error: any) => {
-      const errorMessage = error.response?.data?.error || error.message || "Failed to update preferences";
+      const message = error.response?.data?.error || error.message;
       toast({
         title: "Error",
-        description: errorMessage,
+        description: message,
         variant: "destructive",
       });
     },

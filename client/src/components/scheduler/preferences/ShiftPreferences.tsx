@@ -49,7 +49,7 @@ export function ShiftPreferences({ mode, userId }: ShiftPreferencesProps) {
       const url = effectiveUserId 
         ? `/api/user-preferences/${effectiveUserId}`
         : '/api/user-preferences/me';
-      const res = await fetch(url);
+      const res = await fetch(url, { credentials: 'include' });
       if (!res.ok) throw new Error("Failed to fetch preferences");
       return res.json();
     },
@@ -81,6 +81,7 @@ export function ShiftPreferences({ mode, userId }: ShiftPreferencesProps) {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
+        credentials: 'include'
       });
       if (!res.ok) throw new Error("Failed to update preferences");
       return res.json();

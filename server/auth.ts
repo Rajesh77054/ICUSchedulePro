@@ -54,9 +54,18 @@ export function setupAuth(app: Express) {
 
   app.set("trust proxy", 1);
 
-  app.use(session(sessionSettings));
+  const sess = session(sessionSettings);
+  app.use(sess);
   app.use(passport.initialize());
   app.use(passport.session());
+
+  // Ensure session is properly initialized
+  app.use((req, res, next) => {
+    if (!req.session) {
+      return next(new Error('Session initialization failed'));
+    }
+    next();
+  });
 
   // Enable session persistence
   passport.serializeUser((user: Express.User, done) => {

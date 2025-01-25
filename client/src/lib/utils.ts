@@ -2,7 +2,7 @@ import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 import type { Shift, TimeOffRequest, Holiday, User } from "./types"
 import { USERS } from "./constants"
-import { isWithinInterval, addDays, startOfWeek, endOfWeek, isSameWeek, isBefore, isAfter, differenceInDays } from "date-fns"
+import { isWithinInterval, addDays, startOfWeek, endOfWeek, isSameWeek, isBefore, isAfter, differenceInDays, isSameDay } from "date-fns"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -44,8 +44,8 @@ export function detectShiftConflicts(shift: Shift | null | undefined, allShifts:
     const existingEnd = new Date(existingShift.endDate);
 
     if (
-      isBefore(shiftStart, existingEnd) && 
-      isAfter(shiftEnd, existingStart)
+      (isBefore(shiftStart, existingEnd) || isSameDay(shiftStart, existingEnd)) && 
+      (isAfter(shiftEnd, existingStart) || isSameDay(shiftEnd, existingStart))
     ) {
       conflicts.push({
         type: 'overlap',

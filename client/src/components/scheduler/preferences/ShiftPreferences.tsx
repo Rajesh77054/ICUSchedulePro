@@ -31,12 +31,12 @@ export function ShiftPreferences({ mode, userId }: ShiftPreferencesProps) {
   const effectiveUserId = mode === 'admin' ? userId : undefined;
 
   const [formData, setFormData] = useState({
-    targetDays: 0,
-    toleranceDays: 0,
-    maxConsecutiveWeeks: 0,
-    preferredShiftLength: 0,
-    maxShiftsPerWeek: 0,
-    minDaysBetweenShifts: 0,
+    targetDays: '',
+    toleranceDays: '',
+    maxConsecutiveWeeks: '',
+    preferredShiftLength: '',
+    maxShiftsPerWeek: '',
+    minDaysBetweenShifts: '',
     preferredDaysOfWeek: [],
     avoidedDaysOfWeek: [],
     preferredCoworkers: [],
@@ -102,7 +102,7 @@ export function ShiftPreferences({ mode, userId }: ShiftPreferencesProps) {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: parseInt(value) || 0
+      [name]: value === '' ? '' : parseInt(value)
     }));
   };
 

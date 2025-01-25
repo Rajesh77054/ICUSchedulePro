@@ -145,7 +145,7 @@ export function UserManagement() {
   const currentUser = users?.find(u => u.id === selectedUser);
 
   return (
-    <div className="container mx-auto p-4 md:py-6 relative h-screen overflow-y-auto">
+    <div className="container mx-auto p-4 md:py-6 relative">
       
       <Card>
         <CardHeader>

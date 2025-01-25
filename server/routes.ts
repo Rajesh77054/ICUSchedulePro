@@ -227,19 +227,26 @@ export function registerRoutes(app: Express) {
   });
 
   app.get('/api/user-preferences/:userId', async (req, res) => {
-  try {
-    if (!req.isAuthenticated() || !req.user) {
-      return res.status(401).json({ error: 'User not authenticated' });
-    }
-
-    const targetUserId = req.params.userId === 'me' ? req.user.id : parseInt(req.params.userId);
-    
-    if (req.params.userId !== 'me' && targetUserId !== req.user.id) {
-      return res.status(403).json({ error: 'Unauthorized access' });
-    }
-}, async (req, res) => {
     try {
-      const userId = req.params.userId === 'me' 
+      if (!req.isAuthenticated() || !req.user) {
+        return res.status(401).json({ error: 'User not authenticated' });
+      }
+
+      const targetUserId = req.params.userId === 'me' ? req.user.id : parseInt(req.params.userId);
+      
+      if (req.params.userId !== 'me' && targetUserId !== req.user.id) {
+        return res.status(403).json({ error: 'Unauthorized access' });
+      }
+
+      const userPreferences = await db.query.userPreferences.findFirst({
+        where: (preferences, { eq }) => eq(preferences.userId, targetUserId)
+      });
+      res.json(userPreferences || {});
+    } catch (error) {
+      console.error('Error fetching preferences:', error);
+      res.status(500).json({ error: 'Failed to fetch preferences' });
+    }
+  }); 
         ? req.user?.id 
         : parseInt(req.params.userId);
 

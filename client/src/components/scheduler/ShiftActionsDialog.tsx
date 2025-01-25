@@ -36,18 +36,34 @@ export function ShiftActionsDialog({
           "Content-Type": "application/json"
         }
       });
-      if (!res.ok) throw new Error("Failed to delete shift");
+      if (!res.ok) {
+        const error = await res.text();
+        throw new Error(error || "Failed to delete shift");
+      }
       return shift.id;
     },
     onMutate: async () => {
       if (!shift) return;
-      await queryClient.cancelQueries();
-      queryClient.removeQueries({ queryKey: ["/api/shifts"] });
-      return { shift };
+      
+      // Cancel any ongoing queries
+      await queryClient.cancelQueries({ queryKey: ["/api/shifts"] });
+      
+      // Get the current shifts
+      const previousShifts = queryClient.getQueryData(["/api/shifts"]);
+      
+      // Optimistically remove the shift
+      queryClient.setQueryData(["/api/shifts"], (old: any[]) => 
+        old?.filter(s => s.id !== shift.id) ?? []
+      );
+      
+      return { previousShifts };
     },
     onSuccess: async () => {
-      queryClient.clear();
-      await queryClient.fetchQuery({ queryKey: ["/api/shifts"] });
+      // Force a fresh refetch
+      await queryClient.invalidateQueries({ queryKey: ["/api/shifts"], refetchType: 'all' });
+      
+      // Dispatch a custom event to force calendar refresh
+      window.dispatchEvent(new Event('forceCalendarRefresh'));
       
       toast({
         title: "Success",

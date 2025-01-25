@@ -87,10 +87,12 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
 
   // Add event listener for manual refresh
   useEffect(() => {
-    const handleRefresh = () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/shifts"] });
+    const handleRefresh = async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/shifts"] });
       if (calendarRef.current) {
-        calendarRef.current.getApi().refetchEvents();
+        const api = calendarRef.current.getApi();
+        api.removeAllEvents();
+        api.refetchEvents();
       }
     };
     window.addEventListener('forceCalendarRefresh', handleRefresh);

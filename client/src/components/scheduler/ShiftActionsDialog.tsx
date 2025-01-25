@@ -45,31 +45,34 @@ export function ShiftActionsDialog({
     onMutate: async () => {
       if (!shift) return;
       
-      // Cancel any ongoing queries
-      await queryClient.cancelQueries({ queryKey: ["/api/shifts"] });
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries();
       
-      // Get the current shifts
-      const previousShifts = queryClient.getQueryData(["/api/shifts"]);
+      // Snapshot all related queries
+      const previousShifts = queryClient.getQueriesData({ queryKey: ["/api/shifts"] });
       
-      // Optimistically remove the shift
-      queryClient.setQueryData(["/api/shifts"], (old: any[]) => 
-        old?.filter(s => s.id !== shift.id) ?? []
-      );
+      // Optimistically remove the shift from all related queries
+      queryClient.setQueriesData({ queryKey: ["/api/shifts"] }, (old: any) => {
+        if (!Array.isArray(old)) return [];
+        return old.filter(s => s.id !== shift.id);
+      });
       
       return { previousShifts };
     },
     onSuccess: async () => {
-      // Clear cache and force refetch
-      queryClient.removeQueries({ queryKey: ["/api/shifts"] });
-      await queryClient.fetchQuery({ 
+      // Force immediate invalidation and refetch
+      await queryClient.invalidateQueries({
         queryKey: ["/api/shifts"],
-        options: { 
-          cacheTime: 0,
-          staleTime: 0
-        }
+        refetchType: 'all',
+        exact: false
       });
-      
-      // Dispatch a custom event to force calendar refresh
+
+      // Clear all shift-related data from cache
+      queryClient.removeQueries({
+        predicate: (query) => query.queryKey[0] === "/api/shifts"
+      });
+
+      // Force calendar refresh
       window.dispatchEvent(new Event('forceCalendarRefresh'));
       
       toast({

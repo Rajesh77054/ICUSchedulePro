@@ -248,13 +248,20 @@ export function registerRoutes(app: Express) {
       const existing = await db.select().from(userPreferences).where(eq(userPreferences.userId, userId));
 
       let result;
+      const parseIntSafe = (value: any, defaultValue: number) => {
+        const parsed = parseInt(value);
+        return !isNaN(parsed) ? parsed : defaultValue;
+      };
+
       const values = {
         userId,
-        preferredShiftLength: typeof updates.preferredShiftLength === 'number' ? updates.preferredShiftLength : 7,
-        maxShiftsPerWeek: typeof updates.maxShiftsPerWeek === 'number' ? updates.maxShiftsPerWeek : 1,
-        minDaysBetweenShifts: typeof updates.minDaysBetweenShifts === 'number' ? updates.minDaysBetweenShifts : 0,
-        preferredDaysOfWeek: Array.isArray(updates.preferredDaysOfWeek) ? updates.preferredDaysOfWeek.filter(n => !isNaN(Number(n))).map(Number) : [],
-        avoidedDaysOfWeek: Array.isArray(updates.avoidedDaysOfWeek) ? updates.avoidedDaysOfWeek.filter(n => !isNaN(Number(n))).map(Number) : [],
+        preferredShiftLength: parseIntSafe(updates.preferredShiftLength, 7),
+        maxShiftsPerWeek: parseIntSafe(updates.maxShiftsPerWeek, 1),
+        minDaysBetweenShifts: parseIntSafe(updates.minDaysBetweenShifts, 0),
+        preferredDaysOfWeek: Array.isArray(updates.preferredDaysOfWeek) ? 
+          updates.preferredDaysOfWeek.map(v => parseIntSafe(v, 0)).filter(n => n >= 0 && n <= 6) : [],
+        avoidedDaysOfWeek: Array.isArray(updates.avoidedDaysOfWeek) ? 
+          updates.avoidedDaysOfWeek.map(v => parseIntSafe(v, 0)).filter(n => n >= 0 && n <= 6) : [],
         updatedAt: new Date()
       };
 

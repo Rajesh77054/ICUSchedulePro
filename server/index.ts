@@ -70,31 +70,22 @@ app.use((req, res, next) => {
     for (let i = 0; i < maxRetries && !server_started; i++) {
       try {
         await new Promise<void>((resolve, reject) => {
-          const cleanupAndRetry = (err?: Error) => {
-            server.removeAllListeners();
-            if (server.listening) {
-              server.close(() => {
-                if (err) reject(err);
-                else resolve();
-              });
-            } else {
-              if (err) reject(err);
-              else resolve();
-            }
-          };
-
-          server.once('error', (err: any) => {
+          const errorHandler = (err: any) => {
             if (err.code === 'EADDRINUSE') {
               log(`Port ${port} is in use, trying ${port + 1}`);
               port++;
-              cleanupAndRetry(new Error('Port in use'));
+              server.close();
+              reject(new Error('Port in use'));
             } else {
               console.error('Server error:', err);
-              cleanupAndRetry(err);
+              reject(err);
             }
-          });
+          };
+
+          server.on('error', errorHandler);
 
           server.listen(port, "0.0.0.0", () => {
+            server.removeListener('error', errorHandler);
             log(`Server started successfully on port ${port}`);
             server_started = true;
             resolve();

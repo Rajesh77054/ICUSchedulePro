@@ -242,7 +242,14 @@ export function registerRoutes(app: Express) {
   app.patch('/api/user-preferences/:userId', async (req, res) => {
     try {
       const userId = parseInt(req.params.userId);
+      if (isNaN(userId)) {
+        return res.status(400).json({ error: 'Invalid user ID' });
+      }
+      
       const updates = req.body;
+      if (!updates) {
+        return res.status(400).json({ error: 'No update data provided' });
+      }
 
       // First check if preferences exist
       const existing = await db.select().from(userPreferences).where(eq(userPreferences.userId, userId));

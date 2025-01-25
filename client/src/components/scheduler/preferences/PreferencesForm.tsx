@@ -65,10 +65,11 @@ export function PreferencesForm({ userId }: PreferencesFormProps) {
         description: "Preferences updated successfully"
       });
     },
-    onError: (error: Error) => {
+    onError: (error: any) => {
+      const errorMessage = error.response?.data?.error || error.message || "Failed to update preferences";
       toast({
         title: "Error",
-        description: error.message,
+        description: errorMessage,
         variant: "destructive",
       });
     },

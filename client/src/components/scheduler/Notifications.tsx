@@ -111,7 +111,7 @@ export function Notifications() {
 
   useEffect(() => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+    const ws = new WebSocket(`${protocol}//${window.location.hostname}:3001/ws`);
 
     ws.onmessage = (event) => {
       const notification = JSON.parse(event.data);

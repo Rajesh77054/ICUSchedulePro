@@ -255,13 +255,13 @@ export function registerRoutes(app: Express) {
 
       const values = {
         userId,
-        preferredShiftLength: parseIntSafe(updates.preferredShiftLength, 7),
-        maxShiftsPerWeek: parseIntSafe(updates.maxShiftsPerWeek, 1),
-        minDaysBetweenShifts: parseIntSafe(updates.minDaysBetweenShifts, 0),
+        preferredShiftLength: Math.max(1, Math.min(14, Number(updates.preferredShiftLength) || 7)),
+        maxShiftsPerWeek: Math.max(1, Math.min(7, Number(updates.maxShiftsPerWeek) || 1)),
+        minDaysBetweenShifts: Math.max(0, Math.min(90, Number(updates.minDaysBetweenShifts) || 0)),
         preferredDaysOfWeek: Array.isArray(updates.preferredDaysOfWeek) ? 
-          updates.preferredDaysOfWeek.map(v => parseIntSafe(v, 0)).filter(n => n >= 0 && n <= 6) : [],
+          updates.preferredDaysOfWeek.map(v => Number(v)).filter(n => !isNaN(n) && n >= 0 && n <= 6) : [],
         avoidedDaysOfWeek: Array.isArray(updates.avoidedDaysOfWeek) ? 
-          updates.avoidedDaysOfWeek.map(v => parseIntSafe(v, 0)).filter(n => n >= 0 && n <= 6) : [],
+          updates.avoidedDaysOfWeek.map(v => Number(v)).filter(n => !isNaN(n) && n >= 0 && n <= 6) : [],
         updatedAt: new Date()
       };
 

@@ -43,17 +43,44 @@ export function ShiftPreferences({ mode, userId }: ShiftPreferencesProps) {
     preferredHolidays: []
   });
 
-  const { data: preferences, isLoading } = useQuery({
+  const { data: preferences, isLoading, error } = useQuery({
     queryKey: ["/api/user-preferences", effectiveUserId],
     queryFn: async () => {
       const url = effectiveUserId 
         ? `/api/user-preferences/${effectiveUserId}`
         : '/api/user-preferences/me';
-      const res = await fetch(url, { credentials: 'include' });
-      if (!res.ok) throw new Error("Failed to fetch preferences");
-      return res.json();
+      try {
+        const res = await fetch(url, { 
+          credentials: 'include',
+          headers: {
+            'Accept': 'application/json',
+            'Cache-Control': 'no-cache'
+          }
+        });
+        if (res.status === 401) {
+          throw new Error("Authentication required");
+        }
+        if (!res.ok) {
+          const errorData = await res.json();
+          throw new Error(errorData.error || "Failed to fetch preferences");
+        }
+        return res.json();
+      } catch (err) {
+        console.error("Preferences fetch error:", err);
+        throw err;
+      }
     },
+    retry: 1,
+    staleTime: 30000
   });
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <p className="text-red-500">Error loading preferences: {error.message}</p>
+      </div>
+    );
+  }
 
   useEffect(() => {
     if (preferences) {

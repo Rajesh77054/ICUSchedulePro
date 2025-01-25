@@ -8,8 +8,14 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function detectShiftConflicts(shift: Shift | null | undefined, allShifts: Shift[]): {
-  type: 'overlap' | 'consecutive' | 'maxDays';
+import type { UserPreferences } from './types';
+
+export function detectShiftConflicts(
+  shift: Shift | null | undefined, 
+  allShifts: Shift[], 
+  userPreferences?: UserPreferences
+): {
+  type: 'overlap' | 'consecutive' | 'maxDays' | 'preference';
   message: string;
   conflictingShift?: Shift;
 }[] {

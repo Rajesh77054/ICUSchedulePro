@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
@@ -51,7 +51,7 @@ export function ShiftDialog({ open, onOpenChange, startDate, endDate }: ShiftDia
     onSuccess: async (newShift) => {
       // Cancel any outgoing queries first
       await queryClient.cancelQueries({ queryKey: ["/api/shifts"] });
-      
+
       // Update the cache immediately
       queryClient.setQueryData(["/api/shifts"], (oldData: Shift[] = []) => {
         return [...oldData, newShift];
@@ -66,7 +66,7 @@ export function ShiftDialog({ open, onOpenChange, startDate, endDate }: ShiftDia
 
       // Trigger calendar refresh
       window.dispatchEvent(new Event('forceCalendarRefresh'));
-      
+
       onOpenChange(false);
       toast({
         title: "Success",
@@ -104,13 +104,27 @@ export function ShiftDialog({ open, onOpenChange, startDate, endDate }: ShiftDia
     // Get existing shifts for conflict detection
     const existingShifts = queryClient.getQueryData<Shift[]>(["/api/shifts"]) || [];
 
-    // Check for schedule rule violations
-    const conflicts = detectShiftConflicts({
+    const newShift = {
       userId: parseInt(userId),
       startDate: format(startDate, 'yyyy-MM-dd'),
       endDate: format(endDate, 'yyyy-MM-dd'),
-      status: 'confirmed'
-    }, existingShifts);
+      status: 'confirmed',
+      source: 'manual',
+      schedulingNotes: {}
+    };
+
+    const { data: userPrefs } = useQuery({
+      queryKey: ["/api/user-preferences", newShift.userId],
+      queryFn: async () => {
+        const res = await fetch(`/api/user-preferences/${newShift.userId}`);
+        if (!res.ok) throw new Error("Failed to fetch preferences");
+        return res.json();
+      },
+      enabled: !!newShift.userId
+    });
+
+    // Check for schedule rule violations
+    const conflicts = detectShiftConflicts(newShift, existingShifts, userPrefs);
 
     if (conflicts.length > 0) {
       toast({
@@ -122,14 +136,7 @@ export function ShiftDialog({ open, onOpenChange, startDate, endDate }: ShiftDia
     }
 
     // Create shift if no conflicts
-    createShift({
-      userId: parseInt(userId),
-      startDate: format(startDate, 'yyyy-MM-dd'),
-      endDate: format(endDate, 'yyyy-MM-dd'),
-      status: 'confirmed',
-      source: 'manual',
-      schedulingNotes: {}
-    });
+    createShift(newShift);
   };
 
   return (

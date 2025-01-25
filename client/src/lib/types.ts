@@ -69,6 +69,12 @@ export interface UserPreferences {
   userId: number;
   defaultView: string;
   defaultCalendarDuration: string;
+  maxConsecutiveWeeks: number;
+  preferredShiftLength: number;
+  maxShiftsPerWeek: number;
+  minDaysBetweenShifts: number;
+  preferredDaysOfWeek: number[];
+  avoidedDaysOfWeek: number[];
   notificationPreferences: {
     emailNotifications: boolean;
     inAppNotifications: boolean;

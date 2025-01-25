@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { HolidayPreferences } from "./HolidayPreferences";
 
 const DAYS_OF_WEEK = [
@@ -162,7 +163,8 @@ export function ShiftPreferences({ mode, userId }: ShiftPreferencesProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-8">
+    <ScrollArea className="h-[calc(100vh-12rem)]">
+      <form onSubmit={handleSubmit} className="space-y-8 px-4">
       {mode === 'admin' && (
         <Card>
           <CardHeader>
@@ -325,5 +327,6 @@ export function ShiftPreferences({ mode, userId }: ShiftPreferencesProps) {
         )}
       </Button>
     </form>
+    </ScrollArea>
   );
 }

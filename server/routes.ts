@@ -8,13 +8,23 @@ import { z } from 'zod';
 export function registerRoutes(app: Express) {
   app.get('/api/shifts', async (req, res) => {
     try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ 
+          error: 'Authentication required',
+          code: 'AUTH_REQUIRED'
+        });
+      }
       const allShifts = await db.select().from(shifts);
-      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       res.setHeader('ETag', Date.now().toString());
       res.json(allShifts);
     } catch (error) {
       console.error('Error fetching shifts:', error);
-      res.status(500).json({ error: 'Failed to fetch shifts' });
+      res.status(error.status || 500).json({ 
+        error: 'Failed to fetch shifts',
+        details: error.message,
+        code: error.code || 'UNKNOWN_ERROR'
+      });
     }
   });
 

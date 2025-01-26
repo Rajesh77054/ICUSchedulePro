@@ -146,10 +146,11 @@ export function setupAuth(app: Express) {
       }
 
       if (!publicPaths.includes(req.path) && !req.isAuthenticated()) {
-        console.log('Auth failed for path:', req.path);
+        console.log(`Auth failed for ${req.method} ${req.path} - No session found`);
         return res.status(401).json({ 
           error: 'Authentication required',
-          message: 'Please login first at /api/login'
+          message: 'Please login first at /api/login',
+          code: 'NO_SESSION'
         });
       }
 

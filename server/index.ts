@@ -1,4 +1,3 @@
-
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
@@ -42,7 +41,7 @@ app.use((req, res, next) => {
 // Server startup with proper error handling
 (async () => {
   let server;
-  
+
   try {
     setupAuth(app);
 
@@ -67,7 +66,7 @@ app.use((req, res, next) => {
     }
 
     const port = process.env.PORT ? parseInt(process.env.PORT) : 5001;
-    
+
     try {
       await new Promise<void>((resolve, reject) => {
         server.once('error', (err: any) => {
@@ -92,7 +91,10 @@ app.use((req, res, next) => {
     if (server && !server.listening) {
       console.error('Failed to start server');
     } else {
-      console.log('Server is running and listening');
+      // Setup WebSocket after server is confirmed running
+      const { setupWebSocket } = await import('./websocket');
+      setupWebSocket(server);
+      console.log('Server and WebSocket are running');
     }
   }
 })();

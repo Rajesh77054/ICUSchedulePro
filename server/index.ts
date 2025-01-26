@@ -86,15 +86,23 @@ app.use((req, res, next) => {
   } catch (error) {
     console.error('Server initialization error:', error);
     console.error("Detailed error stack:", error.stack);
-    process.exit(1);
+    // Don't exit, let the error propagate
+    throw error;
   } finally {
-    if (server && !server.listening) {
-      console.error('Failed to start server');
-    } else {
-      // Setup WebSocket after server is confirmed running
-      const { setupWebSocket } = await import('./websocket');
-      setupWebSocket(server);
-      console.log('Server and WebSocket are running');
+    if (server) {
+      if (!server.listening) {
+        console.error('Server failed to start, attempting recovery...');
+        // Attempt recovery by retrying port binding
+        server.listen(port, "0.0.0.0", () => {
+          log(`Server recovered and listening on port ${port}`);
+          const { setupWebSocket } = await import('./websocket');
+          setupWebSocket(server);
+        });
+      } else {
+        const { setupWebSocket } = await import('./websocket');
+        setupWebSocket(server);
+        log('Server and WebSocket are running');
+      }
     }
   }
 })();

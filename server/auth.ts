@@ -115,7 +115,7 @@ export function setupAuth(app: Express) {
 
       // Public routes that don't require authentication
       const publicPaths = ['/', '/api/login', '/api/register', '/api/user'];
-      
+
       // Development assets and WebSocket connections
       const isDev = process.env.NODE_ENV === 'development';
       const isDevAsset = isDev && (
@@ -137,11 +137,21 @@ export function setupAuth(app: Express) {
 
       // Add detailed logging for auth failures
       if (!req.isAuthenticated()) {
+        // Check for session recovery
+        if (req.session && !req.session.passport) {
+          req.session.regenerate((err) => {
+            if (err) {
+              console.error('Session regeneration failed:', err);
+            }
+          });
+        }
+
         console.log(`Auth failed for ${req.method} ${req.path} from ${req.ip}`);
         return res.status(401).json({
           error: 'Authentication required',
           message: 'Please login first at /api/login',
-          path: req.path
+          path: req.path,
+          code: 'AUTH_REQUIRED'
         });
       }
 

@@ -249,10 +249,16 @@ export function registerRoutes(app: Express) {
   });
 
   app.patch('/api/user-preferences/:userId', async (req, res) => {
-    if (!req.isAuthenticated() || !req.user) {
-      console.log('Auth failed:', { session: req.session, user: req.user });
-      return res.status(401).json({ error: 'User not authenticated' });
-    }
+    try {
+      if (!req.isAuthenticated() || !req.user) {
+        console.log('Auth failed:', { session: req.session, user: req.user });
+        return res.status(401).json({ error: 'User not authenticated' });
+      }
+      
+      // Validate session
+      if (!req.session?.passport?.user) {
+        return res.status(401).json({ error: 'Invalid session' });
+      }
 
     try {
       const userId = req.params.userId === 'me' 

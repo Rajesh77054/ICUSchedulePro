@@ -78,23 +78,25 @@ export function setupAuth(app: Express) {
   app.use(passport.initialize());
   app.use(passport.session());
   
-  app.use((req, res, next) => {
+  app.use(async (req, res, next) => {
     if (!req.session) {
       console.error('No session found');
-      return next(new Error('No session found'));
+      return res.status(401).json({ error: 'No session found' });
     }
-    // Ensure user is properly deserialized
-    if (req.session.passport && !req.user) {
-      passport.deserializeUser(req.session.passport.user, (err, user) => {
-        if (err) {
-          return next(err);
+    
+    if (req.session.passport?.user && !req.user) {
+      try {
+        const [user] = await db.select().from(users).where(eq(users.id, req.session.passport.user)).limit(1);
+        if (!user) {
+          return res.status(401).json({ error: 'User not found' });
         }
         req.user = user;
-        next();
-      });
-    } else {
-      next();
+      } catch (err) {
+        console.error('Session error:', err);
+        return res.status(500).json({ error: 'Session error' });
+      }
     }
+    next();
   });
 
   // Ensure session is properly initialized

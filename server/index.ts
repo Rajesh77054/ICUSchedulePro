@@ -2,6 +2,8 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { setupAuth } from "./auth";
+import { db } from "@db";
+import { sql } from "drizzle-orm";
 
 const app = express();
 
@@ -9,7 +11,7 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Logging middleware
+// Request logging middleware
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -35,7 +37,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// Error handling middleware
+// Enhanced error handling middleware
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   console.error('Error:', err);
   const status = err instanceof Error ? 500 : 400;
@@ -46,72 +48,44 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   }
 });
 
-// Server initialization
-(async () => {
+// Structured server initialization
+async function startServer() {
   try {
-    // Setup authentication
+    // 1. Verify database connection first
+    await db.execute(sql`SELECT 1`);
+    log('Database connection verified');
+
+    // 2. Setup authentication
     await setupAuth(app);
+    log('Authentication setup complete');
 
-    // Create server
-    const server = registerRoutes(app);
+    // 3. Create HTTP server and register routes
+    const server = await registerRoutes(app);
+    log('Routes registered');
 
-    // Setup Vite or static files
+    // 4. Setup development or production mode
     if (app.get("env") === "development") {
       await setupVite(app, server);
+      log('Vite development server setup complete');
     } else {
       serveStatic(app);
+      log('Static files setup complete');
     }
 
-    // Start server with port retry logic
-    const startServer = async () => {
-      for (let port = 5000; port < 5010; port++) {
-        try {
-          await new Promise<void>((resolve, reject) => {
-            // Ensure cleanup of any existing connections
-            if (server.listening) {
-              server.close();
-            }
-            server.removeAllListeners();
-
-            const onError = (err: NodeJS.ErrnoException) => {
-              server.removeListener('error', onError);
-              if (err.code === 'EADDRINUSE') {
-                log(`Port ${port} is in use, trying ${port + 1}`);
-                resolve(); // Continue to next port
-              } else {
-                reject(err);
-              }
-            };
-
-            const onListening = () => {
-              server.removeListener('error', onError);
-              log(`Server started successfully on port ${port}`);
-              resolve();
-            };
-
-            server.once('error', onError);
-            server.once('listening', onListening);
-
-            server.listen(port, "0.0.0.0");
-          });
-
-          // If we get here, server started successfully
-          return;
-        } catch (err) {
-          console.error(`Failed to start server on port ${port}:`, err);
-          if (port === 5009) {
-            throw new Error('Failed to find available port after all retries');
-          }
-          // Continue to next port
-        }
-      }
-      throw new Error('Failed to start server after trying all ports');
-    };
-
-    await startServer();
+    // 5. Start server with enhanced error handling
+    const PORT = process.env.PORT || 5000;
+    server.listen(PORT, "0.0.0.0", () => {
+      log(`Server started successfully on port ${PORT}`);
+    });
 
   } catch (error) {
     console.error('Server initialization error:', error);
     process.exit(1);
   }
-})();
+}
+
+// Start the server with global error handling
+startServer().catch(error => {
+  console.error('Fatal server error:', error);
+  process.exit(1);
+});

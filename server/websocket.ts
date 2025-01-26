@@ -1,24 +1,34 @@
 import { WebSocket, WebSocketServer } from 'ws';
 import { Server } from 'http';
-import { type TimeOffRequest, type Shift, type Message, type ChatRoom } from '@db/schema';
+import { log } from './vite';
+
+interface NotificationUser {
+  name: string;
+  title: string;
+  color: string;
+}
+
+interface NotificationShift {
+  id: number;
+  startDate: string;
+  endDate: string;
+  status: string;
+  user: NotificationUser;
+}
 
 interface NotificationMessage {
   type: 'shift_created' | 'shift_updated' | 'shift_deleted' | 'shift_swap_requested' | 'shift_swap_responded' | 'shift_swap_cancelled' | 'time_off_requested' | 'time_off_responded' | 'time_off_cancelled' | 'chat_message' | 'urgent_coverage';
   data: any;
   timestamp: string;
-  user?: {
-    name: string;
-    title: string;
-  };
 }
 
 interface ChatClient extends WebSocket {
   userId?: number;
-  rooms?: Set<number>;
+  isAlive: boolean;
+  lastActivity: number;
 }
 
-export function setupWebSocket(server: Server) {
-  // Wait for server to be ready before setting up WebSocket
+export async function setupWebSocket(server: Server) {
   return new Promise<{ broadcast: (message: NotificationMessage) => void }>((resolve) => {
     const wss = new WebSocketServer({ 
       server,
@@ -27,42 +37,48 @@ export function setupWebSocket(server: Server) {
     });
 
     const clients = new Set<ChatClient>();
-    const roomSubscriptions = new Map<number, Set<ChatClient>>();
+
+    // Connection cleanup interval
+    const cleanup = setInterval(() => {
+      const now = Date.now();
+      clients.forEach(client => {
+        if (!client.isAlive || now - client.lastActivity > 60000) {
+          client.terminate();
+          clients.delete(client);
+          return;
+        }
+        client.isAlive = false;
+        client.ping();
+      });
+    }, 30000);
+
+    wss.on('close', () => {
+      clearInterval(cleanup);
+    });
 
     wss.on('connection', (ws: ChatClient) => {
+      ws.isAlive = true;
+      ws.lastActivity = Date.now();
       clients.add(ws);
 
-      ws.on('message', async (data: string) => {
+      ws.on('pong', () => {
+        ws.isAlive = true;
+        ws.lastActivity = Date.now();
+      });
+
+      ws.on('message', (data: string) => {
         try {
           const message = JSON.parse(data);
+          ws.lastActivity = Date.now();
 
-          // Handle authentication
-          if (message.type === 'auth') {
-            ws.userId = message.userId;
-            ws.rooms = new Set();
-            return;
-          }
+          switch (message.type) {
+            case 'auth':
+              ws.userId = message.userId;
+              log(`Client authenticated: ${message.userId}`);
+              break;
 
-          // Handle room subscription
-          if (message.type === 'join_room') {
-            const roomId = message.roomId;
-            ws.rooms?.add(roomId);
-
-            let roomClients = roomSubscriptions.get(roomId);
-            if (!roomClients) {
-              roomClients = new Set();
-              roomSubscriptions.set(roomId, roomClients);
-            }
-            roomClients.add(ws);
-            return;
-          }
-
-          // Handle room unsubscription
-          if (message.type === 'leave_room') {
-            const roomId = message.roomId;
-            ws.rooms?.delete(roomId);
-            roomSubscriptions.get(roomId)?.delete(ws);
-            return;
+            default:
+              log(`Unknown message type: ${message.type}`);
           }
         } catch (error) {
           console.error('WebSocket message error:', error);
@@ -71,15 +87,16 @@ export function setupWebSocket(server: Server) {
 
       ws.on('close', () => {
         clients.delete(ws);
-        // Remove from all room subscriptions
-        if (ws.rooms) {
-          for (const roomId of [...ws.rooms]) {
-            roomSubscriptions.get(roomId)?.delete(ws);
-          }
-        }
+        log(`Client disconnected, remaining clients: ${clients.size}`);
       });
 
-      // Send initial connection success message
+      ws.on('error', (error) => {
+        console.error('WebSocket error:', error);
+        ws.terminate();
+        clients.delete(ws);
+      });
+
+      // Send initial connection message
       ws.send(JSON.stringify({
         type: 'connected',
         timestamp: new Date().toISOString(),
@@ -89,11 +106,19 @@ export function setupWebSocket(server: Server) {
 
     // Wait for WebSocket server to be ready
     wss.on('listening', () => {
-      // Broadcast to all connected clients
       const broadcast = (message: NotificationMessage) => {
+        const messageStr = JSON.stringify(message);
+        log(`Broadcasting message: ${message.type}`);
+
         clients.forEach(client => {
           if (client.readyState === WebSocket.OPEN) {
-            client.send(JSON.stringify(message));
+            try {
+              client.send(messageStr);
+            } catch (error) {
+              console.error('Broadcast error:', error);
+              client.terminate();
+              clients.delete(client);
+            }
           }
         });
       };
@@ -103,99 +128,27 @@ export function setupWebSocket(server: Server) {
   });
 }
 
+// Type-safe notification creator functions
 export const notify = {
-  shiftCreated: (shift: Shift, user: { name: string; title: string }) => ({
-    type: 'shift_created' as const,
-    data: shift,
-    user,
-    timestamp: new Date().toISOString(),
-  }),
-
-  shiftUpdated: (shift: Shift, user: { name: string; title: string }) => ({
-    type: 'shift_updated' as const,
-    data: shift,
-    user,
-    timestamp: new Date().toISOString(),
-  }),
-
-  shiftDeleted: (shift: Shift, user: { name: string; title: string }) => ({
-    type: 'shift_deleted' as const,
-    data: shift,
-    user,
-    timestamp: new Date().toISOString(),
-  }),
-
   shiftSwapRequested: (
-    shift: Shift,
-    requestor: { name: string; title: string; userType?: string },
-    recipient: { name: string; title: string; userType?: string },
+    shift: NotificationShift,
+    requestor: NotificationUser,
+    recipient: NotificationUser,
     requestId: number
-  ) => ({
-    type: 'shift_swap_requested' as const,
+  ): NotificationMessage => ({
+    type: 'shift_swap_requested',
     data: { shift, requestor, recipient, requestId },
     timestamp: new Date().toISOString(),
   }),
 
   shiftSwapResponded: (
-    shift: Shift,
-    requestor: { name: string; title: string; userType?: string },
-    recipient: { name: string; title: string; userType?: string },
+    shift: NotificationShift,
+    requestor: NotificationUser,
+    recipient: NotificationUser,
     status: 'accepted' | 'rejected'
-  ) => ({
-    type: 'shift_swap_responded' as const,
+  ): NotificationMessage => ({
+    type: 'shift_swap_responded',
     data: { shift, requestor, recipient, status },
     timestamp: new Date().toISOString(),
-  }),
-
-  shiftSwapCancelled: (
-    shift: Shift,
-    requestor: { name: string; title: string; userType?: string },
-    recipient: { name: string; title: string; userType?: string }
-  ) => ({
-    type: 'shift_swap_cancelled' as const,
-    data: { shift, requestor, recipient },
-    timestamp: new Date().toISOString(),
-  }),
-
-  timeOffRequested: (request: TimeOffRequest, user: { name: string; title: string }) => ({
-    type: 'time_off_requested' as const,
-    data: request,
-    user,
-    timestamp: new Date().toISOString(),
-  }),
-
-  timeOffResponded: (request: TimeOffRequest, user: { name: string; title: string }, status: 'approved' | 'rejected') => ({
-    type: 'time_off_responded' as const,
-    data: { ...request, status },
-    user,
-    timestamp: new Date().toISOString(),
-  }),
-
-  timeOffCancelled: (request: TimeOffRequest, user: { name: string; title: string }) => ({
-    type: 'time_off_cancelled' as const,
-    data: request,
-    user,
-    timestamp: new Date().toISOString(),
-  }),
-
-  chatMessage: (message: Message, room: ChatRoom, sender: { name: string; title: string }) => ({
-    type: 'chat_message' as const,
-    data: {
-      message,
-      room,
-      sender
-    },
-    timestamp: new Date().toISOString(),
-    user: sender
-  }),
-
-  urgentCoverage: (shift: Shift, requester: { name: string; title: string }) => ({
-    type: 'urgent_coverage' as const,
-    data: {
-      shift,
-      requester
-    },
-    timestamp: new Date().toISOString(),
-    user: requester
   })
 };

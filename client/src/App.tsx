@@ -69,7 +69,19 @@ function App() {
                 currentPage={location.pathname.split('/')[1] || 'dashboard'}
                 pageContext={{
                   shifts: shifts || [],
-                  requests: []
+                  requests: [],
+                  error: null
+                }}
+                onError={(error) => {
+                  console.error('Application error:', error);
+                  // Prevent recursive renders from error states
+                  if (!error.message?.includes('Maximum update depth exceeded')) {
+                    toast({
+                      title: 'Error',
+                      description: 'An unexpected error occurred. Please try refreshing.',
+                      variant: 'destructive'
+                    });
+                  }
                 }}
               />
             )}

@@ -93,17 +93,24 @@ export function setupAuth(app: Express) {
       }
 
       // Check if user is authenticated via passport
-      if (req.isAuthenticated() && req.session.passport?.user) {
-        const [user] = await db.select().from(users).where(eq(users.id, req.session.passport.user)).limit(1);
-        if (user) {
-          req.user = user;
-        } else {
-          // Clear invalid session
-          req.logout((err) => {
-            if (err) console.error('Logout error:', err);
-          });
-          return res.status(401).json({ error: 'Invalid user session' });
+      try {
+        if (req.isAuthenticated() && req.session.passport?.user) {
+          const [user] = await db.select().from(users).where(eq(users.id, req.session.passport.user)).limit(1);
+          if (user) {
+            req.user = user;
+          } else {
+            await new Promise<void>((resolve) => {
+              req.logout((err) => {
+                if (err) console.error('Logout error:', err);
+                resolve();
+              });
+            });
+            return res.status(401).json({ error: 'Invalid user session' });
+          }
         }
+      } catch (err) {
+        console.error('Auth verification error:', err);
+        return res.status(500).json({ error: 'Authentication error' });
       }
 
       // Public routes that don't require authentication

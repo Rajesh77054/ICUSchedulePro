@@ -78,13 +78,12 @@ app.use((req, res, next) => {
         });
       });
       } catch (err: any) {
-        if (i === maxRetries - 1) {
-          console.error('Failed to find an available port after', maxRetries, 'attempts. Last error:', err);
+        console.error('Server startup error:', err);
+        process.exit(1);
+      } finally {
+        if (!server.listening) {
+          console.error('Failed to start server');
           process.exit(1);
-        }
-        if (err.message !== 'Port in use') {
-          console.error("Unexpected error during port search:", err); //Added for better debugging
-          throw err;
         }
       }
     }

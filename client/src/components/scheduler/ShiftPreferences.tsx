@@ -1,67 +1,37 @@
-import { useState, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { useToast } from "@/hooks/use-toast";
+import { useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { DAYS_OF_WEEK } from "@/lib/constants"; // Adjusted import path
+import { toast } from "@/components/ui/use-toast"; // Adjusted import path
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
-const DAYS_OF_WEEK = [
-  { label: "Sunday", value: "0" },
-  { label: "Monday", value: "1" },
-  { label: "Tuesday", value: "2" },
-  { label: "Wednesday", value: "3" },
-  { label: "Thursday", value: "4" },
-  { label: "Friday", value: "5" },
-  { label: "Saturday", value: "6" },
-];
 
-interface UserPreference {
-  id: number;
-  userId: number;
-  preferredShiftLength: number;
-  preferredDaysOfWeek: number[];
-  preferredCoworkers: number[];
-  avoidedDaysOfWeek: number[];
-  maxShiftsPerWeek: number;
-  minDaysBetweenShifts: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface ShiftPreferencesProps {
-  userId: number;
-}
-
-export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
-  const { toast } = useToast();
+export default function ShiftPreferences({ userId }: { userId: string }) {
   const queryClient = useQueryClient();
-
-  const { data: preferences, isLoading } = useQuery<UserPreference>({
-    queryKey: ["/api/user-preferences", userId],
-    enabled: !!userId,
+  const [preferences, setPreferences] = useState({
+    preferredShiftLength: 8,
+    maxShiftsPerWeek: 5,
+    minDaysBetweenShifts: 1,
+    preferredDaysOfWeek: [],
+    avoidedDaysOfWeek: []
   });
 
   const { mutate: updatePreferences, isPending: isUpdating } = useMutation({
-    mutationFn: async (data: Partial<UserPreference>) => {
+    mutationFn: async (data: typeof preferences) => {
       const res = await fetch(`/api/user-preferences/${userId}`, {
         method: "PATCH",
         headers: { 
           "Content-Type": "application/json",
           "Cache-Control": "no-cache"
         },
-        body: JSON.stringify(data),
-        credentials: 'include'
+        credentials: 'include',
+        body: JSON.stringify(data)
       });
-      
+
       const responseData = await res.json();
       if (!res.ok) {
         console.error('Preferences update failed:', responseData);
@@ -73,54 +43,44 @@ export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
       queryClient.invalidateQueries({ queryKey: ["/api/user-preferences"] });
       toast({
         title: "Success",
-        description: "Shift preferences updated successfully",
+        description: "Preferences updated successfully"
       });
     },
     onError: (error: Error) => {
       toast({
         title: "Error",
         description: error.message,
-        variant: "destructive",
+        variant: "destructive"
       });
-    },
+    }
   });
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const form = e.currentTarget;
-    const formData = new FormData(form);
-
-    const preferredDaysOfWeek = DAYS_OF_WEEK
-      .filter(day => formData.get(`preferred_${day.value}`))
-      .map(day => parseInt(day.value));
-
-    const avoidedDaysOfWeek = DAYS_OF_WEEK
-      .filter(day => formData.get(`avoided_${day.value}`))
-      .map(day => parseInt(day.value));
-
-    const data = {
-      preferredShiftLength: parseInt(formData.get("preferredShiftLength") as string),
-      maxShiftsPerWeek: parseInt(formData.get("maxShiftsPerWeek") as string),
-      minDaysBetweenShifts: parseInt(formData.get("minDaysBetweenShifts") as string),
-      preferredDaysOfWeek,
-      avoidedDaysOfWeek,
-    };
-
-    updatePreferences(data);
+    updatePreferences(preferences);
   };
 
-  if (isLoading) {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value, type, checked } = e.target;
+    setPreferences((prev) => ({
+      ...prev,
+      [name]: type === 'checkbox' ? (checked ? (prev[name] as any[]).concat(parseInt(value)) : (prev[name] as any[]).filter(v => v !== parseInt(value))) : value
+    }));
+  };
+
+  const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, checked } = e.target;
+    const dayValue = parseInt(name.split('_')[1]);
+    setPreferences((prev) => ({
+      ...prev,
+      [name.split('_')[0] + 'DaysOfWeek']: checked ? [...(prev[name.split('_')[0] + 'DaysOfWeek'] as number[]), dayValue] : (prev[name.split('_')[0] + 'DaysOfWeek'] as number[]).filter(day => day !== dayValue)
+    }));
+  };
+
+  if (isUpdating) {
     return (
       <div className="flex items-center justify-center py-8">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
-  if (!preferences) {
-    return (
-      <div className="text-center py-8 text-muted-foreground">
-        No preferences found for this user
       </div>
     );
   }
@@ -134,7 +94,8 @@ export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
             id="preferredShiftLength"
             name="preferredShiftLength"
             type="number"
-            defaultValue={preferences.preferredShiftLength}
+            defaultValue={preferences.preferredShiftLength.toString()}
+            onChange={handleInputChange}
             min={1}
             max={14}
             required
@@ -147,7 +108,8 @@ export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
             id="maxShiftsPerWeek"
             name="maxShiftsPerWeek"
             type="number"
-            defaultValue={preferences.maxShiftsPerWeek}
+            defaultValue={preferences.maxShiftsPerWeek.toString()}
+            onChange={handleInputChange}
             min={1}
             max={7}
             required
@@ -160,7 +122,8 @@ export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
             id="minDaysBetweenShifts"
             name="minDaysBetweenShifts"
             type="number"
-            defaultValue={preferences.minDaysBetweenShifts}
+            defaultValue={preferences.minDaysBetweenShifts.toString()}
+            onChange={handleInputChange}
             min={0}
             max={90}
             required
@@ -175,9 +138,8 @@ export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
                 <Checkbox
                   id={`preferred_${day.value}`}
                   name={`preferred_${day.value}`}
-                  defaultChecked={preferences.preferredDaysOfWeek.includes(
-                    parseInt(day.value)
-                  )}
+                  onChange={handleCheckboxChange}
+                  defaultChecked={preferences.preferredDaysOfWeek.includes(parseInt(day.value))}
                 />
                 <Label htmlFor={`preferred_${day.value}`}>{day.label}</Label>
               </div>
@@ -193,9 +155,8 @@ export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
                 <Checkbox
                   id={`avoided_${day.value}`}
                   name={`avoided_${day.value}`}
-                  defaultChecked={preferences.avoidedDaysOfWeek.includes(
-                    parseInt(day.value)
-                  )}
+                  onChange={handleCheckboxChange}
+                  defaultChecked={preferences.avoidedDaysOfWeek.includes(parseInt(day.value))}
                 />
                 <Label htmlFor={`avoided_${day.value}`}>{day.label}</Label>
               </div>

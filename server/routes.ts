@@ -249,15 +249,19 @@ export function registerRoutes(app: Express) {
   });
 
   app.patch('/api/user-preferences/:userId', async (req, res) => {
+    if (!req.isAuthenticated() || !req.user) {
+      console.log('Auth failed:', { session: req.session, user: req.user });
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
     try {
-      if (!req.isAuthenticated() || !req.user) {
-        console.log('Auth failed:', { session: req.session, user: req.user });
-        return res.status(401).json({ error: 'User not authenticated' });
-      }
-      
-      const userId = req.params.userId === 'me'
-        ? req.user?.id
+      const userId = req.params.userId === 'me' 
+        ? req.user.id 
         : parseInt(req.params.userId);
+
+      if (isNaN(userId)) {
+        return res.status(400).json({ error: 'Invalid user ID' });
+      }
 
       const updates = req.body;
       if (!updates) {

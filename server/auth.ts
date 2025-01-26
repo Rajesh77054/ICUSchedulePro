@@ -78,24 +78,24 @@ export function setupAuth(app: Express) {
   app.use(passport.initialize());
   app.use(passport.session());
 
-  app.use((req, res, next) => {
-    // Only check session existence, don't force authentication
-    if (!req.session) {
-      console.error('No session found');
-      return res.status(401).json({ error: 'No session found' });
-    }
-    next();
-  });
+  app.use(async (req, res, next) => {
+    try {
+      if (!req.session) {
+        console.error('No session found');
+        return res.status(401).json({ error: 'No session found' });
+      }
 
-  // Simple authentication check middleware for protected routes
-  app.use((req, res, next) => {
-    if (!req.session) {
-      return next(new Error('Session initialization failed'));
+      if (req.session.passport?.user) {
+        const [user] = await db.select().from(users).where(eq(users.id, req.session.passport.user)).limit(1);
+        if (user) {
+          req.user = user;
+        }
+      }
+      next();
+    } catch (err) {
+      console.error('Auth middleware error:', err);
+      return res.status(500).json({ error: 'Authentication error' });
     }
-    if (req.session.passport && !req.user) {
-      return next(new Error('User authentication failed'));
-    }
-    next();
   });
 
   // Enable session persistence

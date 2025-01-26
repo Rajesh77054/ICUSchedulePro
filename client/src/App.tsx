@@ -21,6 +21,39 @@ import { useSyncUsers } from './hooks/use-sync-users';
 import { updateUsers } from './lib/constants';
 import React from 'react';
 
+//Added ErrorBoundary Component
+function ErrorBoundary({ children }) {
+  const [error, setError] = React.useState(null);
+  const [errorInfo, setErrorInfo] = React.useState(null);
+
+  React.useEffect(() => {
+    // Log the error to the console
+    if (error) {
+      console.error("Uncaught error:", error, errorInfo);
+    }
+  }, [error, errorInfo]);
+
+  const handleError = (error, errorInfo) => {
+    setError(error);
+    setErrorInfo(errorInfo);
+  };
+
+  if (error) {
+    return (
+      <div>
+        <h2>Something went wrong.</h2>
+        <details style={{ whiteSpace: 'pre-wrap' }}>
+          {error.message}
+          <br/>
+          {error.stack}
+        </details>
+      </div>
+    );
+  }
+
+  return children;
+}
+
 
 function App() {
   const { users } = useSyncUsers();
@@ -44,37 +77,39 @@ function App() {
     <TooltipProvider>
       <div className="min-h-screen bg-background">
         <Sidebar />
-        <div className="md:pl-64">
-          <BreadcrumbNavigation />
-          <main className="container mx-auto py-6">
-            <Switch>
-              <Route path="/" component={Dashboard} />
-              <Route path="/provider/:id" component={PersonalDashboard} />
-              <Route path="/swap-requests" component={SwapRequestsDashboard} />
-              <Route path="/time-off" component={TimeOffRequests} />
-              <Route path="/admin/time-off" component={TimeOffAdmin} />
-              <Route path="/preferences" component={Settings} />
-              <Route path="/admin/users" component={UserManagement} />
-              <Route path="/admin/schedule" component={ScheduleManagement} />
-              <Route path="/analytics" component={Analytics} />
-              <Route component={NotFound} />
-            </Switch>
-          </main>
-          {/* Global AI Schedule Assistant */}
-          <div className="fixed bottom-6 right-6 z-50">
-            {location.pathname.includes('provider') ? (
-              <PersonalChatDialog pathname={location.pathname} />
-            ) : (
-              <ChatDialog 
-                currentPage={location.pathname.split('/')[1] || 'dashboard'}
-                pageContext={{
-                  shifts: shifts || [],
-                  requests: []
-                }}
-              />
-            )}
+        <ErrorBoundary> {/*Added ErrorBoundary*/}
+          <div className="md:pl-64">
+            <BreadcrumbNavigation />
+            <main className="container mx-auto py-6">
+              <Switch>
+                <Route path="/" component={Dashboard} />
+                <Route path="/provider/:id" component={PersonalDashboard} />
+                <Route path="/swap-requests" component={SwapRequestsDashboard} />
+                <Route path="/time-off" component={TimeOffRequests} />
+                <Route path="/admin/time-off" component={TimeOffAdmin} />
+                <Route path="/preferences" component={Settings} />
+                <Route path="/admin/users" component={UserManagement} />
+                <Route path="/admin/schedule" component={ScheduleManagement} />
+                <Route path="/analytics" component={Analytics} />
+                <Route component={NotFound} />
+              </Switch>
+            </main>
+            {/* Global AI Schedule Assistant */}
+            <div className="fixed bottom-6 right-6 z-50">
+              {location.pathname.includes('provider') ? (
+                <PersonalChatDialog pathname={location.pathname} />
+              ) : (
+                <ChatDialog 
+                  currentPage={location.pathname.split('/')[1] || 'dashboard'}
+                  pageContext={{
+                    shifts: shifts || [],
+                    requests: []
+                  }}
+                />
+              )}
+            </div>
           </div>
-        </div>
+        </ErrorBoundary> {/*Added ErrorBoundary*/}
       </div>
     </TooltipProvider>
   );

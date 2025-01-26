@@ -44,19 +44,19 @@ export function ShiftActionsDialog({
     },
     onMutate: async () => {
       if (!shift) return;
-      
+
       // Cancel any outgoing refetches
       await queryClient.cancelQueries();
-      
+
       // Snapshot all related queries
       const previousShifts = queryClient.getQueriesData({ queryKey: ["/api/shifts"] });
-      
+
       // Optimistically remove the shift from all related queries
       queryClient.setQueriesData({ queryKey: ["/api/shifts"] }, (old: any) => {
         if (!Array.isArray(old)) return [];
         return old.filter(s => s.id !== shift.id);
       });
-      
+
       return { previousShifts };
     },
     onSuccess: async () => {
@@ -74,7 +74,7 @@ export function ShiftActionsDialog({
 
       // Force calendar refresh
       window.dispatchEvent(new Event('forceCalendarRefresh'));
-      
+
       toast({
         title: "Success",
         description: "Shift deleted successfully",

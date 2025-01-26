@@ -40,14 +40,14 @@ app.use((req, res, next) => {
 (async () => {
   try {
     // Setup auth before registering routes
-    setupAuth(app);
+    await setupAuth(app);
     
     // Initialize OpenAI handler
     const { OpenAIChatHandler } = await import('./openai-handler');
     const openaiHandler = new OpenAIChatHandler();
-    app.set('openaiHandler', openaiHandler);
+    await app.set('openaiHandler', openaiHandler);
     
-    const server = registerRoutes(app);
+    const server = await registerRoutes(app);
 
     app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
       console.error('Error:', err);

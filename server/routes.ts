@@ -254,7 +254,7 @@ export function registerRoutes(app: Express) {
         console.log('Auth failed:', { session: req.session, user: req.user });
         return res.status(401).json({ error: 'User not authenticated' });
       }
-    try {
+      
       const userId = req.params.userId === 'me'
         ? req.user?.id
         : parseInt(req.params.userId);

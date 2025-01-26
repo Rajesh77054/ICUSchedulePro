@@ -57,15 +57,13 @@ app.use(async (req, res, next) => {
 
     server = await registerRoutes(app);
 
-    app.use(async (err: any, _req: Request, res: Response, _next: NextFunction) => {
-      try {
-        console.error('Error:', err);
-        const status = err.status || err.statusCode || 500;
-        const message = err.message || "Internal Server Error";
+    app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+      console.error('Error:', err);
+      const status = err.status || err.statusCode || 500;
+      const message = err.message || "Internal Server Error";
+
+      if (!res.headersSent) {
         res.status(status).json({ message });
-      } catch (finalError) {
-        console.error('Error in error handler:', finalError);
-        res.status(500).json({ message: "Critical server error" });
       }
     });
 

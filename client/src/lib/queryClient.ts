@@ -4,7 +4,11 @@ import { QueryClient } from "@tanstack/react-query";
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 2000, // Add 2s stale time to prevent rapid refetching
+      staleTime: 2000,
+      gcTime: 0,
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: true,
+      retry: false,
       queryFn: async ({ queryKey }) => {
         const res = await fetch(queryKey[0] as string, {
           credentials: "include",
@@ -19,11 +23,6 @@ export const queryClient = new QueryClient({
 
         return res.json();
       },
-      staleTime: 0,
-      gcTime: 0,
-      refetchOnWindowFocus: false,
-      refetchOnReconnect: true,
-      retry: false,
     },
     mutations: {
       retry: false,

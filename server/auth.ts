@@ -109,7 +109,11 @@ export function setupAuth(app: Express) {
       // Public routes that don't require authentication
       const publicPaths = ['/api/login', '/api/register', '/api/user'];
       if (!publicPaths.includes(req.path) && !req.isAuthenticated()) {
-        return res.status(401).json({ error: 'Authentication required' });
+        console.log('Auth failed for path:', req.path);
+        return res.status(401).json({ 
+          error: 'Authentication required',
+          message: 'Please login first at /api/login'
+        });
       }
 
       next();

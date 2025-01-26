@@ -39,13 +39,13 @@ export function setupAuth(app: Express) {
   const MemoryStore = createMemoryStore(session);
   const sessionSettings: session.SessionOptions = {
     secret: process.env.REPL_ID || "porygon-supremacy",
-    resave: false,
-    saveUninitialized: false,
+    resave: true,
+    saveUninitialized: true,
     cookie: {
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
       httpOnly: true,
       sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production'
+      secure: false
     },
     store: new MemoryStore({
       checkPeriod: 86400000, // prune expired entries every 24h
@@ -63,6 +63,9 @@ export function setupAuth(app: Express) {
   app.use((req, res, next) => {
     if (!req.session) {
       return next(new Error('Session initialization failed'));
+    }
+    if (req.session.passport && !req.user) {
+      return next(new Error('User authentication failed'));
     }
     next();
   });

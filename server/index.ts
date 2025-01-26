@@ -124,3 +124,15 @@ app.use((req, res, next) => {
     process.exit(1);
   }
 })();
+
+app.put('/api/shifts/:id', async (req, res) => {
+  const shiftId = parseInt(req.params.id);
+  const { startDate, endDate } = req.body;
+
+  try {
+    const result = await db.update(shifts) //Assuming db and shifts are defined elsewhere.  This line needs context from the original, complete file.
+  } catch (error) {
+    console.error("Error updating shift:", error);
+    res.status(500).json({ message: "Failed to update shift" });
+  }
+});

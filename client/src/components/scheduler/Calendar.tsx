@@ -149,9 +149,10 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
 
 
   const handleEventDrop = async (dropInfo: EventDropArg) => {
-    const shiftId = parseInt(dropInfo.event.id);
-    const startDate = dropInfo.event.start;
-    const endDate = dropInfo.event.end;
+    try {
+      const shiftId = parseInt(dropInfo.event.id);
+      const startDate = dropInfo.event.start;
+      const endDate = dropInfo.event.end;
     const shift = initialShifts.find(s => s.id === shiftId);
 
     if (!startDate || !endDate || !shift) {

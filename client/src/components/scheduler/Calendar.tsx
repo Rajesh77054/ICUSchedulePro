@@ -153,9 +153,48 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
       const shiftId = parseInt(dropInfo.event.id);
       const startDate = dropInfo.event.start;
       const endDate = dropInfo.event.end;
-    const shift = initialShifts.find(s => s.id === shiftId);
+      const shift = initialShifts.find(s => s.id === shiftId);
 
-    if (!startDate || !endDate || !shift) {
+      if (!startDate || !endDate || !shift) {
+        dropInfo.revert();
+        return;
+      }
+
+      const duration = differenceInDays(new Date(shift.endDate), new Date(shift.startDate));
+      const newEndDate = addDays(startDate, duration);
+
+      const otherShifts = initialShifts.filter(s => s.id !== shiftId);
+      const conflicts = detectShiftConflicts({
+        ...shift,
+        startDate: format(startDate, 'yyyy-MM-dd'),
+        endDate: format(newEndDate, 'yyyy-MM-dd')
+      }, otherShifts);
+
+      if (conflicts.length > 0) {
+        toast({
+          title: "Schedule Conflict",
+          description: conflicts.map(c => `${c.type === 'overlap' ? '🔄' : '⚠️'} ${c.message}`).join("\n"),
+          variant: "destructive"
+        });
+        dropInfo.revert();
+        return;
+      }
+
+      await updateShiftMutation.mutateAsync({
+        id: shiftId,
+        startDate: format(startDate, 'yyyy-MM-dd'),
+        endDate: format(newEndDate, 'yyyy-MM-dd'),
+      });
+    } catch (error) {
+      console.error('Error in handleEventDrop:', error);
+      dropInfo.revert();
+      toast({
+        title: "Error",
+        description: "Failed to update shift dates",
+        variant: "destructive"
+      });
+    }
+  };
       dropInfo.revert();
       return;
     }

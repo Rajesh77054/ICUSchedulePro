@@ -39,8 +39,8 @@ export function setupAuth(app: Express) {
   const MemoryStore = createMemoryStore(session);
   const sessionSettings: session.SessionOptions = {
     secret: process.env.REPL_ID || "porygon-supremacy",
-    resave: true,
-    saveUninitialized: true,
+    resave: false,
+    saveUninitialized: false,
     rolling: true,
     name: 'sessionId',
     cookie: {
@@ -61,6 +61,15 @@ export function setupAuth(app: Express) {
   app.use(sess);
   app.use(passport.initialize());
   app.use(passport.session());
+  
+  // Ensure session is working
+  app.use((req, res, next) => {
+    if (!req.session) {
+      console.error('No session found');
+      return next(new Error('No session found'));
+    }
+    next();
+  });
 
   // Ensure session is properly initialized
   app.use((req, res, next) => {

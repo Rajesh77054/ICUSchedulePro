@@ -18,82 +18,89 @@ interface ChatClient extends WebSocket {
 }
 
 export function setupWebSocket(server: Server) {
-  const wss = new WebSocketServer({ 
-    server,
-    path: '/ws',
-  });
+  // Wait for server to be ready before setting up WebSocket
+  return new Promise<{ broadcast: (message: NotificationMessage) => void }>((resolve) => {
+    const wss = new WebSocketServer({ 
+      server,
+      path: '/ws',
+      clientTracking: true
+    });
 
-  const clients = new Set<ChatClient>();
-  const roomSubscriptions = new Map<number, Set<ChatClient>>();
+    const clients = new Set<ChatClient>();
+    const roomSubscriptions = new Map<number, Set<ChatClient>>();
 
-  wss.on('connection', (ws: ChatClient) => {
-    clients.add(ws);
+    wss.on('connection', (ws: ChatClient) => {
+      clients.add(ws);
 
-    ws.on('message', async (data: string) => {
-      try {
-        const message = JSON.parse(data);
+      ws.on('message', async (data: string) => {
+        try {
+          const message = JSON.parse(data);
 
-        // Handle authentication
-        if (message.type === 'auth') {
-          ws.userId = message.userId;
-          ws.rooms = new Set();
-          return;
-        }
-
-        // Handle room subscription
-        if (message.type === 'join_room') {
-          const roomId = message.roomId;
-          ws.rooms?.add(roomId);
-
-          let roomClients = roomSubscriptions.get(roomId);
-          if (!roomClients) {
-            roomClients = new Set();
-            roomSubscriptions.set(roomId, roomClients);
+          // Handle authentication
+          if (message.type === 'auth') {
+            ws.userId = message.userId;
+            ws.rooms = new Set();
+            return;
           }
-          roomClients.add(ws);
-          return;
-        }
 
-        // Handle room unsubscription
-        if (message.type === 'leave_room') {
-          const roomId = message.roomId;
-          ws.rooms?.delete(roomId);
-          roomSubscriptions.get(roomId)?.delete(ws);
-          return;
+          // Handle room subscription
+          if (message.type === 'join_room') {
+            const roomId = message.roomId;
+            ws.rooms?.add(roomId);
+
+            let roomClients = roomSubscriptions.get(roomId);
+            if (!roomClients) {
+              roomClients = new Set();
+              roomSubscriptions.set(roomId, roomClients);
+            }
+            roomClients.add(ws);
+            return;
+          }
+
+          // Handle room unsubscription
+          if (message.type === 'leave_room') {
+            const roomId = message.roomId;
+            ws.rooms?.delete(roomId);
+            roomSubscriptions.get(roomId)?.delete(ws);
+            return;
+          }
+        } catch (error) {
+          console.error('WebSocket message error:', error);
         }
-      } catch (error) {
-        console.error('WebSocket message error:', error);
-      }
+      });
+
+      ws.on('close', () => {
+        clients.delete(ws);
+        // Remove from all room subscriptions
+        if (ws.rooms) {
+          for (const roomId of [...ws.rooms]) {
+            roomSubscriptions.get(roomId)?.delete(ws);
+          }
+        }
+      });
+
+      // Send initial connection success message
+      ws.send(JSON.stringify({
+        type: 'connected',
+        timestamp: new Date().toISOString(),
+        message: 'Connected to ICU Schedule notifications'
+      }));
     });
 
-    ws.on('close', () => {
-      clients.delete(ws);
-      // Remove from all room subscriptions
-      if (ws.rooms) {
-        for (const roomId of [...ws.rooms]) {  // Convert Set to Array for iteration
-          roomSubscriptions.get(roomId)?.delete(ws);
-        }
-      }
-    });
+    // Wait for WebSocket server to be ready
+    wss.on('listening', () => {
+      // Broadcast to all connected clients
+      const broadcast = (message: NotificationMessage) => {
+        clients.forEach(client => {
+          if (client.readyState === WebSocket.OPEN) {
+            client.send(JSON.stringify(message));
+          }
+        });
+      };
 
-    // Send initial connection success message
-    ws.send(JSON.stringify({
-      type: 'connected',
-      timestamp: new Date().toISOString(),
-      message: 'Connected to ICU Schedule notifications'
-    }));
+      resolve({ broadcast });
+    });
   });
-
-  // Broadcast to all connected clients
-  const broadcast = (message: NotificationMessage) => {
-    clients.forEach(client => {
-      if (client.readyState === WebSocket.OPEN) {
-        client.send(JSON.stringify(message));
-      }
-    });
-  };
-
-  return { broadcast };
 }
 
 export const notify = {

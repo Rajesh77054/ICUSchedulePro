@@ -195,9 +195,6 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
       });
     }
   };
-      dropInfo.revert();
-      return;
-    }
 
     const duration = differenceInDays(new Date(shift.endDate), new Date(shift.startDate));
     const newEndDate = addDays(startDate, duration);

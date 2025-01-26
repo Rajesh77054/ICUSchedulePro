@@ -18,7 +18,7 @@ app.use(async (req, res, next) => {
       capturedJsonResponse = bodyJson;
       return originalResJson.apply(res, [bodyJson, ...args]);
     };
-    
+
     res.on('finish', () => {
       const duration = Date.now() - start;
       if (path.startsWith('/api')) {

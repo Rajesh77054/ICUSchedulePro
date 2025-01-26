@@ -1,3 +1,4 @@
+
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
@@ -7,6 +8,7 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+// Logging middleware
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -37,18 +39,20 @@ app.use((req, res, next) => {
   next();
 });
 
+// Server startup with proper error handling
 (async () => {
+  let server;
+  
   try {
-    // Setup auth before registering routes
     setupAuth(app);
 
-    // Initialize OpenAI handler
     const { OpenAIChatHandler } = await import('./openai-handler');
     const openaiHandler = new OpenAIChatHandler();
     app.set('openaiHandler', openaiHandler);
 
-    const server = registerRoutes(app);
+    server = registerRoutes(app);
 
+    // Global error handler
     app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
       console.error('Error:', err);
       const status = err.status || err.statusCode || 500;
@@ -62,8 +66,7 @@ app.use((req, res, next) => {
       serveStatic(app);
     }
 
-    // Try ports starting from 5000
-    const port = process.env.PORT ? parseInt(process.env.PORT) : 5000;
+    const port = process.env.PORT ? parseInt(process.env.PORT) : 5001;
     
     try {
       await new Promise<void>((resolve, reject) => {
@@ -77,23 +80,18 @@ app.use((req, res, next) => {
           resolve();
         });
       });
-    } catch (err: any) {
+    } catch (err) {
       console.error('Server startup error:', err);
       process.exit(1);
-    } finally {
-      if (!server.listening) {
-        console.error('Failed to start server');
-        process.exit(1);
-      }
     }
-  } catch (error: any) {
+  } catch (error) {
     console.error('Server initialization error:', error);
     console.error("Detailed error stack:", error.stack);
     process.exit(1);
-  }
-  } catch (error: any) {
-    console.error('Server initialization error:', error);
-    console.error("Detailed error stack:", error.stack); //Added for better debugging
-    process.exit(1);
+  } finally {
+    if (server && !server.listening) {
+      console.error('Failed to start server');
+      process.exit(1);
+    }
   }
 })();

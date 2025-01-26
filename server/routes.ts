@@ -248,13 +248,12 @@ export function registerRoutes(app: Express) {
     }
   });
 
-  app.patch('/api/user-preferences/:userId', (req, res, next) => {
-  if (!req.isAuthenticated() || !req.user) {
-    console.log('Auth failed:', { session: req.session, user: req.user });
-    return res.status(401).json({ error: 'User not authenticated' });
-  }
-  next();
-}, async (req, res) => {
+  app.patch('/api/user-preferences/:userId', async (req, res) => {
+    try {
+      if (!req.isAuthenticated() || !req.user) {
+        console.log('Auth failed:', { session: req.session, user: req.user });
+        return res.status(401).json({ error: 'User not authenticated' });
+      }
     try {
       const userId = req.params.userId === 'me'
         ? req.user?.id

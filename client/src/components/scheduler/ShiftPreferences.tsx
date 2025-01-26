@@ -54,15 +54,20 @@ export function ShiftPreferences({ userId }: ShiftPreferencesProps) {
     mutationFn: async (data: Partial<UserPreference>) => {
       const res = await fetch(`/api/user-preferences/${userId}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Cache-Control": "no-cache"
+        },
         body: JSON.stringify(data),
         credentials: 'include'
       });
+      
+      const responseData = await res.json();
       if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ error: res.statusText }));
-        throw new Error(errorData.error || "Failed to update preferences");
+        console.error('Preferences update failed:', responseData);
+        throw new Error(responseData.error || "Failed to update preferences");
       }
-      return res.json();
+      return responseData;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/user-preferences"] });

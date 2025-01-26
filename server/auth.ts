@@ -41,6 +41,7 @@ export function setupAuth(app: Express) {
     secret: process.env.REPL_ID || "porygon-supremacy",
     resave: true,
     saveUninitialized: true,
+    rolling: true,
     cookie: {
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
       httpOnly: true,

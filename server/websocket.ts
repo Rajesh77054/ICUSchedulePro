@@ -21,6 +21,7 @@ export function setupWebSocket(server: Server) {
   const wss = new WebSocketServer({ 
     server,
     path: '/ws',
+    clientTracking: true,
   });
 
   const clients = new Set<ChatClient>();

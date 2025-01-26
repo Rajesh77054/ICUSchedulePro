@@ -108,13 +108,25 @@ export function setupAuth(app: Express) {
 
       // Public routes that don't require authentication
       const publicPaths = ['/', '/api/login', '/api/register', '/api/user'];
-      // Allow Vite dev server paths in development
-      if (process.env.NODE_ENV === 'development') {
-        const viteDevPaths = ['/@vite/client', '/@react-refresh', '/src'];
-        if (viteDevPaths.some(path => req.path.startsWith(path))) {
-          return next();
-        }
+
+      // Allow WebSocket upgrades
+      if (req.headers.upgrade?.toLowerCase() === 'websocket') {
+        return next();
       }
+
+      // Allow all Vite-related paths in development
+      if (process.env.NODE_ENV === 'development' && (
+        req.path.startsWith('/@') || 
+        req.path.includes('.vite') || 
+        req.path.includes('node_modules') ||
+        req.path.startsWith('/src') ||
+        req.path.endsWith('.js') ||
+        req.path.endsWith('.css') ||
+        req.path.endsWith('.map')
+      )) {
+        return next();
+      }
+
       if (!publicPaths.includes(req.path) && !req.isAuthenticated()) {
         console.log('Auth failed for path:', req.path);
         return res.status(401).json({ 

@@ -108,23 +108,34 @@ export function setupAuth(app: Express) {
 
       // Public routes that don't require authentication
       const publicPaths = ['/', '/api/login', '/api/register', '/api/user'];
-
-      // Allow WebSocket upgrades
-      if (req.headers.upgrade?.toLowerCase() === 'websocket') {
-        return next();
-      }
-
-      // Allow all Vite-related paths in development
-      if (process.env.NODE_ENV === 'development' && (
+      
+      // Development assets and WebSocket connections
+      const isDev = process.env.NODE_ENV === 'development';
+      const isDevAsset = isDev && (
         req.path.startsWith('/@') || 
         req.path.includes('.vite') || 
         req.path.includes('node_modules') ||
         req.path.startsWith('/src') ||
+        req.path.includes('assets') ||
         req.path.endsWith('.js') ||
         req.path.endsWith('.css') ||
         req.path.endsWith('.map')
-      )) {
+      );
+      const isWebSocket = req.headers.upgrade?.toLowerCase() === 'websocket' ||
+                         req.path.includes('/ws');
+
+      if (publicPaths.includes(req.path) || isDevAsset || isWebSocket) {
         return next();
+      }
+
+      // Add detailed logging for auth failures
+      if (!req.isAuthenticated()) {
+        console.log(`Auth failed for ${req.method} ${req.path} from ${req.ip}`);
+        return res.status(401).json({
+          error: 'Authentication required',
+          message: 'Please login first at /api/login',
+          path: req.path
+        });
       }
 
       if (!publicPaths.includes(req.path) && !req.isAuthenticated()) {

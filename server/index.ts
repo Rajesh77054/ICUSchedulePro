@@ -63,43 +63,20 @@ app.use((req, res, next) => {
     }
 
     // Try ports starting from 5000
-    let port = 5000;
-    const maxRetries = 10;
-    let server_started = false;
-
-    for (let i = 0; i < maxRetries && !server_started; i++) {
-      try {
-        await new Promise<void>((resolve, reject) => {
-          const cleanupAndRetry = (err?: Error) => {
-            if (server.listening) {
-              server.close(() => {
-                if (err) reject(err);
-                else resolve();
-              });
-            } else {
-              if (err) reject(err);
-              else resolve();
-            }
-          };
-
-          server.once('error', (err: any) => {
-            if (err.code === 'EADDRINUSE') {
-              log(`Port ${port} is in use, trying ${port + 1}.  Error details: ${err.stack}`);
-              port++;
-              cleanupAndRetry(new Error('Port in use'));
-            } else {
-              console.error('Server error:', err);
-              console.error("Detailed error stack:", err.stack); //Added for better debugging
-              cleanupAndRetry(err);
-            }
-          });
-
-          server.listen(port, "0.0.0.0", () => {
-            log(`Server started successfully on port ${port}`);
-            server_started = true;
-            resolve();
-          });
+    const port = process.env.PORT ? parseInt(process.env.PORT) : 5000;
+    
+    try {
+      await new Promise<void>((resolve, reject) => {
+        server.once('error', (err: any) => {
+          console.error(`Failed to start server on port ${port}:`, err);
+          reject(err);
         });
+
+        server.listen(port, "0.0.0.0", () => {
+          log(`Server started successfully on port ${port}`);
+          resolve();
+        });
+      });
       } catch (err: any) {
         if (i === maxRetries - 1) {
           console.error('Failed to find an available port after', maxRetries, 'attempts. Last error:', err);

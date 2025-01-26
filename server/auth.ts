@@ -81,29 +81,34 @@ export function setupAuth(app: Express) {
   // Unified auth middleware
   app.use(async (req, res, next) => {
     try {
+      // Ensure session exists
       if (!req.session) {
         console.error('No session found');
         return res.status(401).json({ error: 'No session found' });
       }
 
-      // Ensure passport session is properly initialized
+      // Initialize passport session if needed
       if (!req.session.passport) {
         req.session.passport = { user: undefined };
       }
 
-      if (req.session.passport?.user) {
+      // Check if user is authenticated via passport
+      if (req.isAuthenticated() && req.session.passport?.user) {
         const [user] = await db.select().from(users).where(eq(users.id, req.session.passport.user)).limit(1);
         if (user) {
           req.user = user;
         } else {
           // Clear invalid session
-          req.session.passport.user = undefined;
+          req.logout((err) => {
+            if (err) console.error('Logout error:', err);
+          });
+          return res.status(401).json({ error: 'Invalid user session' });
         }
       }
 
-      // Check if route requires authentication
+      // Public routes that don't require authentication
       const publicPaths = ['/api/login', '/api/register', '/api/user'];
-      if (!publicPaths.includes(req.path) && !req.user) {
+      if (!publicPaths.includes(req.path) && !req.isAuthenticated()) {
         return res.status(401).json({ error: 'Authentication required' });
       }
 

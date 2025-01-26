@@ -41,12 +41,12 @@ app.use((req, res, next) => {
   try {
     // Setup auth before registering routes
     setupAuth(app);
-    
+
     // Initialize OpenAI handler
     const { OpenAIChatHandler } = await import('./openai-handler');
     const openaiHandler = new OpenAIChatHandler();
     app.set('openaiHandler', openaiHandler);
-    
+
     const server = registerRoutes(app);
 
     app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
@@ -67,17 +67,10 @@ app.use((req, res, next) => {
     const maxRetries = 10;
     let server_started = false;
 
-    // Kill any existing process on port 5000
-    await new Promise<void>((resolve) => {
-      const { exec } = require('child_process');
-      exec('lsof -i :5000 | grep LISTEN | awk \'{print $2}\' | xargs kill -9', () => resolve());
-    });
-
     for (let i = 0; i < maxRetries && !server_started; i++) {
       try {
         await new Promise<void>((resolve, reject) => {
           const cleanupAndRetry = (err?: Error) => {
-            server.removeAllListeners();
             if (server.listening) {
               server.close(() => {
                 if (err) reject(err);
@@ -91,11 +84,12 @@ app.use((req, res, next) => {
 
           server.once('error', (err: any) => {
             if (err.code === 'EADDRINUSE') {
-              log(`Port ${port} is in use, trying ${port + 1}`);
+              log(`Port ${port} is in use, trying ${port + 1}.  Error details: ${err.stack}`);
               port++;
               cleanupAndRetry(new Error('Port in use'));
             } else {
               console.error('Server error:', err);
+              console.error("Detailed error stack:", err.stack); //Added for better debugging
               cleanupAndRetry(err);
             }
           });
@@ -108,16 +102,18 @@ app.use((req, res, next) => {
         });
       } catch (err: any) {
         if (i === maxRetries - 1) {
-          console.error('Failed to find an available port after', maxRetries, 'attempts');
+          console.error('Failed to find an available port after', maxRetries, 'attempts. Last error:', err);
           process.exit(1);
         }
         if (err.message !== 'Port in use') {
+          console.error("Unexpected error during port search:", err); //Added for better debugging
           throw err;
         }
       }
     }
   } catch (error: any) {
     console.error('Server initialization error:', error);
+    console.error("Detailed error stack:", error.stack); //Added for better debugging
     process.exit(1);
   }
 })();

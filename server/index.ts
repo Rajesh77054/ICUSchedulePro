@@ -7,7 +7,7 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-app.use((req, res, next) => {
+app.use(async (req, res, next) => {
   const start = Date.now();
   const path = req.path;
   let capturedJsonResponse: Record<string, any> | undefined = undefined;
@@ -30,7 +30,7 @@ app.use((req, res, next) => {
       }
     });
 
-    next();
+    await next();
   } catch (error) {
     console.error('Middleware error:', error);
     next(error);
@@ -138,7 +138,11 @@ app.put('/api/shifts/:id', async (req, res) => {
   const { startDate, endDate } = req.body;
 
   try {
-    const result = await db.update(shifts) //Assuming db and shifts are defined elsewhere.  This line needs context from the original, complete file.
+    const result = await db.update(shifts)
+      .set({ startDate, endDate, updatedAt: new Date() })
+      .where(eq(shifts.id, shiftId))
+      .returning();
+    res.json(result[0]);
   } catch (error) {
     console.error("Error updating shift:", error);
     res.status(500).json({ message: "Failed to update shift" });

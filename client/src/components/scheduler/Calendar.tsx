@@ -207,44 +207,6 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
     }
   };
 
-    const duration = differenceInDays(new Date(shift.endDate), new Date(shift.startDate));
-    const newEndDate = addDays(startDate, duration);
-
-    // Check for conflicts before allowing the move
-    // Filter out the current shift from conflicts check
-    const otherShifts = initialShifts.filter(s => s.id !== shiftId);
-
-    const conflicts = detectShiftConflicts({
-      ...shift,
-      startDate: format(startDate, 'yyyy-MM-dd'),
-      endDate: format(newEndDate, 'yyyy-MM-dd')
-    }, otherShifts);
-
-    if (conflicts.length > 0) {
-      toast({
-        title: "Schedule Conflict",
-        description: conflicts.map(c => `${c.type === 'overlap' ? '🔄' : '⚠️'} ${c.message}`).join("\n"),
-        variant: "destructive"
-      });
-      dropInfo.revert();
-      return;
-    }
-
-    try {
-      await updateShiftMutation.mutateAsync({
-        id: shiftId,
-        startDate: format(startDate, 'yyyy-MM-dd'),
-        endDate: format(newEndDate, 'yyyy-MM-dd'),
-      });
-    } catch (error) {
-      dropInfo.revert();
-      toast({
-        title: "Error",
-        description: "Failed to update shift dates",
-        variant: "destructive"
-      });
-    }
-  };
 
   const handleEventResize = async (resizeInfo: EventResizeDoneArg) => {
     try {

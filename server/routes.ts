@@ -338,10 +338,12 @@ export function registerRoutes(app: Express) {
           });
       }
 
-      if (!result.length) {
-        return res.status(404).json({ error: 'Failed to update preferences' });
+      if (!result || !result.length) {
+        console.error('Update preferences failed - no result returned');
+        return res.status(500).json({ error: 'Failed to update preferences - database error' });
       }
 
+      console.log('Preferences updated successfully:', result[0]);
       res.json(result[0]);
     } catch (error) {
       console.error('Error updating preferences:', error);

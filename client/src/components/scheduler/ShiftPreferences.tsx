@@ -20,6 +20,22 @@ export default function ShiftPreferences({ userId }: { userId: string }) {
     avoidedDaysOfWeek: []
   });
 
+  useEffect(() => {
+    fetch(`/api/user-preferences/${userId}`, {
+      credentials: 'include'
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data && !data.error) {
+        setPreferences(prev => ({
+          ...prev,
+          ...data
+        }));
+      }
+    })
+    .catch(error => console.error('Failed to fetch preferences:', error));
+  }, [userId]);
+
   const { mutate: updatePreferences, isPending: isUpdating } = useMutation({
     mutationFn: async (data: typeof preferences) => {
       const res = await fetch(`/api/user-preferences/${userId}`, {

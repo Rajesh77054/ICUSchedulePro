@@ -5,7 +5,43 @@ import { shifts, users, swapRequests, userPreferences } from '../db/schema'; // 
 import { createInsertSchema } from 'drizzle-zod';
 import { z } from 'zod';
 
+const log = console.log; // Added for clarity
+
+
 export function registerRoutes(app: Express) {
+  app.use((req, res, next) => {
+    const start = Date.now();
+    const path = req.path;
+    let capturedJsonResponse: Record<string, any> | undefined = undefined;
+
+    const originalResJson = res.json;
+    res.json = function (bodyJson, ...args) {
+      capturedJsonResponse = bodyJson;
+      return originalResJson.apply(res, [bodyJson, ...args]);
+    };
+
+    res.on("finish", () => {
+      const duration = Date.now() - start;
+      if (path.startsWith("/api")) {
+        let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
+        if (capturedJsonResponse) {
+          // Filter sensitive data before logging
+          const sanitizedResponse = Array.isArray(capturedJsonResponse) 
+            ? capturedJsonResponse.map(item => ({...item, password: undefined}))
+            : {...capturedJsonResponse, password: undefined};
+          logLine += ` :: ${JSON.stringify(sanitizedResponse)}`;
+        }
+
+        if (logLine.length > 200) {
+          logLine = logLine.slice(0, 199) + "…";
+        }
+
+        log(logLine);
+      }
+    });
+
+    next();
+  });
   app.get('/api/shifts', async (req, res) => {
     try {
       const allShifts = await db.select().from(shifts);

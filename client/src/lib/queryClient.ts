@@ -4,6 +4,7 @@ import { QueryClient } from "@tanstack/react-query";
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
+      staleTime: 2000, // Add 2s stale time to prevent rapid refetching
       queryFn: async ({ queryKey }) => {
         const res = await fetch(queryKey[0] as string, {
           credentials: "include",

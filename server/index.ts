@@ -91,7 +91,8 @@ app.use((req, res, next) => {
   } finally {
     if (server && !server.listening) {
       console.error('Failed to start server');
-      process.exit(1);
+    } else {
+      console.log('Server is running and listening');
     }
   }
 })();

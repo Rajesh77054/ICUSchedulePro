@@ -77,16 +77,20 @@ app.use((req, res, next) => {
           resolve();
         });
       });
-      } catch (err: any) {
-        console.error('Server startup error:', err);
+    } catch (err: any) {
+      console.error('Server startup error:', err);
+      process.exit(1);
+    } finally {
+      if (!server.listening) {
+        console.error('Failed to start server');
         process.exit(1);
-      } finally {
-        if (!server.listening) {
-          console.error('Failed to start server');
-          process.exit(1);
-        }
       }
     }
+  } catch (error: any) {
+    console.error('Server initialization error:', error);
+    console.error("Detailed error stack:", error.stack);
+    process.exit(1);
+  }
   } catch (error: any) {
     console.error('Server initialization error:', error);
     console.error("Detailed error stack:", error.stack); //Added for better debugging

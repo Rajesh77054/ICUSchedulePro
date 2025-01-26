@@ -266,7 +266,6 @@ export function registerRoutes(app: Express) {
         return res.status(401).json({ error: 'Invalid session' });
       }
 
-    try {
       const userId = req.params.userId === 'me' 
         ? req.user.id 
         : parseInt(req.params.userId);

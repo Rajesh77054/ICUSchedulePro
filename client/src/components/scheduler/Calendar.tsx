@@ -153,7 +153,18 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
       const shiftId = parseInt(dropInfo.event.id);
       const startDate = dropInfo.event.start;
       const endDate = dropInfo.event.end;
+      
+      if (!startDate || !endDate) {
+        dropInfo.revert();
+        return;
+      }
+
       const shift = initialShifts.find(s => s.id === shiftId);
+
+      if (!shift) {
+        dropInfo.revert();
+        return;
+      }
 
       if (!startDate || !endDate || !shift) {
         dropInfo.revert();

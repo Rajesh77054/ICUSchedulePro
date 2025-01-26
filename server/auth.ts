@@ -55,6 +55,22 @@ export function setupAuth(app: Express) {
     }),
   };
 
+  passport.serializeUser((user: Express.User, done) => {
+    done(null, user.id);
+  });
+
+  passport.deserializeUser(async (id: number, done) => {
+    try {
+      const [user] = await db.select().from(users).where(eq(users.id, id)).limit(1);
+      if (!user) {
+        return done(new Error('User not found'), null);
+      }
+      done(null, user);
+    } catch (err) {
+      done(err, null);
+    }
+  });
+
   app.set("trust proxy", 1);
 
   const sess = session(sessionSettings);

@@ -62,22 +62,23 @@ export function setupAuth(app: Express) {
   app.use(passport.initialize());
   app.use(passport.session());
   
-  // Force session initialization
-  app.use((req, res, next) => {
-    if (!req.session) {
-      return next(new Error('No session found'));
-    }
-    req.session.nowInMinutes = Math.floor(Date.now() / 60000);
-    next();
-  });
-  
-  // Ensure session is working
   app.use((req, res, next) => {
     if (!req.session) {
       console.error('No session found');
       return next(new Error('No session found'));
     }
-    next();
+    // Ensure user is properly deserialized
+    if (req.session.passport && !req.user) {
+      passport.deserializeUser(req.session.passport.user, (err, user) => {
+        if (err) {
+          return next(err);
+        }
+        req.user = user;
+        next();
+      });
+    } else {
+      next();
+    }
   });
 
   // Ensure session is properly initialized

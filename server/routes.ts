@@ -249,23 +249,12 @@ export function registerRoutes(app: Express) {
   });
 
   app.patch('/api/user-preferences/:userId', async (req, res) => {
+    if (!req.isAuthenticated() || !req.user) {
+      console.log('Auth failed:', { session: req.session, user: req.user });
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
     try {
-      // Comprehensive auth check
-      if (!req.isAuthenticated() || !req.user || !req.session?.passport?.user) {
-        console.error('Auth check failed:', {
-          isAuthenticated: req.isAuthenticated(),
-          user: req.user,
-          session: req.session
-        });
-        return res.status(401).json({ error: 'Authentication required' });
-      }
-
-      // Validate session matches user
-      if (req.session.passport.user !== req.user.id) {
-        console.error('Session user mismatch');
-        return res.status(401).json({ error: 'Invalid session' });
-      }
-
       const userId = req.params.userId === 'me' 
         ? req.user.id 
         : parseInt(req.params.userId);
@@ -349,12 +338,10 @@ export function registerRoutes(app: Express) {
           });
       }
 
-      if (!result || !result.length) {
-        console.error('Update preferences failed - no result returned');
-        return res.status(500).json({ error: 'Failed to update preferences - database error' });
+      if (!result.length) {
+        return res.status(404).json({ error: 'Failed to update preferences' });
       }
 
-      console.log('Preferences updated successfully:', result[0]);
       res.json(result[0]);
     } catch (error) {
       console.error('Error updating preferences:', error);

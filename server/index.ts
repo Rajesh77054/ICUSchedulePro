@@ -7,10 +7,12 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-app.use((req, res, next) => {
+app.use(async (req, res, next) => {
   const start = Date.now();
   const path = req.path;
   let capturedJsonResponse: Record<string, any> | undefined = undefined;
+
+  try {
 
   const originalResJson = res.json;
   res.json = function (bodyJson, ...args) {
@@ -35,6 +37,15 @@ app.use((req, res, next) => {
   });
 
   next();
+  } catch (error) {
+    console.error('Middleware error:', error);
+    next(error);
+  } finally {
+    if (path.startsWith('/api')) {
+      const duration = Date.now() - start;
+      console.log(`Request to ${path} completed in ${duration}ms`);
+    }
+  }
 });
 
 (async () => {

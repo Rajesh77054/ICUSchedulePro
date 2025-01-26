@@ -19,15 +19,20 @@ interface ChatDialogProps {
   pageContext?: Record<string, any>;
 }
 
-export function ChatDialog({ trigger, className, currentPage, pageContext = {} }: ChatDialogProps) {
+const ChatDialog = React.memo(({ pageContext }: ChatDialogProps) => {
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("ai");
   const [pageContextError, setPageContextError] = useState<Error | null>(null);
 
   useEffect(() => {
-    console.log("ChatDialog received pageContext:", pageContext);
-    console.log("ChatDialog pageContextError:", pageContextError);
-  }, [pageContext, pageContextError]);
+    if (!pageContext) return;
+
+    try {
+      console.log("ChatDialog received pageContext:", pageContext);
+    } catch (error) {
+      console.error("ChatDialog pageContextError:", error);
+    }
+  }, [pageContext]);
 
   const handleSubmit = useCallback(async (event: React.FormEvent) => {
     event.preventDefault();
@@ -95,4 +100,6 @@ export function ChatDialog({ trigger, className, currentPage, pageContext = {} }
       </DialogContent>
     </Dialog>
   );
-}
+});
+
+export default ChatDialog;

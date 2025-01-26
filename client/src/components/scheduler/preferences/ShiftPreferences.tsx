@@ -9,7 +9,6 @@ import { Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { HolidayPreferences } from "./HolidayPreferences";
-import { useUser } from '@/hooks/use-user';
 
 const DAYS_OF_WEEK = [
   { label: "Sunday", value: "0" },
@@ -30,7 +29,6 @@ export function ShiftPreferences({ mode, userId }: ShiftPreferencesProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const effectiveUserId = mode === 'admin' ? userId : undefined;
-  const { user } = useUser();
 
   const [formData, setFormData] = useState({
     targetDays: '',
@@ -45,42 +43,17 @@ export function ShiftPreferences({ mode, userId }: ShiftPreferencesProps) {
     preferredHolidays: []
   });
 
-  const { data: preferences, isLoading, error } = useQuery({
+  const { data: preferences, isLoading } = useQuery({
     queryKey: ["/api/user-preferences", effectiveUserId],
     queryFn: async () => {
-      if (!user) {
-        throw new Error("Not authenticated");
-      }
       const url = effectiveUserId 
         ? `/api/user-preferences/${effectiveUserId}`
         : '/api/user-preferences/me';
-      const res = await fetch(url, {
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-      if (res.status === 401) {
-        throw new Error("Not authenticated");
-      }
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || "Failed to fetch preferences");
-      }
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Failed to fetch preferences");
       return res.json();
     },
-    enabled: !!user,
-    retry: 1,
-    staleTime: 30000
   });
-
-  if (error) {
-    return (
-      <div className="flex items-center justify-center py-8">
-        <p className="text-red-500">Error loading preferences: {error.message}</p>
-      </div>
-    );
-  }
 
   useEffect(() => {
     if (preferences) {
@@ -106,11 +79,7 @@ export function ShiftPreferences({ mode, userId }: ShiftPreferencesProps) {
         : '/api/user-preferences/me';
       const res = await fetch(url, {
         method: "PATCH",
-        headers: { 
-          "Content-Type": "application/json",
-          "Accept": "application/json"
-        },
-        credentials: 'include',
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
       if (!res.ok) throw new Error("Failed to update preferences");

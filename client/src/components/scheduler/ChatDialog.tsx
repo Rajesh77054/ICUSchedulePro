@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from "react";
 import { Bot, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -22,7 +23,6 @@ interface ChatDialogProps {
 export function ChatDialog({ trigger, className, currentPage, pageContext = {} }: ChatDialogProps) {
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("ai");
-  const [shiftsError, setShiftsError] = useState<Error | null>(null); //Added to handle errors
 
   useEffect(() => {
     console.log("ChatDialog received pageContext:", pageContext);
@@ -32,39 +32,9 @@ export function ChatDialog({ trigger, className, currentPage, pageContext = {} }
     event.preventDefault();
     if (!pageContext?.shifts) {
       console.error('ChatDialog: Missing page context');
-      if (shiftsError) {
-        console.error("Error fetching shifts:", shiftsError); //Added error handling
-      }
       return;
     }
-  }, [pageContext, shiftsError]);
-
-  //Simulate fetching shifts with error handling (replace with actual useQuery)
-  const [shifts, setShifts] = useState<any[]>([]);
-  useEffect(() => {
-    const fetchShifts = async () => {
-      try {
-        const response = await fetch('/api/shifts');
-        if (!response.ok) {
-          if (response.status === 401) {
-            setShifts([]); //Handle auth error
-            setShiftsError(new Error("Authentication failed"));
-          } else {
-            throw new Error(`Failed to fetch shifts: ${response.status}`);
-          }
-        } else {
-          const data = await response.json();
-          setShifts(data);
-          setShiftsError(null);
-        }
-      } catch (error) {
-        setShiftsError(error as Error);
-        console.error("Error fetching shifts:", error);
-      }
-    };
-    fetchShifts();
-  }, []);
-
+  }, [pageContext]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -96,9 +66,9 @@ export function ChatDialog({ trigger, className, currentPage, pageContext = {} }
             </TabsTrigger>
           </TabsList>
           <TabsContent value="ai">
-            <AIScheduleAssistant
-              currentPage={currentPage}
-              pageContext={{...pageContext, shifts}} //Added shifts to pageContext
+            <AIScheduleAssistant 
+              currentPage={currentPage} 
+              pageContext={pageContext}
               onSubmit={handleSubmit}
             />
           </TabsContent>

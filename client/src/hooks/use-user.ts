@@ -38,12 +38,7 @@ async function handleRequest(
 
 async function fetchUser(): Promise<SelectUser | null> {
   const response = await fetch('/api/user', {
-    credentials: 'include',
-    headers: {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json',
-      'Cache-Control': 'no-cache'
-    }
+    credentials: 'include'
   });
 
   if (!response.ok) {

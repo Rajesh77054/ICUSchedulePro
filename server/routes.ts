@@ -8,23 +8,13 @@ import { z } from 'zod';
 export function registerRoutes(app: Express) {
   app.get('/api/shifts', async (req, res) => {
     try {
-      if (!req.isAuthenticated()) {
-        return res.status(401).json({ 
-          error: 'Authentication required',
-          code: 'AUTH_REQUIRED'
-        });
-      }
       const allShifts = await db.select().from(shifts);
-      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Cache-Control', 'no-cache');
       res.setHeader('ETag', Date.now().toString());
       res.json(allShifts);
     } catch (error) {
       console.error('Error fetching shifts:', error);
-      res.status(error.status || 500).json({ 
-        error: 'Failed to fetch shifts',
-        details: error.message,
-        code: error.code || 'UNKNOWN_ERROR'
-      });
+      res.status(500).json({ error: 'Failed to fetch shifts' });
     }
   });
 
@@ -238,18 +228,9 @@ export function registerRoutes(app: Express) {
 
   app.get('/api/user-preferences/:userId', async (req, res) => {
     try {
-      if (!req.isAuthenticated() || !req.user) {
-        return res.status(401).json({ error: 'User not authenticated' });
-      }
-
-      const targetUserId = req.params.userId === 'me' ? req.user.id : parseInt(req.params.userId);
-
-      if (req.params.userId !== 'me' && targetUserId !== req.user.id) {
-        return res.status(403).json({ error: 'Unauthorized access' });
-      }
-
+      const userId = parseInt(req.params.userId);
       const userPreferences = await db.query.userPreferences.findFirst({
-        where: (preferences, { eq }) => eq(preferences.userId, targetUserId)
+        where: (preferences, { eq }) => eq(preferences.userId, userId)
       });
       res.json(userPreferences || {});
     } catch (error) {
@@ -259,51 +240,21 @@ export function registerRoutes(app: Express) {
   });
 
   app.patch('/api/user-preferences/:userId', async (req, res) => {
-    if (!req.isAuthenticated() || !req.user) {
-      console.log('Auth failed:', { session: req.session, user: req.user });
-      return res.status(401).json({ error: 'User not authenticated' });
-    }
-
     try {
-      const userId = req.params.userId === 'me' 
-        ? req.user.id 
-        : parseInt(req.params.userId);
-
-      if (isNaN(userId)) {
-        return res.status(400).json({ error: 'Invalid user ID' });
-      }
-
+      const userId = parseInt(req.params.userId);
       const updates = req.body;
-      if (!updates) {
-        return res.status(400).json({ error: 'No update data provided' });
-      }
 
       // First check if preferences exist
       const existing = await db.select().from(userPreferences).where(eq(userPreferences.userId, userId));
 
       let result;
-      const parseIntSafe = (value: any, defaultValue: number) => {
-        const parsed = parseInt(value);
-        return !isNaN(parsed) ? parsed : defaultValue;
-      };
-
-      const sanitizeNumber = (value: any, min: number, max: number, defaultValue: number): number => {
-        const num = parseInt(value);
-        return isNaN(num) ? defaultValue : Math.max(min, Math.min(max, num));
-      };
-
       const values = {
         userId,
-        preferredShiftLength: Number.isInteger(updates.preferredShiftLength) ? 
-          Math.max(1, Math.min(14, updates.preferredShiftLength)) : 7,
-        maxShiftsPerWeek: Number.isInteger(updates.maxShiftsPerWeek) ? 
-          Math.max(1, Math.min(7, updates.maxShiftsPerWeek)) : 1,
-        minDaysBetweenShifts: Number.isInteger(updates.minDaysBetweenShifts) ? 
-          Math.max(0, Math.min(90, updates.minDaysBetweenShifts)) : 0,
-        preferredDaysOfWeek: Array.isArray(updates.preferredDaysOfWeek) ? 
-          updates.preferredDaysOfWeek.map(v => Math.floor(Number(v))).filter(n => !isNaN(n) && n >= 0 && n <= 6) : [],
-        avoidedDaysOfWeek: Array.isArray(updates.avoidedDaysOfWeek) ? 
-          updates.avoidedDaysOfWeek.map(v => Math.floor(Number(v))).filter(n => !isNaN(n) && n >= 0 && n <= 6) : [],
+        preferredShiftLength: Number(updates.preferredShiftLength) || 7,
+        maxShiftsPerWeek: Number(updates.maxShiftsPerWeek) || 1,
+        minDaysBetweenShifts: Number(updates.minDaysBetweenShifts) || 0,
+        preferredDaysOfWeek: Array.isArray(updates.preferredDaysOfWeek) ? updates.preferredDaysOfWeek.map(Number) : [],
+        avoidedDaysOfWeek: Array.isArray(updates.avoidedDaysOfWeek) ? updates.avoidedDaysOfWeek.map(Number) : [],
         updatedAt: new Date()
       };
 

@@ -7,7 +7,6 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Logging middleware
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -38,20 +37,18 @@ app.use((req, res, next) => {
   next();
 });
 
-// Server startup with proper error handling
 (async () => {
-  let server;
-
   try {
+    // Setup auth before registering routes
     setupAuth(app);
-
+    
+    // Initialize OpenAI handler
     const { OpenAIChatHandler } = await import('./openai-handler');
     const openaiHandler = new OpenAIChatHandler();
     app.set('openaiHandler', openaiHandler);
+    
+    const server = registerRoutes(app);
 
-    server = registerRoutes(app);
-
-    // Global error handler
     app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
       console.error('Error:', err);
       const status = err.status || err.statusCode || 500;
@@ -65,44 +62,56 @@ app.use((req, res, next) => {
       serveStatic(app);
     }
 
-    const port = process.env.PORT ? parseInt(process.env.PORT) : 5001;
+    // Try ports starting from 5000
+    let port = 5000;
+    const maxRetries = 10;
+    let server_started = false;
 
-    try {
-      await new Promise<void>((resolve, reject) => {
-        server.once('error', (err: any) => {
-          console.error(`Failed to start server on port ${port}:`, err);
-          reject(err);
-        });
+    for (let i = 0; i < maxRetries && !server_started; i++) {
+      try {
+        await new Promise<void>((resolve, reject) => {
+          const cleanupAndRetry = (err?: Error) => {
+            server.removeAllListeners();
+            if (server.listening) {
+              server.close(() => {
+                if (err) reject(err);
+                else resolve();
+              });
+            } else {
+              if (err) reject(err);
+              else resolve();
+            }
+          };
 
-        server.listen(port, "0.0.0.0", () => {
-          log(`Server started successfully on port ${port}`);
-          resolve();
+          server.once('error', (err: any) => {
+            if (err.code === 'EADDRINUSE') {
+              log(`Port ${port} is in use, trying ${port + 1}`);
+              port++;
+              cleanupAndRetry(new Error('Port in use'));
+            } else {
+              console.error('Server error:', err);
+              cleanupAndRetry(err);
+            }
+          });
+
+          server.listen(port, "0.0.0.0", () => {
+            log(`Server started successfully on port ${port}`);
+            server_started = true;
+            resolve();
+          });
         });
-      });
-    } catch (err) {
-      console.error('Server startup error:', err);
-      process.exit(1);
-    }
-  } catch (error) {
-    console.error('Server initialization error:', error);
-    console.error("Detailed error stack:", error.stack);
-    // Don't exit, let the error propagate
-    throw error;
-  } finally {
-    if (server) {
-      if (!server.listening) {
-        console.error('Server failed to start, attempting recovery...');
-        // Attempt recovery by retrying port binding
-        server.listen(port, "0.0.0.0", () => {
-          log(`Server recovered and listening on port ${port}`);
-          const { setupWebSocket } = await import('./websocket');
-          setupWebSocket(server);
-        });
-      } else {
-        const { setupWebSocket } = await import('./websocket');
-        setupWebSocket(server);
-        log('Server and WebSocket are running');
+      } catch (err: any) {
+        if (i === maxRetries - 1) {
+          console.error('Failed to find an available port after', maxRetries, 'attempts');
+          process.exit(1);
+        }
+        if (err.message !== 'Port in use') {
+          throw err;
+        }
       }
     }
+  } catch (error: any) {
+    console.error('Server initialization error:', error);
+    process.exit(1);
   }
 })();

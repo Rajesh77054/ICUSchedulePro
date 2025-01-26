@@ -153,7 +153,7 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
       const shiftId = parseInt(dropInfo.event.id);
       const startDate = dropInfo.event.start;
       const endDate = dropInfo.event.end;
-      
+
       if (!startDate || !endDate) {
         dropInfo.revert();
         return;
@@ -213,7 +213,7 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
     // Check for conflicts before allowing the move
     // Filter out the current shift from conflicts check
     const otherShifts = initialShifts.filter(s => s.id !== shiftId);
-    
+
     const conflicts = detectShiftConflicts({
       ...shift,
       startDate: format(startDate, 'yyyy-MM-dd'),
@@ -247,36 +247,36 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
   };
 
   const handleEventResize = async (resizeInfo: EventResizeDoneArg) => {
-    const shiftId = parseInt(resizeInfo.event.id);
-    const startDate = resizeInfo.event.startStr;
-    const endDate = resizeInfo.event.endStr;
-    const shift = initialShifts.find(s => s.id === shiftId);
-
-    if (!shift) {
-      resizeInfo.revert();
-      return;
-    }
-
-    // Filter out the current shift from conflicts check
-    const otherShifts = initialShifts.filter(s => s.id !== shiftId);
-    
-    const conflicts = detectShiftConflicts({
-      ...shift,
-      startDate,
-      endDate
-    }, otherShifts);
-
-    if (conflicts.length > 0) {
-      toast({
-        title: "Schedule Conflict",
-        description: conflicts.map(c => `${c.type === 'overlap' ? '🔄' : '⚠️'} ${c.message}`).join("\n"),
-        variant: "destructive"
-      });
-      resizeInfo.revert();
-      return;
-    }
-
     try {
+      const shiftId = parseInt(resizeInfo.event.id);
+      const startDate = resizeInfo.event.startStr;
+      const endDate = resizeInfo.event.endStr;
+      const shift = initialShifts.find(s => s.id === shiftId);
+
+      if (!shift) {
+        resizeInfo.revert();
+        return;
+      }
+
+      // Filter out the current shift from conflicts check
+      const otherShifts = initialShifts.filter(s => s.id !== shiftId);
+
+      const conflicts = detectShiftConflicts({
+        ...shift,
+        startDate,
+        endDate
+      }, otherShifts);
+
+      if (conflicts.length > 0) {
+        toast({
+          title: "Schedule Conflict",
+          description: conflicts.map(c => `${c.type === 'overlap' ? '🔄' : '⚠️'} ${c.message}`).join("\n"),
+          variant: "destructive"
+        });
+        resizeInfo.revert();
+        return;
+      }
+
       await updateShiftMutation.mutateAsync({
         id: shiftId,
         startDate,

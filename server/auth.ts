@@ -39,8 +39,8 @@ export function setupAuth(app: Express) {
   const MemoryStore = createMemoryStore(session);
   const sessionSettings: session.SessionOptions = {
     secret: process.env.REPL_ID || "porygon-supremacy",
-    resave: true,
-    saveUninitialized: true,
+    resave: false,
+    saveUninitialized: false,
     rolling: true,
     name: 'sessionId',
     cookie: {
@@ -77,7 +77,7 @@ export function setupAuth(app: Express) {
   app.use(sess);
   app.use(passport.initialize());
   app.use(passport.session());
-  
+
   app.use((req, res, next) => {
     // Only check session existence, don't force authentication
     if (!req.session) {

@@ -78,6 +78,7 @@ export function setupAuth(app: Express) {
   app.use(passport.initialize());
   app.use(passport.session());
 
+  // Unified auth middleware
   app.use(async (req, res, next) => {
     try {
       if (!req.session) {
@@ -85,12 +86,27 @@ export function setupAuth(app: Express) {
         return res.status(401).json({ error: 'No session found' });
       }
 
+      // Ensure passport session is properly initialized
+      if (!req.session.passport) {
+        req.session.passport = { user: undefined };
+      }
+
       if (req.session.passport?.user) {
         const [user] = await db.select().from(users).where(eq(users.id, req.session.passport.user)).limit(1);
         if (user) {
           req.user = user;
+        } else {
+          // Clear invalid session
+          req.session.passport.user = undefined;
         }
       }
+
+      // Check if route requires authentication
+      const publicPaths = ['/api/login', '/api/register', '/api/user'];
+      if (!publicPaths.includes(req.path) && !req.user) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
       next();
     } catch (err) {
       console.error('Auth middleware error:', err);

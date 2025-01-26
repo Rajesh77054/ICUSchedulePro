@@ -41,23 +41,32 @@ app.use((req, res, next) => {
   try {
     // Setup auth before registering routes
     await setupAuth(app);
-    
+
     // Initialize OpenAI handler
     const { OpenAIChatHandler } = await import('./openai-handler');
     const openaiHandler = new OpenAIChatHandler();
     await app.set('openaiHandler', openaiHandler);
-    
+
     const server = await registerRoutes(app);
 
-    app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-      console.error('Error:', err);
-      const status = err.status || err.statusCode || 500;
-      const message = err.message || "Internal Server Error";
-      res.status(status).json({ message });
+    app.use(async (err: any, _req: Request, res: Response, _next: NextFunction) => {
+      try {
+        console.error('Error:', err);
+        const status = err.status || err.statusCode || 500;
+        const message = err.message || "Internal Server Error";
+        res.status(status).json({ message });
+      } catch (finalError) {
+        console.error('Error in error handler:', finalError);
+        res.status(500).json({ message: "Critical server error" });
+      }
     });
 
     if (app.get("env") === "development") {
-      await setupVite(app, server);
+      try {
+        await setupVite(app, server);
+      } catch (error) {
+        console.error('Vite setup error:', error);
+      }
     } else {
       serveStatic(app);
     }

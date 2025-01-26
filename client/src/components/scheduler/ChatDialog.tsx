@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from "react";
 import { Bot, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -23,10 +22,12 @@ interface ChatDialogProps {
 export function ChatDialog({ trigger, className, currentPage, pageContext = {} }: ChatDialogProps) {
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("ai");
+  const [pageContextError, setPageContextError] = useState<Error | null>(null);
 
   useEffect(() => {
     console.log("ChatDialog received pageContext:", pageContext);
-  }, [pageContext]);
+    console.log("ChatDialog pageContextError:", pageContextError);
+  }, [pageContext, pageContextError]);
 
   const handleSubmit = useCallback(async (event: React.FormEvent) => {
     event.preventDefault();
@@ -34,7 +35,21 @@ export function ChatDialog({ trigger, className, currentPage, pageContext = {} }
       console.error('ChatDialog: Missing page context');
       return;
     }
+    try {
+      //Simulate an async operation that might throw an error.  Replace with actual logic.
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    } catch (error) {
+      console.error('handleSubmit error:', error);
+      // Add proper error handling here.
+    }
   }, [pageContext]);
+
+  // Placeholder for more robust error handling in Chat component
+  const handleChatError = (error: Error) => {
+    console.error("Error in Chat component:", error);
+    // Implement proper error handling and potentially prevent recursive calls.
+  };
+
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -66,14 +81,15 @@ export function ChatDialog({ trigger, className, currentPage, pageContext = {} }
             </TabsTrigger>
           </TabsList>
           <TabsContent value="ai">
-            <AIScheduleAssistant 
-              currentPage={currentPage} 
+            <AIScheduleAssistant
+              currentPage={currentPage}
               pageContext={pageContext}
               onSubmit={handleSubmit}
             />
           </TabsContent>
           <TabsContent value="team">
-            <Chat roomId={1} />
+            {/* Add error handling to prevent recursive calls */}
+            <Chat roomId={1} onError={handleChatError} />
           </TabsContent>
         </Tabs>
       </DialogContent>

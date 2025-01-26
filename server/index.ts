@@ -67,6 +67,12 @@ app.use((req, res, next) => {
     const maxRetries = 10;
     let server_started = false;
 
+    // Kill any existing process on port 5000
+    await new Promise<void>((resolve) => {
+      const { exec } = require('child_process');
+      exec('lsof -i :5000 | grep LISTEN | awk \'{print $2}\' | xargs kill -9', () => resolve());
+    });
+
     for (let i = 0; i < maxRetries && !server_started; i++) {
       try {
         await new Promise<void>((resolve, reject) => {

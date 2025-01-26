@@ -387,18 +387,25 @@ export function registerRoutes(app: Express) {
 
   app.put('/api/shifts/:id', async (req, res) => {
     try {
-      const id = parseInt(req.params.id);
+      const shiftId = parseInt(req.params.id);
+      if (isNaN(shiftId)) {
+        throw new Error('Invalid shift ID');
+      }
+      const { startDate, endDate } = req.body;
+      if (!startDate || !endDate) {
+        throw new Error('Missing required fields');
+      }
       const updatedShift = await db.update(shifts)
         .set({
           ...req.body,
           updatedAt: new Date()
         })
-        .where(eq(shifts.id, id))
+        .where(eq(shifts.id, shiftId))
         .returning();
       res.status(200).json(updatedShift[0]);
     } catch (error) {
       console.error('Error updating shift:', error);
-      res.status(500).json({ error: 'Failed to update shift' });
+      res.status(500).json({ error: 'Failed to update shift: ' + error.message });
     }
   });
 

@@ -7,12 +7,10 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-app.use(async (req, res, next) => {
+app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
   let capturedJsonResponse: Record<string, any> | undefined = undefined;
-
-  try {
 
   const originalResJson = res.json;
   res.json = function (bodyJson, ...args) {
@@ -44,6 +42,8 @@ app.use(async (req, res, next) => {
     if (path.startsWith('/api')) {
       const duration = Date.now() - start;
       console.log(`Request to ${path} completed in ${duration}ms`);
+      // Clear any references
+      capturedJsonResponse = undefined;
     }
   }
 });

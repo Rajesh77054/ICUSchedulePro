@@ -2,7 +2,9 @@ import { WebSocket, WebSocketServer } from 'ws';
 import { Server } from 'http';
 import { log } from './vite';
 
+// Type definitions for notifications
 interface NotificationUser {
+  id: number;
   name: string;
   title: string;
   color: string;
@@ -13,7 +15,6 @@ interface NotificationShift {
   startDate: string;
   endDate: string;
   status: string;
-  user: NotificationUser;
 }
 
 interface NotificationMessage {
@@ -60,6 +61,8 @@ export async function setupWebSocket(server: Server) {
       ws.isAlive = true;
       ws.lastActivity = Date.now();
       clients.add(ws);
+
+      log(`New WebSocket connection established, current clients: ${clients.size}`);
 
       ws.on('pong', () => {
         ws.isAlive = true;

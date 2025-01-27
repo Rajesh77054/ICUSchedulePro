@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { db } from '../db';
-import { users, shifts, userPreferences, timeOffRequests, swapRequests } from '@db/schema';
+import { users, shifts, swapRequests } from '@db/schema';
 import { and, eq, sql, or } from 'drizzle-orm';
 import { setupWebSocket, notify } from './websocket';
 import { log } from './vite';
@@ -26,9 +26,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         orderBy: (swapRequests, { desc }) => [desc(swapRequests.createdAt)],
         with: {
           shift: {
+            columns: {
+              id: true,
+              startDate: true,
+              endDate: true,
+              status: true
+            },
             with: {
               user: {
                 columns: {
+                  id: true,
                   name: true,
                   title: true,
                   color: true
@@ -38,6 +45,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           },
           requestor: {
             columns: {
+              id: true,
               name: true,
               title: true,
               color: true
@@ -45,6 +53,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           },
           recipient: {
             columns: {
+              id: true,
               name: true,
               title: true,
               color: true
@@ -53,8 +62,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       });
 
+      // Format dates for the response
+      const formattedRequests = requests.map(req => ({
+        ...req,
+        shift: {
+          ...req.shift,
+          startDate: req.shift?.startDate instanceof Date ? req.shift.startDate.toISOString() : req.shift?.startDate,
+          endDate: req.shift?.endDate instanceof Date ? req.shift.endDate.toISOString() : req.shift?.endDate,
+        }
+      }));
+
       log(`Found ${requests.length} swap requests`);
-      res.json(requests);
+      res.json(formattedRequests);
     } catch (error) {
       console.error('Error fetching swap requests:', error);
       res.status(500).json({ message: error instanceof Error ? error.message : 'Failed to fetch swap requests' });
@@ -81,11 +100,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const [newSwapRequest] = await db.insert(swapRequests)
         .values({
+          shiftId: Number(shiftId),
           requestorId: Number(requestorId),
           recipientId: Number(recipientId),
-          shiftId: Number(shiftId),
           status: 'pending',
-          createdAt: new Date().toISOString()
+          createdAt: new Date(),
         })
         .returning();
 
@@ -95,14 +114,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const shift = await db.query.shifts.findFirst({
         where: eq(shifts.id, shiftId),
-        with: {
-          user: {
-            columns: {
-              name: true,
-              title: true,
-              color: true
-            }
-          }
+        columns: {
+          id: true,
+          startDate: true,
+          endDate: true,
+          status: true
         }
       });
 
@@ -113,6 +129,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const requestor = await db.query.users.findFirst({
         where: eq(users.id, requestorId),
         columns: {
+          id: true,
           name: true,
           title: true,
           color: true
@@ -122,6 +139,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const recipient = await db.query.users.findFirst({
         where: eq(users.id, recipientId),
         columns: {
+          id: true,
           name: true,
           title: true,
           color: true
@@ -129,12 +147,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       if (!requestor || !recipient) {
-        throw new Error('Could not find all required user information');
+        throw new Error('Could not find required user information');
       }
+
+      // Format dates and prepare notification payload
+      const notificationShift = {
+        ...shift,
+        startDate: shift.startDate instanceof Date ? shift.startDate.toISOString() : shift.startDate,
+        endDate: shift.endDate instanceof Date ? shift.endDate.toISOString() : shift.endDate,
+      };
 
       // Send notification
       ws.broadcast(notify.shiftSwapRequested(
-        shift,
+        notificationShift,
         requestor,
         recipient,
         newSwapRequest.id
@@ -147,18 +172,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         where: eq(swapRequests.id, newSwapRequest.id),
         with: {
           shift: {
-            with: {
-              user: {
-                columns: {
-                  name: true,
-                  title: true,
-                  color: true
-                }
-              }
+            columns: {
+              id: true,
+              startDate: true,
+              endDate: true,
+              status: true
             }
           },
           requestor: {
             columns: {
+              id: true,
               name: true,
               title: true,
               color: true
@@ -166,6 +189,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           },
           recipient: {
             columns: {
+              id: true,
               name: true,
               title: true,
               color: true
@@ -174,7 +198,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       });
 
-      res.json(completeSwapRequest);
+      if (!completeSwapRequest?.shift) {
+        throw new Error('Failed to fetch complete swap request details');
+      }
+
+      // Format dates in the response
+      const formattedResponse = {
+        ...completeSwapRequest,
+        shift: {
+          ...completeSwapRequest.shift,
+          startDate: completeSwapRequest.shift.startDate instanceof Date 
+            ? completeSwapRequest.shift.startDate.toISOString() 
+            : completeSwapRequest.shift.startDate,
+          endDate: completeSwapRequest.shift.endDate instanceof Date 
+            ? completeSwapRequest.shift.endDate.toISOString() 
+            : completeSwapRequest.shift.endDate,
+        }
+      };
+
+      res.json(formattedResponse);
     } catch (error) {
       console.error('Error creating swap request:', error);
       res.status(500).json({ message: error instanceof Error ? error.message : 'Failed to create swap request' });
@@ -192,9 +234,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         where: eq(swapRequests.id, id),
         with: {
           shift: {
+            columns: {
+              id: true,
+              startDate: true,
+              endDate: true,
+              status: true
+            },
             with: {
               user: {
                 columns: {
+                  id: true,
                   name: true,
                   title: true,
                   color: true
@@ -204,6 +253,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           },
           requestor: {
             columns: {
+              id: true,
               name: true,
               title: true,
               color: true
@@ -211,6 +261,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           },
           recipient: {
             columns: {
+              id: true,
               name: true,
               title: true,
               color: true
@@ -235,9 +286,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .where(eq(shifts.id, request.shift.id));
       }
 
-      // Send notification
+      // Send notification with formatted dates
+      const formattedShift = {
+        ...request.shift,
+        startDate: request.shift.startDate instanceof Date ? request.shift.startDate.toISOString() : request.shift.startDate,
+        endDate: request.shift.endDate instanceof Date ? request.shift.endDate.toISOString() : request.shift.endDate,
+      };
+
       ws.broadcast(notify.shiftSwapResponded(
-        request.shift,
+        formattedShift,
         request.requestor,
         request.recipient,
         status as 'accepted' | 'rejected'
@@ -265,7 +322,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
       });
-      res.json(allShifts);
+
+      // Format dates in the response
+      const formattedShifts = allShifts.map(shift => ({
+        ...shift,
+        startDate: shift.startDate instanceof Date ? shift.startDate.toISOString() : shift.startDate,
+        endDate: shift.endDate instanceof Date ? shift.endDate.toISOString() : shift.endDate,
+      }));
+
+      res.json(formattedShifts);
     } catch (error) {
       console.error('Error fetching shifts:', error);
       res.status(500).json({ message: error instanceof Error ? error.message : 'Failed to fetch shifts' });

@@ -37,50 +37,96 @@ app.use((req, res, next) => {
   next();
 });
 
-// Enhanced error handling middleware
-app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
+// Global error handler
+const errorHandler = (err: Error, _req: Request, res: Response, _next: NextFunction) => {
   console.error('Error:', err);
+
+  if (res.headersSent) {
+    return _next(err);
+  }
+
   const status = err instanceof Error ? 500 : 400;
   const message = err instanceof Error ? err.message : "Bad Request";
 
-  if (!res.headersSent) {
-    res.status(status).json({ message });
-  }
-});
+  res.status(status).json({ 
+    error: true,
+    message,
+    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+  });
+};
 
 // Structured server initialization
 async function startServer() {
   try {
     // 1. Verify database connection first
-    await db.execute(sql`SELECT 1`);
-    log('Database connection verified');
+    try {
+      await db.execute(sql`SELECT 1`);
+      log('Database connection verified');
+    } catch (error) {
+      console.error('Database connection error:', error);
+      throw new Error('Failed to connect to database');
+    }
 
-    // 2. Setup authentication
-    await setupAuth(app);
-    log('Authentication setup complete');
+    // 2. Setup authentication if available
+    try {
+      await setupAuth(app);
+      log('Authentication setup complete');
+    } catch (error) {
+      console.error('Auth setup warning:', error);
+      log('Continuing without authentication...');
+    }
 
-    // 3. Create HTTP server and register routes
-    const server = await registerRoutes(app);
-    log('Routes registered');
+    // 3. Create HTTP server and register routes with error handling
+    let server;
+    try {
+      server = await registerRoutes(app);
+      log('Routes registered successfully');
+    } catch (error) {
+      console.error('Route registration error:', error);
+      throw new Error('Failed to register routes');
+    }
 
     // 4. Setup development or production mode
     if (app.get("env") === "development") {
-      await setupVite(app, server);
-      log('Vite development server setup complete');
+      try {
+        await setupVite(app, server);
+        log('Vite development server setup complete');
+      } catch (error) {
+        console.error('Vite setup error:', error);
+        throw new Error('Failed to setup Vite development server');
+      }
     } else {
-      serveStatic(app);
-      log('Static files setup complete');
+      try {
+        serveStatic(app);
+        log('Static files setup complete');
+      } catch (error) {
+        console.error('Static files setup error:', error);
+        throw new Error('Failed to setup static files');
+      }
     }
 
+    // Add error handler after all middleware
+    app.use(errorHandler);
+
     // 5. Start server with enhanced error handling
-    const PORT = process.env.PORT || 5000;
-    server.listen(PORT, "0.0.0.0", () => {
-      log(`Server started successfully on port ${PORT}`);
+    const PORT = parseInt(process.env.PORT || "5000", 10);
+    const HOST = "0.0.0.0";
+
+    return new Promise<void>((resolve, reject) => {
+      server!.listen(PORT, HOST)
+        .once('listening', () => {
+          log(`Server started successfully on port ${PORT}`);
+          resolve();
+        })
+        .once('error', (error: NodeJS.ErrnoException) => {
+          console.error('Server startup error:', error);
+          reject(error);
+        });
     });
 
   } catch (error) {
     console.error('Server initialization error:', error);
-    process.exit(1);
+    throw error;
   }
 }
 

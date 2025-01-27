@@ -7,6 +7,7 @@ import { TimeOffAdmin } from "@/components/time-off/TimeOffAdmin";
 import { Settings } from "@/pages/Settings";
 import { UserManagement } from "@/pages/admin/UserManagement";
 import { ScheduleManagement } from "@/pages/admin/ScheduleManagement";
+import { IntegrationManagement } from "@/pages/admin/IntegrationManagement";
 import AnalyticsPage from "@/pages/AnalyticsPage";
 import Chat from "@/pages/chat";
 import { AlertCircle, Download } from "lucide-react";
@@ -19,7 +20,7 @@ import { ChatDialog } from "@/components/scheduler/ChatDialog";
 import { PersonalChatDialog } from "@/components/scheduler/PersonalChatDialog";
 import { useSyncUsers } from './hooks/use-sync-users';
 import { updateUsers } from './lib/constants';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, type PropsWithChildren, type ErrorInfo } from 'react';
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 
@@ -130,36 +131,52 @@ function InstallPWA() {
   );
 }
 
-//Added ErrorBoundary Component
-function ErrorBoundary({ children }) {
-  const [error, setError] = React.useState(null);
-  const [errorInfo, setErrorInfo] = React.useState(null);
+// Added ErrorBoundary Component with proper typing
+interface ErrorBoundaryProps extends PropsWithChildren {
+  fallback?: React.ReactNode;
+}
 
-  React.useEffect(() => {
-    if (error) {
-      console.error("Uncaught error:", error, errorInfo);
-    }
-  }, [error, errorInfo]);
+interface ErrorBoundaryState {
+  error: Error | null;
+  errorInfo: ErrorInfo | null;
+}
 
-  const handleError = (error, errorInfo) => {
-    setError(error);
-    setErrorInfo(errorInfo);
-  };
-
-  if (error) {
-    return (
-      <div>
-        <h2>Something went wrong.</h2>
-        <details style={{ whiteSpace: 'pre-wrap' }}>
-          {error.message}
-          <br/>
-          {error.stack}
-        </details>
-      </div>
-    );
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { error: null, errorInfo: null };
   }
 
-  return children;
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { error, errorInfo: null };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error("Uncaught error:", error, errorInfo);
+    this.setState({
+      error,
+      errorInfo
+    });
+  }
+
+  render() {
+    if (this.state.error) {
+      return this.props.fallback || (
+        <div className="p-4">
+          <h2 className="text-lg font-bold text-red-500">Something went wrong</h2>
+          <details className="mt-2">
+            <summary className="cursor-pointer text-sm">Error details</summary>
+            <pre className="mt-2 whitespace-pre-wrap text-sm">
+              {this.state.error.message}
+              {this.state.errorInfo?.componentStack}
+            </pre>
+          </details>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
 }
 
 function App() {
@@ -197,6 +214,7 @@ function App() {
                 <Route path="/preferences" component={Settings} />
                 <Route path="/admin/users" component={UserManagement} />
                 <Route path="/admin/schedule" component={ScheduleManagement} />
+                <Route path="/admin/integrations" component={IntegrationManagement} />
                 <Route path="/analytics" component={AnalyticsPage} />
                 <Route component={NotFound} />
               </Switch>
@@ -206,7 +224,7 @@ function App() {
               {location.pathname.includes('provider') ? (
                 <PersonalChatDialog pathname={location.pathname} />
               ) : (
-                <ChatDialog 
+                <ChatDialog
                   currentPage={location.pathname.split('/')[1] || 'dashboard'}
                   pageContext={{
                     shifts: shifts || [],

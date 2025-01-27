@@ -5,6 +5,7 @@ import { setupAuth } from "./auth";
 import { db } from "@db";
 import { sql } from "drizzle-orm";
 import { createServer, type Server } from "http";
+import { Socket } from "net";
 
 const app = express();
 app.use(express.json());
@@ -40,19 +41,79 @@ app.use((req, res, next) => {
   next();
 });
 
+// Simple port check
+async function ensurePortAvailable(port: number): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const tester = new Socket();
+
+    tester.once('error', () => {
+      tester.destroy();
+      resolve(); // Port is available
+    });
+
+    tester.once('connect', () => {
+      tester.destroy();
+      reject(new Error(`Port ${port} is in use`));
+    });
+
+    tester.connect(port, '0.0.0.0');
+
+    // Timeout after 1 second
+    setTimeout(() => {
+      tester.destroy();
+      resolve();
+    }, 1000);
+  });
+}
+
 (async () => {
   let httpServer: Server | undefined;
 
+  // Enhanced cleanup function
   const cleanup = async () => {
     if (httpServer) {
+      log('Starting server cleanup...');
+
+      // Close the server and wait for completion
       await new Promise<void>((resolve) => {
-        httpServer?.close(() => resolve());
+        if (!httpServer?.listening) {
+          resolve();
+          return;
+        }
+
+        httpServer.close((err) => {
+          if (err) {
+            console.error('Error closing server:', err);
+          }
+          log('Server closed');
+          resolve();
+        });
+
+        // Force close remaining connections
+        httpServer.emit('close');
       });
+
+      // Wait for a moment to ensure cleanup
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      log('Cleanup completed');
     }
   };
 
   try {
-    // 1. Verify database connection first
+    // Setup process termination handlers first
+    process.once('SIGTERM', async () => {
+      log('Received SIGTERM. Starting graceful shutdown...');
+      await cleanup();
+      process.exit(0);
+    });
+
+    process.once('SIGINT', async () => {
+      log('Received SIGINT. Starting graceful shutdown...');
+      await cleanup();
+      process.exit(0);
+    });
+
+    // 1. Verify database connection
     try {
       await db.execute(sql`SELECT 1`);
       log('Database connection verified');
@@ -61,7 +122,7 @@ app.use((req, res, next) => {
       throw new Error('Failed to connect to database');
     }
 
-    // 2. Setup authentication if available
+    // 2. Setup authentication
     try {
       await setupAuth(app);
       log('Authentication setup complete');
@@ -70,10 +131,10 @@ app.use((req, res, next) => {
       log('Continuing without authentication...');
     }
 
-    // 3. Create HTTP server first
+    // 3. Create HTTP server
     httpServer = createServer(app);
 
-    // 4. Setup routes and WebSocket with the HTTP server
+    // 4. Register routes and WebSocket
     await registerRoutes(app, httpServer);
     log('Routes registered successfully');
 
@@ -95,52 +156,25 @@ app.use((req, res, next) => {
     });
 
     // 7. Start server
-    const PORT = 5000;
+    const PORT = 3000; // Changed to use port 3000 by default
 
-    // Attempt to start the server with retries
-    const startServer = async (retries = 3, delay = 1000): Promise<void> => {
-      try {
-        await new Promise<void>((resolve, reject) => {
-          if (!httpServer) {
-            reject(new Error('HTTP server not initialized'));
-            return;
-          }
+    // Ensure port is available before starting
+    await ensurePortAvailable(PORT);
 
-          httpServer.listen(PORT, "0.0.0.0", () => {
-            log(`Server started on port ${PORT}`);
-            resolve();
-          }).on('error', (error: NodeJS.ErrnoException) => {
-            if (error.code === 'EADDRINUSE') {
-              reject(new Error(`Port ${PORT} is already in use`));
-            } else {
-              reject(error);
-            }
-          });
-        });
-      } catch (error) {
-        if (retries > 0 && error instanceof Error && error.message.includes('EADDRINUSE')) {
-          log(`Port ${PORT} is busy, retrying in ${delay}ms... (${retries} retries left)`);
-          await new Promise(resolve => setTimeout(resolve, delay));
-          return startServer(retries - 1, delay * 2);
-        }
-        throw error;
+    // Start the server
+    await new Promise<void>((resolve, reject) => {
+      if (!httpServer) {
+        reject(new Error('HTTP server not initialized'));
+        return;
       }
-    };
 
-    // Handle process termination signals
-    process.on('SIGTERM', async () => {
-      log('Received SIGTERM. Starting graceful shutdown...');
-      await cleanup();
-      process.exit(0);
+      httpServer.listen(PORT, "0.0.0.0", () => {
+        log(`Server started successfully on port ${PORT}`);
+        resolve();
+      }).on('error', (error: NodeJS.ErrnoException) => {
+        reject(error);
+      });
     });
-
-    process.on('SIGINT', async () => {
-      log('Received SIGINT. Starting graceful shutdown...');
-      await cleanup();
-      process.exit(0);
-    });
-
-    await startServer();
 
   } catch (error) {
     console.error('Server initialization error:', error);

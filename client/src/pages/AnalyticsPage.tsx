@@ -6,16 +6,37 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
+interface WorkloadData {
+  name: string;
+  actualDays: number;
+  targetDays: number;
+  utilization: number;
+}
+
+interface DistributionData {
+  type: string;
+  totalDays: number;
+  shiftCount: number;
+  avgShiftLength: number;
+}
+
+interface FatigueData {
+  name: string;
+  maxAllowed: number;
+  currentConsecutive: number;
+  fatigueRisk: 'low' | 'medium' | 'high';
+}
+
 export default function AnalyticsPage() {
-  const { data: workloadData, isLoading: isLoadingWorkload, error: workloadError } = useQuery({
+  const { data: workloadData, isLoading: isLoadingWorkload, error: workloadError } = useQuery<WorkloadData[]>({
     queryKey: ["/api/analytics/workload"],
   });
 
-  const { data: distributionData, isLoading: isLoadingDistribution, error: distributionError } = useQuery({
+  const { data: distributionData, isLoading: isLoadingDistribution, error: distributionError } = useQuery<DistributionData[]>({
     queryKey: ["/api/analytics/distribution"],
   });
 
-  const { data: fatigueData, isLoading: isLoadingFatigue, error: fatigueError } = useQuery({
+  const { data: fatigueData, isLoading: isLoadingFatigue, error: fatigueError } = useQuery<FatigueData[]>({
     queryKey: ["/api/analytics/fatigue"],
   });
 
@@ -97,9 +118,9 @@ export default function AnalyticsPage() {
                     nameKey="type"
                     cx="50%"
                     cy="50%"
-                    label
+                    label={(entry) => entry.type}
                   >
-                    {distributionData.map((_entry: any, index: number) => (
+                    {distributionData?.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
@@ -131,10 +152,17 @@ export default function AnalyticsPage() {
                   <Tooltip />
                   <Bar
                     dataKey="currentConsecutive"
-                    fill={(entry) => 
-                      entry.fatigueRisk === 'high' ? '#ef4444' :
-                      entry.fatigueRisk === 'medium' ? '#f97316' : '#22c55e'
-                    }
+                    fill="#8884d8"
+                    stroke={(entry: FatigueData) => {
+                      switch (entry.fatigueRisk) {
+                        case 'high':
+                          return '#ef4444';
+                        case 'medium':
+                          return '#f97316';
+                        default:
+                          return '#22c55e';
+                      }
+                    }}
                   />
                 </BarChart>
               </ResponsiveContainer>

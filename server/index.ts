@@ -30,6 +30,11 @@ app.use((req, res, next) => {
       if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
+
+      if (logLine.length > 80) {
+        logLine = logLine.slice(0, 79) + "…";
+      }
+
       log(logLine);
     }
   });
@@ -54,33 +59,6 @@ const errorHandler = (err: Error, _req: Request, res: Response, _next: NextFunct
     stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
   });
 };
-
-// Port retry configuration
-const PORT_RETRY = {
-  START: 5000,
-  MAX_RETRIES: 3,
-  INCREMENT: 1
-};
-
-// Function to try starting server on a port
-async function tryStartServer(port: number, host: string, server: any): Promise<boolean> {
-  return new Promise((resolve) => {
-    const onError = (error: any) => {
-      if (error.code === 'EADDRINUSE') {
-        server.removeListener('error', onError);
-        resolve(false);
-      }
-    };
-
-    server.once('error', onError);
-
-    server.listen(port, host, () => {
-      server.removeListener('error', onError);
-      log(`Server started successfully on port ${port}`);
-      resolve(true);
-    });
-  });
-}
 
 // Structured server initialization
 async function startServer() {
@@ -129,29 +107,11 @@ async function startServer() {
     // Add error handler after all middleware
     app.use(errorHandler);
 
-    // 5. Start server with port retry logic
-    let currentPort = PORT_RETRY.START;
-    let retryCount = 0;
-    let serverStarted = false;
-
-    const HOST = "0.0.0.0";
-
-    while (!serverStarted && retryCount < PORT_RETRY.MAX_RETRIES) {
-      log(`Attempting to start server on port ${currentPort}...`);
-
-      // Try to start the server
-      serverStarted = await tryStartServer(currentPort, HOST, server);
-
-      if (!serverStarted) {
-        retryCount++;
-        if (retryCount < PORT_RETRY.MAX_RETRIES) {
-          currentPort += PORT_RETRY.INCREMENT;
-          log(`Port ${currentPort - PORT_RETRY.INCREMENT} in use, trying port ${currentPort}...`);
-        } else {
-          throw new Error(`Failed to find available port after ${PORT_RETRY.MAX_RETRIES} attempts`);
-        }
-      }
-    }
+    // 5. Start the server on the designated port
+    const PORT = 5000;
+    server.listen(PORT, "0.0.0.0", () => {
+      log(`Server started successfully on port ${PORT}`);
+    });
 
     // Graceful shutdown handler
     const shutdown = async (signal: string) => {
@@ -160,19 +120,6 @@ async function startServer() {
         if (wsCleanup) {
           await wsCleanup();
         }
-        if (server?.listening) {
-          await new Promise<void>((resolve, reject) => {
-            server.close((err?: Error) => {
-              if (err) {
-                console.error('Error closing server:', err);
-                reject(err);
-                return;
-              }
-              resolve();
-            });
-          });
-        }
-        log('Server shutdown complete');
         process.exit(0);
       } catch (error) {
         console.error('Error during shutdown:', error);

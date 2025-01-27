@@ -33,6 +33,27 @@ export function ShiftDialog({ open, onOpenChange, startDate, endDate }: ShiftDia
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Move useQuery to component level
+  const { data: userPrefs } = useQuery({
+    queryKey: ["/api/user-preferences", userId],
+    queryFn: async () => {
+      const res = await fetch(`/api/user-preferences/${userId}`);
+      if (!res.ok) throw new Error("Failed to fetch preferences");
+      return res.json();
+    },
+    enabled: !!userId // Only fetch when userId is set
+  });
+
+  // Get existing shifts for conflict detection
+  const { data: existingShifts = [] } = useQuery({
+    queryKey: ["/api/shifts"],
+    queryFn: async () => {
+      const res = await fetch("/api/shifts");
+      if (!res.ok) throw new Error("Failed to fetch shifts");
+      return res.json();
+    }
+  });
+
   const { mutate: createShift } = useMutation({
     mutationFn: async (data: Partial<Shift>) => {
       const res = await fetch("/api/shifts", {
@@ -101,30 +122,26 @@ export function ShiftDialog({ open, onOpenChange, startDate, endDate }: ShiftDia
       return;
     }
 
-    // Get existing shifts for conflict detection
-    const existingShifts = queryClient.getQueryData<Shift[]>(["/api/shifts"]) || [];
-
-    const newShift = {
+    const newShift: Partial<Shift> = {
       userId: parseInt(userId),
       startDate: format(startDate, 'yyyy-MM-dd'),
       endDate: format(endDate, 'yyyy-MM-dd'),
-      status: 'confirmed',
+      status: 'confirmed' as const,
       source: 'manual',
       schedulingNotes: {}
     };
 
-    const { data: userPrefs } = useQuery({
-      queryKey: ["/api/user-preferences", newShift.userId],
-      queryFn: async () => {
-        const res = await fetch(`/api/user-preferences/${newShift.userId}`);
-        if (!res.ok) throw new Error("Failed to fetch preferences");
-        return res.json();
-      },
-      enabled: !!newShift.userId
-    });
-
     // Check for schedule rule violations
-    const conflicts = detectShiftConflicts(newShift, existingShifts, userPrefs);
+    const conflicts = detectShiftConflicts(
+      newShift as Shift, 
+      existingShifts, 
+      userPrefs,
+      {
+        preferredStrategy: 'minimize-changes',
+        allowSplitShifts: false,
+        maxShiftAdjustment: 2
+      }
+    );
 
     if (conflicts.length > 0) {
       toast({

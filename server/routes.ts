@@ -3,12 +3,12 @@ import { createServer, type Server } from "http";
 import { db } from '../db';
 import { users, shifts, swapRequests } from '@db/schema';
 import { and, eq, sql, or } from 'drizzle-orm';
-import { setupWebSocket, notify, type WebSocketServer } from './websocket';
+import { setupWebSocket, notify, type WebSocketInterface } from './websocket';
 import { log } from './vite';
 
-export async function registerRoutes(app: Express): Promise<Server> {
+export async function registerRoutes(app: Express): Promise<{ server: Server, cleanup?: () => Promise<void> }> {
   const server = createServer(app);
-  let ws: WebSocketServer | undefined;
+  let ws: WebSocketInterface | undefined;
 
   try {
     ws = await setupWebSocket(server);
@@ -75,8 +75,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...req,
         shift: req.shift ? {
           ...req.shift,
-          startDate: req.shift.startDate.toISOString(),
-          endDate: req.shift.endDate.toISOString(),
+          startDate: new Date(req.shift.startDate).toISOString(),
+          endDate: new Date(req.shift.endDate).toISOString(),
         } : null
       }));
 
@@ -161,8 +161,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Format dates and prepare notification payload
       const notificationShift = {
         ...shift,
-        startDate: shift.startDate.toISOString(),
-        endDate: shift.endDate.toISOString(),
+        startDate: new Date(shift.startDate).toISOString(),
+        endDate: new Date(shift.endDate).toISOString(),
       };
 
       // Send notification only if WebSocket is available
@@ -221,8 +221,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...completeSwapRequest,
         shift: {
           ...completeSwapRequest.shift,
-          startDate: completeSwapRequest.shift.startDate.toISOString(),
-          endDate: completeSwapRequest.shift.endDate.toISOString(),
+          startDate: new Date(completeSwapRequest.shift.startDate).toISOString(),
+          endDate: new Date(completeSwapRequest.shift.endDate).toISOString(),
         }
       };
 
@@ -299,8 +299,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Send notification with formatted dates
       const formattedShift = {
         ...request.shift,
-        startDate: request.shift.startDate.toISOString(),
-        endDate: request.shift.endDate.toISOString(),
+        startDate: new Date(request.shift.startDate).toISOString(),
+        endDate: new Date(request.shift.endDate).toISOString(),
       };
 
       if (ws) {
@@ -344,8 +344,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Format dates in the response
       const formattedShifts = allShifts.map(shift => ({
         ...shift,
-        startDate: shift.startDate.toISOString(),
-        endDate: shift.endDate.toISOString(),
+        startDate: new Date(shift.startDate).toISOString(),
+        endDate: new Date(shift.endDate).toISOString(),
       }));
 
       res.json(formattedShifts);
@@ -366,5 +366,5 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  return server;
+  return { server, cleanup: ws?.cleanup };
 }

@@ -1,5 +1,5 @@
 import type { Server } from "http";
-import ws from "ws";
+import { WebSocketServer, WebSocket } from "ws";
 import { log } from "./vite";
 
 // Type definitions for notifications
@@ -23,74 +23,102 @@ interface NotificationMessage {
   timestamp: string;
 }
 
-interface ChatClient extends ws {
+interface ChatClient extends WebSocket {
   userId?: number;
   isAlive: boolean;
   lastActivity: number;
 }
 
-export interface WebSocketServer {
+export interface WebSocketInterface {
   broadcast: (message: NotificationMessage) => void;
+  cleanup: () => Promise<void>;
 }
 
-export async function setupWebSocket(server: Server): Promise<WebSocketServer> {
-  return new Promise<WebSocketServer>((resolve, reject) => {
+export async function setupWebSocket(server: Server): Promise<WebSocketInterface> {
+  return new Promise<WebSocketInterface>((resolve, reject) => {
     try {
-      const wss = new ws.WebSocketServer({ 
+      log('Initializing WebSocket server...');
+
+      const wss = new WebSocketServer({ 
         server,
         path: '/ws',
-        clientTracking: true
+        clientTracking: true,
+        perMessageDeflate: false // Disable per-message deflate to avoid memory leaks
       });
 
       const clients = new Set<ChatClient>();
+      let cleanupInterval: NodeJS.Timeout;
 
       // Connection cleanup interval
-      const cleanup = setInterval(() => {
-        try {
-          const now = Date.now();
-          clients.forEach(client => {
-            if (!client.isAlive || now - client.lastActivity > 60000) {
-              client.terminate();
-              clients.delete(client);
-              return;
-            }
-            client.isAlive = false;
-            client.ping();
-          });
-        } catch (error) {
-          console.error('WebSocket cleanup error:', error);
-        }
-      }, 30000);
+      const startCleanup = () => {
+        cleanupInterval = setInterval(() => {
+          try {
+            const now = Date.now();
+            clients.forEach(client => {
+              if (!client.isAlive || now - client.lastActivity > 60000) {
+                client.terminate();
+                clients.delete(client);
+                return;
+              }
+              client.ping();
+            });
+          } catch (error) {
+            console.error('WebSocket cleanup error:', error);
+          }
+        }, 30000);
+      };
+
+      const cleanup = async () => {
+        clearInterval(cleanupInterval);
+        const closePromises = Array.from(clients).map(client => 
+          new Promise<void>(resolve => {
+            client.once('close', () => resolve());
+            client.terminate();
+          })
+        );
+        await Promise.all(closePromises);
+        clients.clear();
+        wss.close();
+      };
 
       wss.on('error', (error: Error) => {
         console.error('WebSocket server error:', error);
-        clearInterval(cleanup);
+        cleanup().catch(console.error);
         reject(error);
       });
 
       wss.on('close', () => {
-        clearInterval(cleanup);
+        clearInterval(cleanupInterval);
       });
 
-      // Create broadcast function
+      // Create broadcast function with error handling
       const broadcast = (message: NotificationMessage) => {
         const messageStr = JSON.stringify(message);
         log(`Broadcasting message: ${message.type}`);
 
+        const deadClients = new Set<ChatClient>();
+
         clients.forEach(client => {
-          if (client.readyState === ws.OPEN) {
+          if (client.readyState === WebSocket.OPEN) {
             try {
               client.send(messageStr);
             } catch (error) {
               console.error('Broadcast error:', error);
-              client.terminate();
-              clients.delete(client);
+              deadClients.add(client);
             }
+          } else {
+            deadClients.add(client);
           }
+        });
+
+        // Cleanup dead clients after broadcast
+        deadClients.forEach(client => {
+          client.terminate();
+          clients.delete(client);
         });
       };
 
-      wss.on('connection', (wsClient: ws, req) => {
+      wss.on('connection', (wsClient: WebSocket, req) => {
         try {
           // Ignore vite-hmr connections
           if (req.headers['sec-websocket-protocol']?.includes('vite-hmr')) {
@@ -146,13 +174,15 @@ export async function setupWebSocket(server: Server): Promise<WebSocketServer> {
             timestamp: new Date().toISOString(),
             message: 'Connected to ICU Schedule notifications'
           }));
+
         } catch (error) {
           console.error('WebSocket connection handler error:', error);
         }
       });
 
-      // Resolve with broadcast function
-      resolve({ broadcast });
+      startCleanup();
+      log('WebSocket server setup completed');
+      resolve({ broadcast, cleanup });
 
     } catch (error) {
       console.error('WebSocket setup error:', error);

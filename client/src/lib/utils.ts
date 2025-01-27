@@ -1,6 +1,6 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
-import type { Shift, TimeOffRequest, Holiday, User } from "./types"
+import type { Shift, TimeOffRequest, Holiday, User, UserPreferences } from "./types"
 import { USERS } from "./constants"
 import { isWithinInterval, addDays, startOfWeek, endOfWeek, isSameWeek, isBefore, isAfter, differenceInDays, isSameDay } from "date-fns"
 
@@ -8,21 +8,40 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-import type { UserPreferences } from './types';
+export interface ConflictResolutionStrategy {
+  type: 'swap' | 'adjust' | 'split' | 'reassign';
+  score: number;
+  description: string;
+  changes: {
+    shiftId: number;
+    action: 'modify' | 'delete' | 'create';
+    updates?: Partial<Shift>;
+  }[];
+}
+
+interface AutoResolutionConfig {
+  preferredStrategy: 'minimize-changes' | 'maintain-coverage' | 'balance-workload';
+  allowSplitShifts: boolean;
+  maxShiftAdjustment: number; // in days
+  preferredUsers?: number[]; // user IDs to prefer for reassignment
+}
 
 export function detectShiftConflicts(
   shift: Shift | null | undefined, 
   allShifts: Shift[], 
-  userPreferences?: UserPreferences
+  userPreferences?: UserPreferences,
+  config?: AutoResolutionConfig
 ): {
   type: 'overlap' | 'consecutive' | 'maxDays' | 'preference';
   message: string;
   conflictingShift?: Shift;
+  resolutionStrategies?: ConflictResolutionStrategy[];
 }[] {
   const conflicts: {
-    type: 'overlap' | 'consecutive' | 'maxDays';
+    type: 'overlap' | 'consecutive' | 'maxDays' | 'preference';
     message: string;
     conflictingShift?: Shift;
+    resolutionStrategies?: ConflictResolutionStrategy[];
   }[] = [];
 
   // Early return if shift is null/undefined or missing required properties
@@ -53,12 +72,24 @@ export function detectShiftConflicts(
     const overlaps = (
       isBefore(shiftStart, existingEnd) && isAfter(shiftEnd, existingStart)
     );
-    
+
     if (overlaps) {
+      const resolutionStrategies = generateResolutionStrategies(
+        shift,
+        existingShift,
+        allShifts,
+        config || {
+          preferredStrategy: 'minimize-changes',
+          allowSplitShifts: false,
+          maxShiftAdjustment: 2
+        }
+      );
+
       conflicts.push({
         type: 'overlap',
         message: `Shift overlaps with another ${user.userType} shift`,
         conflictingShift: existingShift,
+        resolutionStrategies
       });
     }
   });
@@ -118,6 +149,135 @@ export function detectShiftConflicts(
   }
 
   return conflicts;
+}
+
+function generateResolutionStrategies(
+  newShift: Shift,
+  conflictingShift: Shift,
+  allShifts: Shift[],
+  config: AutoResolutionConfig
+): ConflictResolutionStrategy[] {
+  const strategies: ConflictResolutionStrategy[] = [];
+
+  // Strategy 1: Swap shifts between users
+  if (config.preferredUsers?.length) {
+    const availableUsers = config.preferredUsers.filter(userId => 
+      !hasConflictingShift(userId, newShift.startDate, newShift.endDate, allShifts)
+    );
+
+    if (availableUsers.length) {
+      strategies.push({
+        type: 'swap',
+        score: 0.9,
+        description: 'Swap shift with a preferred available user',
+        changes: [{
+          shiftId: newShift.id,
+          action: 'modify',
+          updates: { userId: availableUsers[0] }
+        }]
+      });
+    }
+  }
+
+  // Strategy 2: Adjust shift timing
+  if (config.maxShiftAdjustment > 0) {
+    const adjustedStart = addDays(new Date(conflictingShift.endDate), 1);
+    if (differenceInDays(adjustedStart, new Date(newShift.startDate)) <= config.maxShiftAdjustment) {
+      strategies.push({
+        type: 'adjust',
+        score: 0.8,
+        description: 'Adjust shift dates to avoid overlap',
+        changes: [{
+          shiftId: newShift.id,
+          action: 'modify',
+          updates: {
+            startDate: adjustedStart.toISOString(),
+            endDate: addDays(adjustedStart, 
+              differenceInDays(new Date(newShift.endDate), new Date(newShift.startDate))
+            ).toISOString()
+          }
+        }]
+      });
+    }
+  }
+
+  // Strategy 3: Split shift (if allowed)
+  if (config.allowSplitShifts && 
+      differenceInDays(new Date(newShift.endDate), new Date(newShift.startDate)) > 2) {
+    strategies.push({
+      type: 'split',
+      score: 0.6,
+      description: 'Split shift into two non-overlapping periods',
+      changes: [
+        {
+          shiftId: newShift.id,
+          action: 'modify',
+          updates: {
+            endDate: new Date(conflictingShift.startDate).toISOString()
+          }
+        },
+        {
+          shiftId: -1, // New shift will be created
+          action: 'create',
+          updates: {
+            userId: newShift.userId,
+            startDate: new Date(conflictingShift.endDate).toISOString(),
+            endDate: newShift.endDate,
+            status: newShift.status,
+            source: 'split'
+          }
+        }
+      ]
+    });
+  }
+
+  // Strategy 4: Reassign both shifts to optimize coverage
+  if (config.preferredStrategy === 'maintain-coverage') {
+    const availableUsers = USERS.filter(u => 
+      u.id !== newShift.userId && 
+      u.id !== conflictingShift.userId &&
+      !hasConflictingShift(u.id, newShift.startDate, newShift.endDate, allShifts)
+    );
+
+    if (availableUsers.length >= 2) {
+      strategies.push({
+        type: 'reassign',
+        score: 0.7,
+        description: 'Reassign both shifts to available users',
+        changes: [
+          {
+            shiftId: newShift.id,
+            action: 'modify',
+            updates: { userId: availableUsers[0].id }
+          },
+          {
+            shiftId: conflictingShift.id,
+            action: 'modify',
+            updates: { userId: availableUsers[1].id }
+          }
+        ]
+      });
+    }
+  }
+
+  // Sort strategies by score in descending order
+  return strategies.sort((a, b) => b.score - a.score);
+}
+
+function hasConflictingShift(
+  userId: number,
+  startDate: string,
+  endDate: string,
+  allShifts: Shift[]
+): boolean {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+
+  return allShifts.some(shift => 
+    shift.userId === userId &&
+    (isWithinInterval(start, { start: new Date(shift.startDate), end: new Date(shift.endDate) }) ||
+     isWithinInterval(end, { start: new Date(shift.startDate), end: new Date(shift.endDate) }))
+  );
 }
 
 interface SwapRecommendation {

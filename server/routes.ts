@@ -6,6 +6,14 @@ import { and, eq, sql, or } from 'drizzle-orm';
 import { setupWebSocket, notify, type WebSocketInterface } from './websocket';
 import { log } from './vite';
 
+function getShiftDuration(shift: any): number {
+  const startDate = new Date(shift.startDate);
+  const endDate = new Date(shift.endDate);
+  const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  return diffDays;
+}
+
 export async function registerRoutes(app: Express): Promise<{ server: Server, cleanup?: () => Promise<void> }> {
   const server = createServer(app);
   let ws: WebSocketInterface | undefined;
@@ -25,7 +33,7 @@ export async function registerRoutes(app: Express): Promise<{ server: Server, cl
       log(`Fetching swap requests${userId ? ` for user ${userId}` : ''}`);
 
       const requests = await db.query.swapRequests.findMany({
-        where: userId ? 
+        where: userId ?
           or(
             eq(swapRequests.requestorId, parseInt(userId as string)),
             eq(swapRequests.recipientId, parseInt(userId as string))
@@ -363,6 +371,177 @@ export async function registerRoutes(app: Express): Promise<{ server: Server, cl
     } catch (error) {
       console.error('Error fetching users:', error);
       res.status(500).json({ message: error instanceof Error ? error.message : 'Failed to fetch users' });
+    }
+  });
+
+  // Analytics Routes
+  app.get("/api/analytics/workload", async (_req, res) => {
+    try {
+      const workloadData = await db.query.shifts.findMany({
+        with: {
+          user: {
+            columns: {
+              id: true,
+              name: true,
+              targetDays: true,
+              userType: true,
+            }
+          }
+        }
+      });
+
+      // Calculate workload metrics
+      const userWorkloads = workloadData.reduce((acc, shift) => {
+        if (!shift.user) return acc;
+
+        const days = getShiftDuration(shift);
+        const userId = shift.user.id;
+
+        if (!acc[userId]) {
+          acc[userId] = {
+            name: shift.user.name,
+            actualDays: 0,
+            targetDays: shift.user.targetDays,
+            utilization: 0
+          };
+        }
+
+        acc[userId].actualDays += days;
+        acc[userId].utilization = (acc[userId].actualDays / shift.user.targetDays) * 100;
+
+        return acc;
+      }, {} as Record<number, {
+        name: string;
+        actualDays: number;
+        targetDays: number;
+        utilization: number;
+      }>);
+
+      res.json(Object.values(userWorkloads));
+    } catch (error) {
+      console.error('Error fetching workload analytics:', error);
+      res.status(500).json({ message: error instanceof Error ? error.message : 'Failed to fetch workload analytics' });
+    }
+  });
+
+  app.get("/api/analytics/distribution", async (_req, res) => {
+    try {
+      const shiftData = await db.query.shifts.findMany({
+        with: {
+          user: {
+            columns: {
+              id: true,
+              name: true,
+              userType: true,
+            }
+          }
+        }
+      });
+
+      // Calculate distribution metrics by user type
+      const distribution = shiftData.reduce((acc, shift) => {
+        if (!shift.user) return acc;
+
+        const userType = shift.user.userType;
+        const days = getShiftDuration(shift);
+
+        if (!acc[userType]) {
+          acc[userType] = {
+            totalDays: 0,
+            shiftCount: 0,
+            avgShiftLength: 0
+          };
+        }
+
+        acc[userType].totalDays += days;
+        acc[userType].shiftCount += 1;
+        acc[userType].avgShiftLength = acc[userType].totalDays / acc[userType].shiftCount;
+
+        return acc;
+      }, {} as Record<string, {
+        totalDays: number;
+        shiftCount: number;
+        avgShiftLength: number;
+      }>);
+
+      res.json(Object.entries(distribution).map(([type, metrics]) => ({
+        type,
+        ...metrics
+      })));
+    } catch (error) {
+      console.error('Error fetching distribution analytics:', error);
+      res.status(500).json({ message: error instanceof Error ? error.message : 'Failed to fetch distribution analytics' });
+    }
+  });
+
+  app.get("/api/analytics/fatigue", async (_req, res) => {
+    try {
+      const shifts = await db.query.shifts.findMany({
+        with: {
+          user: {
+            columns: {
+              id: true,
+              name: true,
+              maxConsecutiveWeeks: true,
+            }
+          }
+        },
+        orderBy: (shifts, { asc }) => [asc(shifts.startDate)]
+      });
+
+      // Calculate consecutive weeks and fatigue risk
+      const userConsecutiveWeeks = shifts.reduce((acc, shift) => {
+        if (!shift.user) return acc;
+
+        const userId = shift.user.id;
+        const weekStart = new Date(shift.startDate);
+        weekStart.setHours(0, 0, 0, 0);
+
+        if (!acc[userId]) {
+          acc[userId] = {
+            name: shift.user.name,
+            maxAllowed: shift.user.maxConsecutiveWeeks,
+            currentConsecutive: 1,
+            fatigueRisk: 'low'
+          };
+        } else {
+          // Check if this shift starts in the next consecutive week
+          const lastShift = shifts.find(s =>
+            s.userId === userId &&
+            new Date(s.endDate) < weekStart
+          );
+
+          if (lastShift) {
+            const weekDiff = Math.round(
+              (weekStart.getTime() - new Date(lastShift.endDate).getTime()) /
+              (7 * 24 * 60 * 60 * 1000)
+            );
+
+            if (weekDiff <= 1) {
+              acc[userId].currentConsecutive += 1;
+            } else {
+              acc[userId].currentConsecutive = 1;
+            }
+          }
+
+          // Calculate fatigue risk
+          const riskRatio = acc[userId].currentConsecutive / acc[userId].maxAllowed;
+          acc[userId].fatigueRisk = riskRatio >= 1 ? 'high' :
+            riskRatio >= 0.7 ? 'medium' : 'low';
+        }
+
+        return acc;
+      }, {} as Record<number, {
+        name: string;
+        maxAllowed: number;
+        currentConsecutive: number;
+        fatigueRisk: 'low' | 'medium' | 'high';
+      }>);
+
+      res.json(Object.values(userConsecutiveWeeks));
+    } catch (error) {
+      console.error('Error fetching fatigue analytics:', error);
+      res.status(500).json({ message: error instanceof Error ? error.message : 'Failed to fetch fatigue analytics' });
     }
   });
 

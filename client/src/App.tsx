@@ -7,7 +7,7 @@ import { TimeOffAdmin } from "@/components/time-off/TimeOffAdmin";
 import { Settings } from "@/pages/Settings";
 import { UserManagement } from "@/pages/admin/UserManagement";
 import { ScheduleManagement } from "@/pages/admin/ScheduleManagement";
-import { Analytics } from "@/pages/Analytics";
+import AnalyticsPage from "@/pages/AnalyticsPage";
 import Chat from "@/pages/chat";
 import { AlertCircle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -54,7 +54,6 @@ function ErrorBoundary({ children }) {
   return children;
 }
 
-
 function App() {
   const { users } = useSyncUsers();
 
@@ -90,7 +89,7 @@ function App() {
                 <Route path="/preferences" component={Settings} />
                 <Route path="/admin/users" component={UserManagement} />
                 <Route path="/admin/schedule" component={ScheduleManagement} />
-                <Route path="/analytics" component={Analytics} />
+                <Route path="/analytics" component={AnalyticsPage} />
                 <Route component={NotFound} />
               </Switch>
             </main>

@@ -9,7 +9,7 @@ import { UserManagement } from "@/pages/admin/UserManagement";
 import { ScheduleManagement } from "@/pages/admin/ScheduleManagement";
 import AnalyticsPage from "@/pages/AnalyticsPage";
 import Chat from "@/pages/chat";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, Download } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { BreadcrumbNavigation } from "@/components/layout/BreadcrumbNavigation";
@@ -19,7 +19,67 @@ import { ChatDialog } from "@/components/scheduler/ChatDialog";
 import { PersonalChatDialog } from "@/components/scheduler/PersonalChatDialog";
 import { useSyncUsers } from './hooks/use-sync-users';
 import { updateUsers } from './lib/constants';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
+
+// PWA Install Prompt Component
+function InstallPWA() {
+  const [installPrompt, setInstallPrompt] = useState<any>(null);
+  const [isInstallable, setIsInstallable] = useState(false);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      e.preventDefault();
+      setInstallPrompt(e);
+      setIsInstallable(true);
+    };
+
+    window.addEventListener('beforeinstallprompt', handler);
+
+    // Check if already installed
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+      setIsInstallable(false);
+    }
+
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!installPrompt) return;
+
+    const result = await installPrompt.prompt();
+
+    if (result.outcome === 'accepted') {
+      toast({
+        title: "Success",
+        description: "App installation started",
+      });
+      setIsInstallable(false);
+    } else {
+      toast({
+        title: "Installation cancelled",
+        description: "You can install the app later from your browser menu",
+      });
+    }
+    setInstallPrompt(null);
+  };
+
+  if (!isInstallable) return null;
+
+  return (
+    <div className="fixed bottom-24 right-6 z-50">
+      <Button
+        onClick={handleInstallClick}
+        className="flex items-center gap-2 bg-primary text-primary-foreground shadow-lg"
+      >
+        <Download className="h-4 w-4" />
+        Install App
+      </Button>
+    </div>
+  );
+}
 
 //Added ErrorBoundary Component
 function ErrorBoundary({ children }) {
@@ -27,7 +87,6 @@ function ErrorBoundary({ children }) {
   const [errorInfo, setErrorInfo] = React.useState(null);
 
   React.useEffect(() => {
-    // Log the error to the console
     if (error) {
       console.error("Uncaught error:", error, errorInfo);
     }
@@ -57,7 +116,6 @@ function ErrorBoundary({ children }) {
 function App() {
   const { users } = useSyncUsers();
 
-  // Update users whenever DB data changes
   React.useEffect(() => {
     if (users.length > 0) {
       updateUsers(users);
@@ -72,11 +130,12 @@ function App() {
       return response.json();
     }
   });
+
   return (
     <TooltipProvider>
       <div className="min-h-screen bg-background">
         <Sidebar />
-        <ErrorBoundary> {/*Added ErrorBoundary*/}
+        <ErrorBoundary>
           <div className="md:pl-64">
             <BreadcrumbNavigation />
             <main className="container mx-auto py-6">
@@ -107,8 +166,10 @@ function App() {
                 />
               )}
             </div>
+            {/* PWA Install Prompt */}
+            <InstallPWA />
           </div>
-        </ErrorBoundary> {/*Added ErrorBoundary*/}
+        </ErrorBoundary>
       </div>
     </TooltipProvider>
   );

@@ -55,6 +55,33 @@ const errorHandler = (err: Error, _req: Request, res: Response, _next: NextFunct
   });
 };
 
+// Port retry configuration
+const PORT_RETRY = {
+  START: 5000,
+  MAX_RETRIES: 3,
+  INCREMENT: 1
+};
+
+// Function to try starting server on a port
+async function tryStartServer(port: number, host: string, server: any): Promise<boolean> {
+  return new Promise((resolve) => {
+    const onError = (error: any) => {
+      if (error.code === 'EADDRINUSE') {
+        server.removeListener('error', onError);
+        resolve(false);
+      }
+    };
+
+    server.once('error', onError);
+
+    server.listen(port, host, () => {
+      server.removeListener('error', onError);
+      log(`Server started successfully on port ${port}`);
+      resolve(true);
+    });
+  });
+}
+
 // Structured server initialization
 async function startServer() {
   try {
@@ -83,7 +110,7 @@ async function startServer() {
     // 4. Setup development or production mode
     if (app.get("env") === "development") {
       try {
-        await setupVite(app, server); // Pass server to setupVite for HMR
+        await setupVite(app, server);
         log('Vite development server setup complete');
       } catch (error) {
         console.error('Vite setup error:', error);
@@ -102,13 +129,29 @@ async function startServer() {
     // Add error handler after all middleware
     app.use(errorHandler);
 
-    // 5. Start server
-    const PORT = Number(process.env.PORT) || 5000;
+    // 5. Start server with port retry logic
+    let currentPort = PORT_RETRY.START;
+    let retryCount = 0;
+    let serverStarted = false;
+
     const HOST = "0.0.0.0";
 
-    server.listen(PORT, HOST, () => {
-      log(`Server started successfully on port ${PORT}`);
-    });
+    while (!serverStarted && retryCount < PORT_RETRY.MAX_RETRIES) {
+      log(`Attempting to start server on port ${currentPort}...`);
+
+      // Try to start the server
+      serverStarted = await tryStartServer(currentPort, HOST, server);
+
+      if (!serverStarted) {
+        retryCount++;
+        if (retryCount < PORT_RETRY.MAX_RETRIES) {
+          currentPort += PORT_RETRY.INCREMENT;
+          log(`Port ${currentPort - PORT_RETRY.INCREMENT} in use, trying port ${currentPort}...`);
+        } else {
+          throw new Error(`Failed to find available port after ${PORT_RETRY.MAX_RETRIES} attempts`);
+        }
+      }
+    }
 
     // Graceful shutdown handler
     const shutdown = async (signal: string) => {

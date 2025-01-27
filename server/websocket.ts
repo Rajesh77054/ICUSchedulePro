@@ -35,146 +35,180 @@ export interface WebSocketInterface {
 }
 
 export async function setupWebSocket(server: Server): Promise<WebSocketInterface> {
+  const maxRetries = 3;
+  const startPort = 5001;
+
   return new Promise<WebSocketInterface>((resolve, reject) => {
-    try {
-      log('Initializing WebSocket server...');
+    let currentPort = startPort;
+    let retryCount = 0;
 
-      // Create a new WebSocket server on port 5001
-      const wss = new WebSocketServer({ 
-        port: 5001,
-        clientTracking: true,
-        perMessageDeflate: false
-      });
+    const trySetupWS = () => {
+      try {
+        log(`Attempting to initialize WebSocket server on port ${currentPort}...`);
 
-      const clients = new Set<ChatClient>();
-      let cleanupInterval: NodeJS.Timeout;
+        const wss = new WebSocketServer({ 
+          port: currentPort,
+          clientTracking: true,
+          perMessageDeflate: false
+        });
 
-      const startCleanup = () => {
-        cleanupInterval = setInterval(() => {
-          try {
-            const now = Date.now();
-            clients.forEach(client => {
-              if (!client.isAlive || now - client.lastActivity > 60000) {
-                client.terminate();
-                clients.delete(client);
-                return;
-              }
-              client.ping();
-            });
-          } catch (error) {
-            console.error('WebSocket cleanup error:', error);
-          }
-        }, 30000);
-      };
+        const clients = new Set<ChatClient>();
+        let cleanupInterval: NodeJS.Timeout;
 
-      const cleanup = async () => {
-        clearInterval(cleanupInterval);
-        const closePromises = Array.from(clients).map(client => 
-          new Promise<void>(resolve => {
-            client.once('close', () => resolve());
-            client.terminate();
-          })
-        );
-        await Promise.all(closePromises);
-        clients.clear();
-        wss.close();
-      };
-
-      const broadcast = (message: NotificationMessage) => {
-        const messageStr = JSON.stringify(message);
-        log(`Broadcasting message: ${message.type}`);
-
-        const deadClients = new Set<ChatClient>();
-
-        clients.forEach(client => {
-          if (client.readyState === WebSocket.OPEN) {
+        const startCleanup = () => {
+          cleanupInterval = setInterval(() => {
             try {
-              client.send(messageStr);
+              const now = Date.now();
+              clients.forEach(client => {
+                if (!client.isAlive || now - client.lastActivity > 60000) {
+                  client.terminate();
+                  clients.delete(client);
+                  return;
+                }
+                client.ping();
+              });
             } catch (error) {
-              console.error('Broadcast error:', error);
+              console.error('WebSocket cleanup error:', error);
+            }
+          }, 30000);
+        };
+
+        const cleanup = async () => {
+          clearInterval(cleanupInterval);
+          const closePromises = Array.from(clients).map(client => 
+            new Promise<void>(resolve => {
+              client.once('close', () => resolve());
+              client.terminate();
+            })
+          );
+          await Promise.all(closePromises);
+          clients.clear();
+          wss.close();
+        };
+
+        const broadcast = (message: NotificationMessage) => {
+          const messageStr = JSON.stringify(message);
+          log(`Broadcasting message: ${message.type}`);
+
+          const deadClients = new Set<ChatClient>();
+
+          clients.forEach(client => {
+            if (client.readyState === WebSocket.OPEN) {
+              try {
+                client.send(messageStr);
+              } catch (error) {
+                console.error('Broadcast error:', error);
+                deadClients.add(client);
+              }
+            } else {
               deadClients.add(client);
             }
-          } else {
-            deadClients.add(client);
-          }
-        });
-
-        deadClients.forEach(client => {
-          client.terminate();
-          clients.delete(client);
-        });
-      };
-
-      wss.on('connection', (wsClient: WebSocket) => {
-        try {
-          const client = wsClient as ChatClient;
-          client.isAlive = true;
-          client.lastActivity = Date.now();
-          clients.add(client);
-
-          log(`New WebSocket connection established, current clients: ${clients.size}`);
-
-          client.on('pong', () => {
-            client.isAlive = true;
-            client.lastActivity = Date.now();
           });
 
-          client.on('message', (data) => {
-            try {
-              const message = JSON.parse(data.toString());
-              client.lastActivity = Date.now();
-
-              switch (message.type) {
-                case 'auth':
-                  client.userId = message.userId;
-                  log(`Client authenticated: ${message.userId}`);
-                  break;
-                default:
-                  log(`Unknown message type: ${message.type}`);
-              }
-            } catch (error) {
-              console.error('WebSocket message error:', error);
-            }
-          });
-
-          client.on('close', () => {
-            clients.delete(client);
-            log(`Client disconnected, remaining clients: ${clients.size}`);
-          });
-
-          client.on('error', (error) => {
-            console.error('WebSocket client error:', error);
+          deadClients.forEach(client => {
             client.terminate();
             clients.delete(client);
           });
+        };
 
-          client.send(JSON.stringify({
-            type: 'connected',
-            timestamp: new Date().toISOString(),
-            message: 'Connected to ICU Schedule notifications'
-          }));
+        wss.on('connection', (wsClient: WebSocket) => {
+          try {
+            const client = wsClient as ChatClient;
+            client.isAlive = true;
+            client.lastActivity = Date.now();
+            clients.add(client);
 
-        } catch (error) {
-          console.error('WebSocket connection handler error:', error);
+            log(`New WebSocket connection established, current clients: ${clients.size}`);
+
+            client.on('pong', () => {
+              client.isAlive = true;
+              client.lastActivity = Date.now();
+            });
+
+            client.on('message', (data) => {
+              try {
+                const message = JSON.parse(data.toString());
+                client.lastActivity = Date.now();
+
+                switch (message.type) {
+                  case 'auth':
+                    client.userId = message.userId;
+                    log(`Client authenticated: ${message.userId}`);
+                    break;
+                  default:
+                    log(`Unknown message type: ${message.type}`);
+                }
+              } catch (error) {
+                console.error('WebSocket message error:', error);
+              }
+            });
+
+            client.on('close', () => {
+              clients.delete(client);
+              log(`Client disconnected, remaining clients: ${clients.size}`);
+            });
+
+            client.on('error', (error) => {
+              console.error('WebSocket client error:', error);
+              client.terminate();
+              clients.delete(client);
+            });
+
+            client.send(JSON.stringify({
+              type: 'connected',
+              timestamp: new Date().toISOString(),
+              message: 'Connected to ICU Schedule notifications'
+            }));
+
+          } catch (error) {
+            console.error('WebSocket connection handler error:', error);
+          }
+        });
+
+        wss.on('error', (error: Error) => {
+          if (error.message.includes('EADDRINUSE')) {
+            if (retryCount < maxRetries) {
+              retryCount++;
+              currentPort++;
+              log(`Port ${currentPort - 1} in use, trying port ${currentPort}...`);
+              wss.close(() => trySetupWS());
+            } else {
+              log('Failed to find available port for WebSocket server');
+              resolve({ 
+                broadcast: () => {}, 
+                cleanup: async () => {} 
+              });
+            }
+          } else {
+            console.error('WebSocket server error:', error);
+            cleanup().catch(console.error);
+            reject(error);
+          }
+        });
+
+        wss.on('listening', () => {
+          log(`WebSocket server is listening on port ${currentPort}`);
+          startCleanup();
+          resolve({ broadcast, cleanup });
+        });
+
+      } catch (error) {
+        console.error('WebSocket setup error:', error);
+        if (retryCount < maxRetries) {
+          retryCount++;
+          currentPort++;
+          log(`Error on port ${currentPort - 1}, trying port ${currentPort}...`);
+          trySetupWS();
+        } else {
+          resolve({ 
+            broadcast: () => {}, 
+            cleanup: async () => {} 
+          });
         }
-      });
+      }
+    };
 
-      wss.on('error', (error: Error) => {
-        console.error('WebSocket server error:', error);
-        cleanup().catch(console.error);
-        reject(error);
-      });
-
-      wss.on('listening', () => {
-        log('WebSocket server is listening on port 5001');
-        startCleanup();
-        resolve({ broadcast, cleanup });
-      });
-
-    } catch (error) {
-      console.error('WebSocket setup error:', error);
-      reject(error);
-    }
+    trySetupWS();
   });
 }
 

@@ -3,12 +3,20 @@ import { createServer, type Server } from "http";
 import { db } from '../db';
 import { users, shifts, swapRequests } from '@db/schema';
 import { and, eq, sql, or } from 'drizzle-orm';
-import { setupWebSocket, notify } from './websocket';
+import { setupWebSocket, notify, type WebSocketServer } from './websocket';
 import { log } from './vite';
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const server = createServer(app);
-  const ws = await setupWebSocket(server);
+  let ws: WebSocketServer | undefined;
+
+  try {
+    ws = await setupWebSocket(server);
+    log('WebSocket server initialized successfully');
+  } catch (error) {
+    console.error('WebSocket setup error:', error);
+    log('Continuing without WebSocket support...');
+  }
 
   // Swap Request Routes
   app.get("/api/swap-requests", async (req, res) => {
@@ -65,11 +73,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Format dates for the response
       const formattedRequests = requests.map(req => ({
         ...req,
-        shift: {
+        shift: req.shift ? {
           ...req.shift,
-          startDate: req.shift?.startDate instanceof Date ? req.shift.startDate.toISOString() : req.shift?.startDate,
-          endDate: req.shift?.endDate instanceof Date ? req.shift.endDate.toISOString() : req.shift?.endDate,
-        }
+          startDate: req.shift.startDate.toISOString(),
+          endDate: req.shift.endDate.toISOString(),
+        } : null
       }));
 
       log(`Found ${requests.length} swap requests`);
@@ -153,19 +161,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Format dates and prepare notification payload
       const notificationShift = {
         ...shift,
-        startDate: shift.startDate instanceof Date ? shift.startDate.toISOString() : shift.startDate,
-        endDate: shift.endDate instanceof Date ? shift.endDate.toISOString() : shift.endDate,
+        startDate: shift.startDate.toISOString(),
+        endDate: shift.endDate.toISOString(),
       };
 
-      // Send notification
-      ws.broadcast(notify.shiftSwapRequested(
-        notificationShift,
-        requestor,
-        recipient,
-        newSwapRequest.id
-      ));
-
-      log(`Swap request created and notification sent`);
+      // Send notification only if WebSocket is available
+      if (ws) {
+        try {
+          ws.broadcast(notify.shiftSwapRequested(
+            notificationShift,
+            requestor,
+            recipient,
+            newSwapRequest.id
+          ));
+          log('Swap request notification sent successfully');
+        } catch (error) {
+          console.error('Failed to send swap request notification:', error);
+          // Continue even if notification fails
+        }
+      }
 
       // Return the complete swap request with all related data
       const completeSwapRequest = await db.query.swapRequests.findFirst({
@@ -207,12 +221,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...completeSwapRequest,
         shift: {
           ...completeSwapRequest.shift,
-          startDate: completeSwapRequest.shift.startDate instanceof Date 
-            ? completeSwapRequest.shift.startDate.toISOString() 
-            : completeSwapRequest.shift.startDate,
-          endDate: completeSwapRequest.shift.endDate instanceof Date 
-            ? completeSwapRequest.shift.endDate.toISOString() 
-            : completeSwapRequest.shift.endDate,
+          startDate: completeSwapRequest.shift.startDate.toISOString(),
+          endDate: completeSwapRequest.shift.endDate.toISOString(),
         }
       };
 
@@ -270,7 +280,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       });
 
-      if (!request) {
+      if (!request || !request.shift) {
         return res.status(404).json({ message: 'Swap request not found' });
       }
 
@@ -289,16 +299,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Send notification with formatted dates
       const formattedShift = {
         ...request.shift,
-        startDate: request.shift.startDate instanceof Date ? request.shift.startDate.toISOString() : request.shift.startDate,
-        endDate: request.shift.endDate instanceof Date ? request.shift.endDate.toISOString() : request.shift.endDate,
+        startDate: request.shift.startDate.toISOString(),
+        endDate: request.shift.endDate.toISOString(),
       };
 
-      ws.broadcast(notify.shiftSwapResponded(
-        formattedShift,
-        request.requestor,
-        request.recipient,
-        status as 'accepted' | 'rejected'
-      ));
+      if (ws) {
+        try {
+          ws.broadcast(notify.shiftSwapResponded(
+            formattedShift,
+            request.requestor,
+            request.recipient,
+            status as 'accepted' | 'rejected'
+          ));
+          log('Swap request response notification sent successfully');
+        } catch (error) {
+          console.error('Failed to send swap request response notification:', error);
+          // Continue even if notification fails
+        }
+      }
 
       log(`Swap request ${id} response processed and notification sent`);
       res.json(updatedRequest);
@@ -326,8 +344,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Format dates in the response
       const formattedShifts = allShifts.map(shift => ({
         ...shift,
-        startDate: shift.startDate instanceof Date ? shift.startDate.toISOString() : shift.startDate,
-        endDate: shift.endDate instanceof Date ? shift.endDate.toISOString() : shift.endDate,
+        startDate: shift.startDate.toISOString(),
+        endDate: shift.endDate.toISOString(),
       }));
 
       res.json(formattedShifts);

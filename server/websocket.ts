@@ -1,6 +1,6 @@
-import { WebSocket, WebSocketServer } from 'ws';
-import { Server } from 'http';
-import { log } from './vite';
+import type { Server } from "http";
+import ws from "ws";
+import { log } from "./vite";
 
 // Type definitions for notifications
 interface NotificationUser {
@@ -23,98 +23,62 @@ interface NotificationMessage {
   timestamp: string;
 }
 
-interface ChatClient extends WebSocket {
+interface ChatClient extends ws {
   userId?: number;
   isAlive: boolean;
   lastActivity: number;
 }
 
-export async function setupWebSocket(server: Server) {
-  return new Promise<{ broadcast: (message: NotificationMessage) => void }>((resolve) => {
-    const wss = new WebSocketServer({ 
-      server,
-      path: '/ws',
-      clientTracking: true
-    });
+export interface WebSocketServer {
+  broadcast: (message: NotificationMessage) => void;
+}
 
-    const clients = new Set<ChatClient>();
-
-    // Connection cleanup interval
-    const cleanup = setInterval(() => {
-      const now = Date.now();
-      clients.forEach(client => {
-        if (!client.isAlive || now - client.lastActivity > 60000) {
-          client.terminate();
-          clients.delete(client);
-          return;
-        }
-        client.isAlive = false;
-        client.ping();
-      });
-    }, 30000);
-
-    wss.on('close', () => {
-      clearInterval(cleanup);
-    });
-
-    wss.on('connection', (ws: ChatClient) => {
-      ws.isAlive = true;
-      ws.lastActivity = Date.now();
-      clients.add(ws);
-
-      log(`New WebSocket connection established, current clients: ${clients.size}`);
-
-      ws.on('pong', () => {
-        ws.isAlive = true;
-        ws.lastActivity = Date.now();
+export async function setupWebSocket(server: Server): Promise<WebSocketServer> {
+  return new Promise<WebSocketServer>((resolve, reject) => {
+    try {
+      const wss = new ws.Server({ 
+        server,
+        path: '/ws',
+        clientTracking: true
       });
 
-      ws.on('message', (data: string) => {
+      const clients = new Set<ChatClient>();
+
+      // Connection cleanup interval
+      const cleanup = setInterval(() => {
         try {
-          const message = JSON.parse(data);
-          ws.lastActivity = Date.now();
-
-          switch (message.type) {
-            case 'auth':
-              ws.userId = message.userId;
-              log(`Client authenticated: ${message.userId}`);
-              break;
-
-            default:
-              log(`Unknown message type: ${message.type}`);
-          }
+          const now = Date.now();
+          clients.forEach(client => {
+            if (!client.isAlive || now - client.lastActivity > 60000) {
+              client.terminate();
+              clients.delete(client);
+              return;
+            }
+            client.isAlive = false;
+            client.ping();
+          });
         } catch (error) {
-          console.error('WebSocket message error:', error);
+          console.error('WebSocket cleanup error:', error);
         }
+      }, 30000);
+
+      wss.on('error', (error: Error) => {
+        console.error('WebSocket server error:', error);
+        clearInterval(cleanup);
+        reject(error);
       });
 
-      ws.on('close', () => {
-        clients.delete(ws);
-        log(`Client disconnected, remaining clients: ${clients.size}`);
+      wss.on('close', () => {
+        clearInterval(cleanup);
       });
 
-      ws.on('error', (error) => {
-        console.error('WebSocket error:', error);
-        ws.terminate();
-        clients.delete(ws);
-      });
-
-      // Send initial connection message
-      ws.send(JSON.stringify({
-        type: 'connected',
-        timestamp: new Date().toISOString(),
-        message: 'Connected to ICU Schedule notifications'
-      }));
-    });
-
-    // Wait for WebSocket server to be ready
-    wss.on('listening', () => {
+      // Create broadcast function
       const broadcast = (message: NotificationMessage) => {
         const messageStr = JSON.stringify(message);
         log(`Broadcasting message: ${message.type}`);
 
         clients.forEach(client => {
-          if (client.readyState === WebSocket.OPEN) {
+          if (client.readyState === ws.OPEN) {
             try {
               client.send(messageStr);
             } catch (error) {
@@ -126,8 +90,74 @@ export async function setupWebSocket(server: Server) {
         });
       };
 
+      wss.on('connection', (wsClient: ws, req) => {
+        try {
+          // Ignore vite-hmr connections
+          if (req.headers['sec-websocket-protocol']?.includes('vite-hmr')) {
+            wsClient.close();
+            return;
+          }
+
+          const client = wsClient as ChatClient;
+          client.isAlive = true;
+          client.lastActivity = Date.now();
+          clients.add(client);
+
+          log(`New WebSocket connection established, current clients: ${clients.size}`);
+
+          client.on('pong', () => {
+            client.isAlive = true;
+            client.lastActivity = Date.now();
+          });
+
+          client.on('message', (data) => {
+            try {
+              const message = JSON.parse(data.toString());
+              client.lastActivity = Date.now();
+
+              switch (message.type) {
+                case 'auth':
+                  client.userId = message.userId;
+                  log(`Client authenticated: ${message.userId}`);
+                  break;
+
+                default:
+                  log(`Unknown message type: ${message.type}`);
+              }
+            } catch (error) {
+              console.error('WebSocket message error:', error);
+            }
+          });
+
+          client.on('close', () => {
+            clients.delete(client);
+            log(`Client disconnected, remaining clients: ${clients.size}`);
+          });
+
+          client.on('error', (error) => {
+            console.error('WebSocket client error:', error);
+            client.terminate();
+            clients.delete(client);
+          });
+
+          // Send initial connection message
+          client.send(JSON.stringify({
+            type: 'connected',
+            timestamp: new Date().toISOString(),
+            message: 'Connected to ICU Schedule notifications'
+          }));
+        } catch (error) {
+          console.error('WebSocket connection handler error:', error);
+        }
+      });
+
+      // Resolve with broadcast function
       resolve({ broadcast });
-    });
+
+    } catch (error) {
+      console.error('WebSocket setup error:', error);
+      reject(error);
+    }
   });
 }
 

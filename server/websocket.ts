@@ -39,17 +39,16 @@ export async function setupWebSocket(server: Server): Promise<WebSocketInterface
     try {
       log('Initializing WebSocket server...');
 
+      // Create a new WebSocket server on port 5001
       const wss = new WebSocketServer({ 
-        server,
-        path: '/ws',
+        port: 5001,
         clientTracking: true,
-        perMessageDeflate: false // Disable per-message deflate to avoid memory leaks
+        perMessageDeflate: false
       });
 
       const clients = new Set<ChatClient>();
       let cleanupInterval: NodeJS.Timeout;
 
-      // Connection cleanup interval
       const startCleanup = () => {
         cleanupInterval = setInterval(() => {
           try {
@@ -81,17 +80,6 @@ export async function setupWebSocket(server: Server): Promise<WebSocketInterface
         wss.close();
       };
 
-      wss.on('error', (error: Error) => {
-        console.error('WebSocket server error:', error);
-        cleanup().catch(console.error);
-        reject(error);
-      });
-
-      wss.on('close', () => {
-        clearInterval(cleanupInterval);
-      });
-
-      // Create broadcast function with error handling
       const broadcast = (message: NotificationMessage) => {
         const messageStr = JSON.stringify(message);
         log(`Broadcasting message: ${message.type}`);
@@ -111,21 +99,14 @@ export async function setupWebSocket(server: Server): Promise<WebSocketInterface
           }
         });
 
-        // Cleanup dead clients after broadcast
         deadClients.forEach(client => {
           client.terminate();
           clients.delete(client);
         });
       };
 
-      wss.on('connection', (wsClient: WebSocket, req) => {
+      wss.on('connection', (wsClient: WebSocket) => {
         try {
-          // Ignore vite-hmr connections
-          if (req.headers['sec-websocket-protocol']?.includes('vite-hmr')) {
-            wsClient.close();
-            return;
-          }
-
           const client = wsClient as ChatClient;
           client.isAlive = true;
           client.lastActivity = Date.now();
@@ -148,7 +129,6 @@ export async function setupWebSocket(server: Server): Promise<WebSocketInterface
                   client.userId = message.userId;
                   log(`Client authenticated: ${message.userId}`);
                   break;
-
                 default:
                   log(`Unknown message type: ${message.type}`);
               }
@@ -168,7 +148,6 @@ export async function setupWebSocket(server: Server): Promise<WebSocketInterface
             clients.delete(client);
           });
 
-          // Send initial connection message
           client.send(JSON.stringify({
             type: 'connected',
             timestamp: new Date().toISOString(),
@@ -180,9 +159,17 @@ export async function setupWebSocket(server: Server): Promise<WebSocketInterface
         }
       });
 
-      startCleanup();
-      log('WebSocket server setup completed');
-      resolve({ broadcast, cleanup });
+      wss.on('error', (error: Error) => {
+        console.error('WebSocket server error:', error);
+        cleanup().catch(console.error);
+        reject(error);
+      });
+
+      wss.on('listening', () => {
+        log('WebSocket server is listening on port 5001');
+        startCleanup();
+        resolve({ broadcast, cleanup });
+      });
 
     } catch (error) {
       console.error('WebSocket setup error:', error);

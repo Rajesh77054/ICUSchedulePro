@@ -111,31 +111,44 @@ export function Notifications() {
 
   useEffect(() => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+    const host = window.location.hostname;
+    const ws = new WebSocket(`${protocol}//${host}:5001`);
 
     ws.onmessage = (event) => {
-      const notification = JSON.parse(event.data);
-      if (notification.type === 'connected') return;
+      try {
+        const notification = JSON.parse(event.data);
+        if (notification.type === 'connected') return;
 
-      // Add new notifications but avoid duplicates
-      setNotifications(prev => {
-        const isDuplicate = prev.some(n => 
-          n.type === notification.type && 
-          JSON.stringify(n.data) === JSON.stringify(notification.data)
-        );
-        if (isDuplicate) return prev;
-        return [notification, ...prev];
-      });
-
-      if (!open) setHasNew(true);
-
-      // Show toast for important notifications
-      if (notification.type === 'shift_swap_requested') {
-        toast({
-          title: 'New Shift Swap Request',
-          description: `${notification.data.requestor.name} has requested to swap shifts with you.`,
+        setNotifications(prev => {
+          const isDuplicate = prev.some(n => 
+            n.type === notification.type && 
+            JSON.stringify(n.data) === JSON.stringify(notification.data)
+          );
+          if (isDuplicate) return prev;
+          return [notification, ...prev];
         });
+
+        if (!open) setHasNew(true);
+
+        // Show toast for important notifications
+        if (notification.type === 'shift_swap_requested') {
+          toast({
+            title: 'New Shift Swap Request',
+            description: `${notification.data.requestor.name} has requested to swap shifts with you.`,
+          });
+        }
+      } catch (error) {
+        console.error('WebSocket message processing error:', error);
       }
+    };
+
+    ws.onerror = (error) => {
+      console.error('WebSocket error:', error);
+      toast({
+        title: 'Connection Error',
+        description: 'Failed to connect to notification service. Please refresh the page.',
+        variant: 'destructive',
+      });
     };
 
     return () => {

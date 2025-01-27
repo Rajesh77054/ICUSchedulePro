@@ -55,66 +55,6 @@ const errorHandler = (err: Error, _req: Request, res: Response, _next: NextFunct
   });
 };
 
-let server: any;
-let cleanup: (() => Promise<void>) | undefined;
-
-// Graceful shutdown handler
-async function shutdownGracefully(signal: string) {
-  log(`Received ${signal}. Starting graceful shutdown...`);
-
-  try {
-    if (cleanup) {
-      await cleanup();
-    }
-
-    if (server?.listening) {
-      await new Promise<void>((resolve, reject) => {
-        server.close((err?: Error) => {
-          if (err) {
-            console.error('Error closing server:', err);
-            reject(err);
-            return;
-          }
-          resolve();
-        });
-      });
-    }
-
-    log('Server shutdown complete');
-    process.exit(0);
-  } catch (error) {
-    console.error('Error during shutdown:', error);
-    process.exit(1);
-  }
-}
-
-// Register shutdown handlers
-process.on('SIGTERM', () => shutdownGracefully('SIGTERM'));
-process.on('SIGINT', () => shutdownGracefully('SIGINT'));
-
-// Function to try binding to a port
-async function tryBindPort(httpServer: any, port: number, host: string): Promise<boolean> {
-  return new Promise((resolve) => {
-    const onError = (e: NodeJS.ErrnoException) => {
-      httpServer.removeListener('error', onError);
-      if (e.code === 'EADDRINUSE') {
-        resolve(false);
-      } else {
-        console.error(`Failed to bind to port ${port}:`, e);
-        resolve(false);
-      }
-    };
-
-    httpServer.once('error', onError);
-
-    httpServer.listen(port, host)
-      .once('listening', () => {
-        httpServer.removeListener('error', onError);
-        resolve(true);
-      });
-  });
-}
-
 // Structured server initialization
 async function startServer() {
   try {
@@ -137,19 +77,22 @@ async function startServer() {
     }
 
     // 3. Create HTTP server and register routes with error handling
-    try {
-      server = await registerRoutes(app);
-      log('Routes registered successfully');
-    } catch (error) {
-      console.error('Route registration error:', error);
-      throw new Error('Failed to register routes');
-    }
+    const { server, cleanup: wsCleanup } = await registerRoutes(app);
+    log('Routes registered successfully');
 
     // 4. Setup development or production mode
     if (app.get("env") === "development") {
       try {
-        await setupVite(app, server);
+        const viteSetup = await setupVite(app);
         log('Vite development server setup complete');
+        if (wsCleanup) {
+          // Combine cleanup functions
+          const originalCleanup = viteSetup.cleanup;
+          viteSetup.cleanup = async () => {
+            await wsCleanup();
+            if (originalCleanup) await originalCleanup();
+          };
+        }
       } catch (error) {
         console.error('Vite setup error:', error);
         throw new Error('Failed to setup Vite development server');
@@ -167,32 +110,44 @@ async function startServer() {
     // Add error handler after all middleware
     app.use(errorHandler);
 
-    // 5. Start server with enhanced error handling and port retry logic
-    const BASE_PORT = parseInt(process.env.PORT || "5000", 10);
-    const MAX_PORT_ATTEMPTS = 10;
+    // 5. Start server
+    const PORT = process.env.PORT || 5000;
     const HOST = "0.0.0.0";
 
-    // Try ports sequentially until we find an available one
-    for (let portOffset = 0; portOffset < MAX_PORT_ATTEMPTS; portOffset++) {
-      const port = BASE_PORT + portOffset;
+    server.listen(PORT, HOST, () => {
+      log(`Server started successfully on port ${PORT}`);
+    });
 
-      // Close any existing connections
-      if (server.listening) {
-        await new Promise<void>((resolve) => server.close(resolve));
+    // Graceful shutdown handler
+    const shutdown = async (signal: string) => {
+      log(`Received ${signal}. Starting graceful shutdown...`);
+      try {
+        if (wsCleanup) {
+          await wsCleanup();
+        }
+        if (server?.listening) {
+          await new Promise<void>((resolve, reject) => {
+            server.close((err?: Error) => {
+              if (err) {
+                console.error('Error closing server:', err);
+                reject(err);
+                return;
+              }
+              resolve();
+            });
+          });
+        }
+        log('Server shutdown complete');
+        process.exit(0);
+      } catch (error) {
+        console.error('Error during shutdown:', error);
+        process.exit(1);
       }
+    };
 
-      const bound = await tryBindPort(server, port, HOST);
-      if (bound) {
-        log(`Server started successfully on port ${port}`);
-        return;
-      }
-
-      if (portOffset === 0) {
-        log(`Port ${port} is in use, trying alternative ports...`);
-      }
-    }
-
-    throw new Error(`Could not find an available port after ${MAX_PORT_ATTEMPTS} attempts`);
+    // Register shutdown handlers
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
+    process.on('SIGINT', () => shutdown('SIGINT'));
 
   } catch (error) {
     console.error('Server initialization error:', error);

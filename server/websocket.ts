@@ -36,7 +36,7 @@ export interface WebSocketServer {
 export async function setupWebSocket(server: Server): Promise<WebSocketServer> {
   return new Promise<WebSocketServer>((resolve, reject) => {
     try {
-      const wss = new ws.Server({ 
+      const wss = new ws.WebSocketServer({ 
         server,
         path: '/ws',
         clientTracking: true

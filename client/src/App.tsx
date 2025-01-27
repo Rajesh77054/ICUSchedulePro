@@ -27,13 +27,34 @@ import { useToast } from "@/hooks/use-toast";
 function InstallPWA() {
   const [installPrompt, setInstallPrompt] = useState<any>(null);
   const [isInstallable, setIsInstallable] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
+    // Check if device is mobile
+    const checkMobile = () => {
+      setIsMobile(/iPhone|iPad|iPod|Android/i.test(navigator.userAgent));
+    };
+
+    // Initial check
+    checkMobile();
+
+    // Add resize listener to update mobile status
+    window.addEventListener('resize', checkMobile);
+
     const handler = (e: Event) => {
       e.preventDefault();
       setInstallPrompt(e);
       setIsInstallable(true);
+
+      // Show installation guidance toast for mobile devices
+      if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+        toast({
+          title: "Install Available",
+          description: "Add this app to your home screen for the best experience",
+          duration: 5000,
+        });
+      }
     };
 
     window.addEventListener('beforeinstallprompt', handler);
@@ -43,24 +64,52 @@ function InstallPWA() {
       setIsInstallable(false);
     }
 
-    return () => window.removeEventListener('beforeinstallprompt', handler);
-  }, []);
+    // iOS-specific detection
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    if (isIOS && !window.matchMedia('(display-mode: standalone)').matches) {
+      setIsInstallable(true);
+    }
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handler);
+      window.removeEventListener('resize', checkMobile);
+    };
+  }, [toast]);
 
   const handleInstallClick = async () => {
-    if (!installPrompt) return;
+    if (!installPrompt) {
+      // For iOS devices, show manual installation instructions
+      if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+        toast({
+          title: "iOS Installation",
+          description: "Tap the share button and select 'Add to Home Screen'",
+          duration: 7000,
+        });
+        return;
+      }
+      return;
+    }
 
-    const result = await installPrompt.prompt();
-
-    if (result.outcome === 'accepted') {
+    try {
+      const result = await installPrompt.prompt();
+      if (result.outcome === 'accepted') {
+        toast({
+          title: "Success",
+          description: "App installation started",
+        });
+        setIsInstallable(false);
+      } else {
+        toast({
+          title: "Installation cancelled",
+          description: "You can install the app later from your browser menu",
+        });
+      }
+    } catch (error) {
+      console.error('Installation error:', error);
       toast({
-        title: "Success",
-        description: "App installation started",
-      });
-      setIsInstallable(false);
-    } else {
-      toast({
-        title: "Installation cancelled",
-        description: "You can install the app later from your browser menu",
+        title: "Installation failed",
+        description: "Please try again or install manually from your browser menu",
+        variant: "destructive",
       });
     }
     setInstallPrompt(null);
@@ -69,10 +118,10 @@ function InstallPWA() {
   if (!isInstallable) return null;
 
   return (
-    <div className="fixed bottom-24 right-6 z-50">
+    <div className={`fixed ${isMobile ? 'bottom-6 inset-x-6' : 'bottom-24 right-6'} z-50`}>
       <Button
         onClick={handleInstallClick}
-        className="flex items-center gap-2 bg-primary text-primary-foreground shadow-lg"
+        className="w-full md:w-auto flex items-center justify-center gap-2 bg-primary text-primary-foreground shadow-lg"
       >
         <Download className="h-4 w-4" />
         Install App

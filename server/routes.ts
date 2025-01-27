@@ -14,12 +14,11 @@ function getShiftDuration(shift: any): number {
   return diffDays;
 }
 
-export async function registerRoutes(app: Express): Promise<{ server: Server, cleanup?: () => Promise<void> }> {
-  const server = createServer(app);
+export async function registerRoutes(app: Express, httpServer: Server): Promise<void> {
   let ws: WebSocketInterface | undefined;
 
   try {
-    ws = await setupWebSocket(server);
+    ws = await setupWebSocket(httpServer);
     log('WebSocket server initialized successfully');
   } catch (error) {
     console.error('WebSocket setup error:', error);
@@ -544,6 +543,4 @@ export async function registerRoutes(app: Express): Promise<{ server: Server, cl
       res.status(500).json({ message: error instanceof Error ? error.message : 'Failed to fetch fatigue analytics' });
     }
   });
-
-  return { server, cleanup: ws?.cleanup };
 }

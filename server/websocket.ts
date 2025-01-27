@@ -35,20 +35,30 @@ export interface WebSocketInterface {
 }
 
 export async function setupWebSocket(server: Server): Promise<WebSocketInterface> {
-  return new Promise<WebSocketInterface>((resolve, reject) => {
+  return new Promise<WebSocketInterface>((resolve) => {
     try {
-      // Initialize WebSocket server on a specific port
-      const WS_PORT = 5001;
-      log(`Initializing WebSocket server on port ${WS_PORT}...`);
+      log('Initializing WebSocket server as upgrade handler...');
 
       const wss = new WebSocketServer({ 
-        port: WS_PORT,
+        noServer: true, // Important: don't create a separate server
         clientTracking: true,
         perMessageDeflate: false
       });
 
       const clients = new Set<ChatClient>();
       let cleanupInterval: NodeJS.Timeout;
+
+      // Handle upgrade requests
+      server.on('upgrade', (request, socket, head) => {
+        // Skip Vite HMR upgrade requests
+        if (request.headers['sec-websocket-protocol'] === 'vite-hmr') {
+          return;
+        }
+
+        wss.handleUpgrade(request, socket, head, (ws) => {
+          wss.emit('connection', ws);
+        });
+      });
 
       const startCleanup = () => {
         cleanupInterval = setInterval(() => {
@@ -160,17 +170,11 @@ export async function setupWebSocket(server: Server): Promise<WebSocketInterface
         }
       });
 
-      wss.on('error', (error: Error) => {
-        console.error('WebSocket server error:', error);
-        cleanup().catch(console.error);
-        reject(error);
-      });
+      // Start the cleanup interval
+      startCleanup();
 
-      wss.on('listening', () => {
-        log(`WebSocket server is listening on port ${WS_PORT}`);
-        startCleanup();
-        resolve({ broadcast, cleanup });
-      });
+      log('WebSocket server initialized successfully');
+      resolve({ broadcast, cleanup });
 
     } catch (error) {
       console.error('WebSocket setup error:', error);

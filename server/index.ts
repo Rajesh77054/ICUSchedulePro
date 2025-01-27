@@ -4,14 +4,12 @@ import { setupVite, serveStatic, log } from "./vite";
 import { setupAuth } from "./auth";
 import { db } from "@db";
 import { sql } from "drizzle-orm";
+import { createServer, type Server } from "http";
 
 const app = express();
-
-// Basic middleware setup
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Request logging middleware
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -42,26 +40,17 @@ app.use((req, res, next) => {
   next();
 });
 
-// Global error handler
-const errorHandler = (err: Error, _req: Request, res: Response, _next: NextFunction) => {
-  console.error('Error:', err);
+(async () => {
+  let httpServer: Server | undefined;
 
-  if (res.headersSent) {
-    return _next(err);
-  }
+  const cleanup = async () => {
+    if (httpServer) {
+      await new Promise<void>((resolve) => {
+        httpServer?.close(() => resolve());
+      });
+    }
+  };
 
-  const status = err instanceof Error ? 500 : 400;
-  const message = err instanceof Error ? err.message : "Bad Request";
-
-  res.status(status).json({ 
-    error: true,
-    message,
-    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
-  });
-};
-
-// Structured server initialization
-async function startServer() {
   try {
     // 1. Verify database connection first
     try {
@@ -81,64 +70,81 @@ async function startServer() {
       log('Continuing without authentication...');
     }
 
-    // 3. Create HTTP server and register routes with error handling
-    const { server, cleanup: wsCleanup } = await registerRoutes(app);
+    // 3. Create HTTP server first
+    httpServer = createServer(app);
+
+    // 4. Setup routes and WebSocket with the HTTP server
+    await registerRoutes(app, httpServer);
     log('Routes registered successfully');
 
-    // 4. Setup development or production mode
+    // 5. Setup Vite or static files
     if (app.get("env") === "development") {
-      try {
-        await setupVite(app, server);
-        log('Vite development server setup complete');
-      } catch (error) {
-        console.error('Vite setup error:', error);
-        throw new Error('Failed to setup Vite development server');
-      }
+      await setupVite(app, httpServer);
+      log('Vite development server setup complete');
     } else {
-      try {
-        serveStatic(app);
-        log('Static files setup complete');
-      } catch (error) {
-        console.error('Static files setup error:', error);
-        throw new Error('Failed to setup static files');
-      }
+      serveStatic(app);
+      log('Static files setup complete');
     }
 
-    // Add error handler after all middleware
-    app.use(errorHandler);
-
-    // 5. Start the server on the designated port
-    const PORT = 5000;
-    server.listen(PORT, "0.0.0.0", () => {
-      log(`Server started successfully on port ${PORT}`);
+    // 6. Error handling middleware
+    app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+      const status = err.status || err.statusCode || 500;
+      const message = err.message || "Internal Server Error";
+      res.status(status).json({ message });
+      throw err;
     });
 
-    // Graceful shutdown handler
-    const shutdown = async (signal: string) => {
-      log(`Received ${signal}. Starting graceful shutdown...`);
+    // 7. Start server
+    const PORT = 5000;
+
+    // Attempt to start the server with retries
+    const startServer = async (retries = 3, delay = 1000): Promise<void> => {
       try {
-        if (wsCleanup) {
-          await wsCleanup();
-        }
-        process.exit(0);
+        await new Promise<void>((resolve, reject) => {
+          if (!httpServer) {
+            reject(new Error('HTTP server not initialized'));
+            return;
+          }
+
+          httpServer.listen(PORT, "0.0.0.0", () => {
+            log(`Server started on port ${PORT}`);
+            resolve();
+          }).on('error', (error: NodeJS.ErrnoException) => {
+            if (error.code === 'EADDRINUSE') {
+              reject(new Error(`Port ${PORT} is already in use`));
+            } else {
+              reject(error);
+            }
+          });
+        });
       } catch (error) {
-        console.error('Error during shutdown:', error);
-        process.exit(1);
+        if (retries > 0 && error instanceof Error && error.message.includes('EADDRINUSE')) {
+          log(`Port ${PORT} is busy, retrying in ${delay}ms... (${retries} retries left)`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          return startServer(retries - 1, delay * 2);
+        }
+        throw error;
       }
     };
 
-    // Register shutdown handlers
-    process.on('SIGTERM', () => shutdown('SIGTERM'));
-    process.on('SIGINT', () => shutdown('SIGINT'));
+    // Handle process termination signals
+    process.on('SIGTERM', async () => {
+      log('Received SIGTERM. Starting graceful shutdown...');
+      await cleanup();
+      process.exit(0);
+    });
+
+    process.on('SIGINT', async () => {
+      log('Received SIGINT. Starting graceful shutdown...');
+      await cleanup();
+      process.exit(0);
+    });
+
+    await startServer();
 
   } catch (error) {
     console.error('Server initialization error:', error);
-    throw error;
+    await cleanup();
+    process.exit(1);
   }
-}
-
-// Start the server with global error handling
-startServer().catch(error => {
-  console.error('Fatal server error:', error);
-  process.exit(1);
-});
+})();

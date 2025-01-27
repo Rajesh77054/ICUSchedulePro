@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Bot, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -19,7 +19,7 @@ interface ChatDialogProps {
   pageContext?: Record<string, any>;
 }
 
-const ChatDialog = React.memo(({ pageContext }: ChatDialogProps) => {
+export const ChatDialog = React.memo(({ trigger, className, currentPage, pageContext }: ChatDialogProps) => {
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("ai");
   const [pageContextError, setPageContextError] = useState<Error | null>(null);
@@ -31,6 +31,7 @@ const ChatDialog = React.memo(({ pageContext }: ChatDialogProps) => {
       console.log("ChatDialog received pageContext:", pageContext);
     } catch (error) {
       console.error("ChatDialog pageContextError:", error);
+      setPageContextError(error as Error);
     }
   }, [pageContext]);
 
@@ -41,7 +42,7 @@ const ChatDialog = React.memo(({ pageContext }: ChatDialogProps) => {
       return;
     }
     try {
-      //Simulate an async operation that might throw an error.  Replace with actual logic.
+      // Simulate an async operation that might throw an error. Replace with actual logic.
       await new Promise((resolve) => setTimeout(resolve, 1000));
     } catch (error) {
       console.error('handleSubmit error:', error);
@@ -52,9 +53,8 @@ const ChatDialog = React.memo(({ pageContext }: ChatDialogProps) => {
   // Placeholder for more robust error handling in Chat component
   const handleChatError = (error: Error) => {
     console.error("Error in Chat component:", error);
-    // Implement proper error handling and potentially prevent recursive calls.
+    setPageContextError(error);
   };
-
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -89,17 +89,17 @@ const ChatDialog = React.memo(({ pageContext }: ChatDialogProps) => {
             <AIScheduleAssistant
               currentPage={currentPage}
               pageContext={pageContext}
-              onSubmit={handleSubmit}
             />
           </TabsContent>
           <TabsContent value="team">
-            {/* Add error handling to prevent recursive calls */}
-            <Chat roomId={1} onError={handleChatError} />
+            <Chat roomId={1} />
           </TabsContent>
         </Tabs>
       </DialogContent>
     </Dialog>
   );
 });
+
+ChatDialog.displayName = "ChatDialog";
 
 export default ChatDialog;

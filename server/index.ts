@@ -83,16 +83,8 @@ async function startServer() {
     // 4. Setup development or production mode
     if (app.get("env") === "development") {
       try {
-        const viteSetup = await setupVite(app);
+        await setupVite(app, server); // Pass server to setupVite for HMR
         log('Vite development server setup complete');
-        if (wsCleanup) {
-          // Combine cleanup functions
-          const originalCleanup = viteSetup.cleanup;
-          viteSetup.cleanup = async () => {
-            await wsCleanup();
-            if (originalCleanup) await originalCleanup();
-          };
-        }
       } catch (error) {
         console.error('Vite setup error:', error);
         throw new Error('Failed to setup Vite development server');
@@ -111,7 +103,7 @@ async function startServer() {
     app.use(errorHandler);
 
     // 5. Start server
-    const PORT = process.env.PORT || 5000;
+    const PORT = Number(process.env.PORT) || 5000;
     const HOST = "0.0.0.0";
 
     server.listen(PORT, HOST, () => {

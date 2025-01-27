@@ -15,11 +15,8 @@ import { ShiftActionsDialog } from "./ShiftActionsDialog";
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import multiMonthPlugin from '@fullcalendar/multimonth';
-import interactionPlugin, { 
-  EventClickArg,
-  EventDropArg,
-  EventResizeDoneArg 
-} from '@fullcalendar/interaction';
+import interactionPlugin from '@fullcalendar/interaction';
+import type { EventDragStartArg, EventDragStopArg, EventResizeDoneArg, EventClickArg, DateSelectArg } from '@fullcalendar/interaction';
 import listPlugin from '@fullcalendar/list';
 import { useQuery } from "@tanstack/react-query";
 
@@ -27,6 +24,15 @@ type CalendarView = 'dayGridWeek' | 'dayGridMonth' | 'multiMonth' | 'listWeek';
 
 interface CalendarProps {
   shifts?: Shift[];
+}
+
+interface SwapRequest {
+  id: number;
+  shiftId: number;
+  requestorId: number;
+  recipientId: number;
+  status: 'pending' | 'accepted' | 'rejected';
+  shift: Shift;
 }
 
 export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
@@ -49,7 +55,7 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
   });
 
   // Fetch swap requests to handle swapped shifts
-  const { data: swapRequests = [] } = useQuery({
+  const { data: swapRequests = [] } = useQuery<SwapRequest[]>({
     queryKey: ["/api/swap-requests"],
   });
 
@@ -113,7 +119,7 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
     return shifts.map(shift => {
       const normalizedDays = getShiftDuration(shift);
       // For swapped shifts, find the swap request to determine the new owner
-      const swapRequest = swapRequests?.find(req => 
+      const swapRequest = swapRequests.find(req => 
         req.shiftId === shift.id && 
         req.status === 'accepted'
       );
@@ -143,13 +149,12 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
         durationEditable: true,
       };
     });
-  }, [initialShifts, users, swapRequests]);
+  }, [shifts, users, swapRequests]);
 
-  // Using detectShiftConflicts from utils.ts
-
-
-  const handleEventDrop = async (dropInfo: EventDropArg) => {
+  const handleEventDrop = async (dropInfo: EventDragStopArg) => {
     try {
+      if (!dropInfo.event) return;
+
       const shiftId = parseInt(dropInfo.event.id);
       const startDate = dropInfo.event.start;
       const endDate = dropInfo.event.end;
@@ -159,14 +164,9 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
         return;
       }
 
-      const shift = initialShifts.find(s => s.id === shiftId);
+      const shift = shifts.find(s => s.id === shiftId);
 
       if (!shift) {
-        dropInfo.revert();
-        return;
-      }
-
-      if (!startDate || !endDate || !shift) {
         dropInfo.revert();
         return;
       }
@@ -174,7 +174,7 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
       const duration = differenceInDays(new Date(shift.endDate), new Date(shift.startDate));
       const newEndDate = addDays(startDate, duration);
 
-      const otherShifts = initialShifts.filter(s => s.id !== shiftId);
+      const otherShifts = shifts.filter(s => s.id !== shiftId);
       const conflicts = detectShiftConflicts({
         ...shift,
         startDate: format(startDate, 'yyyy-MM-dd'),
@@ -207,22 +207,21 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
     }
   };
 
-
   const handleEventResize = async (resizeInfo: EventResizeDoneArg) => {
     try {
+      if (!resizeInfo.event) return;
+
       const shiftId = parseInt(resizeInfo.event.id);
       const startDate = resizeInfo.event.startStr;
       const endDate = resizeInfo.event.endStr;
-      const shift = initialShifts.find(s => s.id === shiftId);
+      const shift = shifts.find(s => s.id === shiftId);
 
       if (!shift) {
         resizeInfo.revert();
         return;
       }
 
-      // Filter out the current shift from conflicts check
-      const otherShifts = initialShifts.filter(s => s.id !== shiftId);
-
+      const otherShifts = shifts.filter(s => s.id !== shiftId);
       const conflicts = detectShiftConflicts({
         ...shift,
         startDate,
@@ -289,7 +288,7 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
     }
   };
 
-  const handleSelect = (selectInfo: any) => {
+  const handleSelect = (selectInfo: DateSelectArg) => {
     setSelectedDates({
       start: selectInfo.start,
       end: selectInfo.end,

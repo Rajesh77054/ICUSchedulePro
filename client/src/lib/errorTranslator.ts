@@ -1,5 +1,5 @@
 import { toast } from "@/hooks/use-toast";
-import type { ReactElement } from "react";
+import * as React from "react";
 
 interface ErrorContext {
   originalMessage: string;
@@ -71,7 +71,7 @@ interface ToastContentProps {
   translation: ErrorContext;
 }
 
-const ToastContent = ({ translation }: ToastContentProps): ReactElement => (
+const ToastContent = React.memo<ToastContentProps>(({ translation }: ToastContentProps) => (
   <div className="space-y-2">
     <p className="font-medium text-destructive">{translation.translatedMessage}</p>
     {translation.suggestedFix && (
@@ -85,7 +85,9 @@ const ToastContent = ({ translation }: ToastContentProps): ReactElement => (
       </p>
     )}
   </div>
-);
+));
+
+ToastContent.displayName = 'ToastContent';
 
 export function showTranslatedError(error: unknown): void {
   const translation = translateError(error);
@@ -93,7 +95,7 @@ export function showTranslatedError(error: unknown): void {
   // Show a detailed toast notification
   toast({
     title: "Error Details",
-    description: <ToastContent translation={translation} />,
+    description: React.createElement(ToastContent, { translation }),
     variant: "destructive",
     duration: 8000
   });

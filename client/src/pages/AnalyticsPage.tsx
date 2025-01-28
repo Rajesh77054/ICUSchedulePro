@@ -1,8 +1,36 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from "recharts";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { AlertCircle, TrendingUp, Users, Clock } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  PieChart,
+  Pie,
+  Cell,
+} from "recharts";
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
@@ -27,17 +55,21 @@ interface FatigueData {
   fatigueRisk: 'low' | 'medium' | 'high';
 }
 
+type TimeRange = 'week' | 'month' | 'quarter';
+
 export default function AnalyticsPage() {
+  const [timeRange, setTimeRange] = useState<TimeRange>('month');
+
   const { data: workloadData, isLoading: isLoadingWorkload, error: workloadError } = useQuery<WorkloadData[]>({
-    queryKey: ["/api/analytics/workload"],
+    queryKey: ["/api/analytics/workload", timeRange],
   });
 
   const { data: distributionData, isLoading: isLoadingDistribution, error: distributionError } = useQuery<DistributionData[]>({
-    queryKey: ["/api/analytics/distribution"],
+    queryKey: ["/api/analytics/distribution", timeRange],
   });
 
   const { data: fatigueData, isLoading: isLoadingFatigue, error: fatigueError } = useQuery<FatigueData[]>({
-    queryKey: ["/api/analytics/fatigue"],
+    queryKey: ["/api/analytics/fatigue", timeRange],
   });
 
   if (isLoadingWorkload || isLoadingDistribution || isLoadingFatigue) {
@@ -68,7 +100,23 @@ export default function AnalyticsPage() {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
-      <h1 className="text-3xl font-bold tracking-tight">Analytics Dashboard</h1>
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold tracking-tight">Analytics Dashboard</h1>
+        <Select 
+          value={timeRange} 
+          onValueChange={(value: TimeRange) => setTimeRange(value)}
+        >
+          <SelectTrigger className="w-32">
+            <SelectValue placeholder="Select range" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="week">Week</SelectItem>
+            <SelectItem value="month">Month</SelectItem>
+            <SelectItem value="quarter">Quarter</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {/* Staff Utilization Chart */}
         <Card className="col-span-full">
@@ -85,6 +133,7 @@ export default function AnalyticsPage() {
             <div className="h-[400px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={workloadData}>
+                  <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" />
                   <YAxis />
                   <Tooltip />
@@ -140,21 +189,22 @@ export default function AnalyticsPage() {
               Fatigue Risk
             </CardTitle>
             <CardDescription>
-              Staff fatigue risk based on consecutive weeks worked
+              Staff fatigue risk based on consecutive shifts
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={fatigueData} layout="vertical">
-                  <XAxis type="number" domain={[0, 'dataMax']} />
+                  <XAxis type="number" />
                   <YAxis type="category" dataKey="name" width={100} />
                   <Tooltip />
                   <Bar
                     dataKey="currentConsecutive"
                     fill="#8884d8"
-                    stroke={(entry: FatigueData) => {
-                      switch (entry.fatigueRisk) {
+                    stroke={(entry) => {
+                      const data = entry as FatigueData;
+                      switch (data.fatigueRisk) {
                         case 'high':
                           return '#ef4444';
                         case 'medium':

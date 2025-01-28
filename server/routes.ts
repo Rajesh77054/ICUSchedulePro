@@ -4,6 +4,14 @@ import { log } from './vite';
 import { db } from "@db";
 import os from 'os';
 import { setupWebSocket } from './websocket';
+import { conflictResolutionService } from './services/conflict-resolution';
+import { 
+  schedulingRules, 
+  conflicts,
+  resolutionAttempts,
+  type ResolutionStrategy 
+} from "@db/schema";
+import { eq } from "drizzle-orm";
 
 interface ServerMetrics {
   uptime: number;
@@ -36,13 +44,13 @@ setInterval(() => {
 
   metrics = {
     uptime: process.uptime(),
-    cpuUsage: os.loadavg()[0], // 1 minute load average
+    cpuUsage: os.loadavg()[0],
     memoryUsage: {
       total: totalMem,
       free: freeMem,
       used: totalMem - freeMem
     },
-    activeConnections: 0, // Will be updated by WebSocket handler
+    activeConnections: 0,
     lastUpdated: new Date().toISOString()
   };
 }, 5000);
@@ -52,7 +60,6 @@ export function registerRoutes(app: Express): Server {
 
   // Setup WebSocket server
   setupWebSocket(httpServer).then(ws => {
-    // Broadcast metrics updates to all connected clients
     setInterval(() => {
       ws.broadcast({
         type: 'metrics_update',
@@ -64,13 +71,76 @@ export function registerRoutes(app: Express): Server {
 
   // Basic health check endpoint
   app.get("/api/health", (_req, res) => {
-    log('Health check requested');
     res.json({ status: "ok" });
   });
 
   // Get server metrics
   app.get("/api/metrics", (_req, res) => {
     res.json(metrics);
+  });
+
+  // Scheduling Rules Endpoints
+  app.get("/api/scheduling-rules", async (_req, res) => {
+    try {
+      const rules = await db.query.schedulingRules.findMany();
+      res.json(rules);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch scheduling rules" });
+    }
+  });
+
+  app.post("/api/scheduling-rules", async (req, res) => {
+    try {
+      const rule = await db.insert(schedulingRules).values(req.body).returning();
+      res.json(rule[0]);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create scheduling rule" });
+    }
+  });
+
+  // Conflicts Endpoints
+  app.get("/api/conflicts", async (_req, res) => {
+    try {
+      const activeConflicts = await db.query.conflicts.findMany({
+        where: eq(conflicts.status, 'detected'),
+      });
+      res.json(activeConflicts);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch conflicts" });
+    }
+  });
+
+  app.post("/api/conflicts/:id/resolve", async (req, res) => {
+    try {
+      const conflictId = parseInt(req.params.id);
+      const strategy = req.body.strategy as ResolutionStrategy;
+
+      const success = await conflictResolutionService.resolveConflict(
+        conflictId,
+        strategy
+      );
+
+      if (success) {
+        res.json({ status: "resolved" });
+      } else {
+        res.status(400).json({ error: "Failed to resolve conflict" });
+      }
+    } catch (error) {
+      res.status(500).json({ error: "Error processing conflict resolution" });
+    }
+  });
+
+  // Resolution Attempts Endpoints
+  app.get("/api/conflicts/:id/attempts", async (req, res) => {
+    try {
+      const conflictId = parseInt(req.params.id);
+      const attempts = await db.query.resolutionAttempts.findMany({
+        where: eq(resolutionAttempts.conflictId, conflictId),
+      });
+      res.json(attempts);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch resolution attempts" });
+    }
   });
 
   // Get all shifts

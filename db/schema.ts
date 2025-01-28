@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, timestamp, jsonb, date, integer as int } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, timestamp, jsonb, date, integer as int, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { relations } from "drizzle-orm";
 import type { InferModel } from "drizzle-orm";
@@ -212,3 +212,77 @@ export const selectMessageSchema = createSelectSchema(messages);
 
 export const insertRoomMemberSchema = createInsertSchema(roomMembers);
 export const selectRoomMemberSchema = createSelectSchema(roomMembers);
+
+// New enums for conflict resolution
+export const ConflictType = ['overlap', 'consecutive_shifts', 'overtime', 'understaffed'] as const;
+export type ConflictType = typeof ConflictType[number];
+
+export const ResolutionStrategy = ['auto_reassign', 'notify_admin', 'suggest_swap', 'enforce_rule'] as const;
+export type ResolutionStrategy = typeof ResolutionStrategy[number];
+
+export const ConflictStatus = ['detected', 'resolving', 'resolved', 'escalated'] as const;
+export type ConflictStatus = typeof ConflictStatus[number];
+
+// Scheduling rules table
+export const schedulingRules = pgTable("scheduling_rules", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  priority: integer("priority").notNull(), // Higher number = higher priority
+  conditions: jsonb("conditions").notNull(), // JSON structure defining when rule applies
+  strategy: text("strategy", { enum: ResolutionStrategy }).notNull(),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Conflict detection and resolution history
+export const conflicts = pgTable("conflicts", {
+  id: serial("id").primaryKey(),
+  type: text("type", { enum: ConflictType }).notNull(),
+  status: text("status", { enum: ConflictStatus }).notNull().default('detected'),
+  affectedShiftIds: integer("affected_shift_ids").array(),
+  affectedUserIds: integer("affected_user_ids").array(),
+  detectedAt: timestamp("detected_at").defaultNow(),
+  resolvedAt: timestamp("resolved_at"),
+  resolutionDetails: jsonb("resolution_details"),
+  appliedRuleId: integer("applied_rule_id").references(() => schedulingRules.id),
+});
+
+// Resolution attempts tracking
+export const resolutionAttempts = pgTable("resolution_attempts", {
+  id: serial("id").primaryKey(),
+  conflictId: integer("conflict_id").references(() => conflicts.id),
+  strategy: text("strategy", { enum: ResolutionStrategy }).notNull(),
+  successful: boolean("successful").notNull(),
+  attemptedAt: timestamp("attempted_at").defaultNow(),
+  details: jsonb("details"),
+});
+
+// Add relations
+export const schedulingRulesRelations = relations(schedulingRules, ({ many }) => ({
+  conflicts: many(conflicts),
+}));
+
+export const conflictsRelations = relations(conflicts, ({ one, many }) => ({
+  rule: one(schedulingRules, {
+    fields: [conflicts.appliedRuleId],
+    references: [schedulingRules.id],
+  }),
+  resolutionAttempts: many(resolutionAttempts),
+}));
+
+// Add new types
+export type SchedulingRule = InferModel<typeof schedulingRules>;
+export type Conflict = InferModel<typeof conflicts>;
+export type ResolutionAttempt = InferModel<typeof resolutionAttempts>;
+
+// Add new schemas
+export const insertSchedulingRuleSchema = createInsertSchema(schedulingRules);
+export const selectSchedulingRuleSchema = createSelectSchema(schedulingRules);
+
+export const insertConflictSchema = createInsertSchema(conflicts);
+export const selectConflictSchema = createSelectSchema(conflicts);
+
+export const insertResolutionAttemptSchema = createInsertSchema(resolutionAttempts);
+export const selectResolutionAttemptSchema = createSelectSchema(resolutionAttempts);

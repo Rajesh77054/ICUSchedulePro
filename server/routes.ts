@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { log } from './vite';
 import { db } from "@db";
 import os from 'os';
+import { setupWebSocket } from './websocket';
 
 interface ServerMetrics {
   uptime: number;
@@ -48,6 +49,18 @@ setInterval(() => {
 
 export function registerRoutes(app: Express): Server {
   const httpServer = createServer(app);
+
+  // Setup WebSocket server
+  setupWebSocket(httpServer).then(ws => {
+    // Broadcast metrics updates to all connected clients
+    setInterval(() => {
+      ws.broadcast({
+        type: 'metrics_update',
+        data: metrics,
+        timestamp: new Date().toISOString()
+      });
+    }, 5000);
+  });
 
   // Basic health check endpoint
   app.get("/api/health", (_req, res) => {

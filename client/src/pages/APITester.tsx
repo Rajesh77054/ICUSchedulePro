@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { showTranslatedError } from "@/lib/errorTranslator";
 
 interface APIResponse {
   status: number;
@@ -51,11 +52,7 @@ export function APITester() {
         try {
           options.body = JSON.stringify(JSON.parse(requestBody));
         } catch (e) {
-          toast({
-            title: "Invalid JSON",
-            description: "Please check your request body format",
-            variant: "destructive",
-          });
+          showTranslatedError(new Error("Invalid JSON format in request body"));
           setLoading(false);
           return;
         }
@@ -72,39 +69,37 @@ export function APITester() {
 
       let data;
       const contentType = res.headers.get("content-type");
-      if (contentType?.includes("application/json")) {
-        data = await res.json();
-      } else {
-        data = await res.text();
+      try {
+        if (contentType?.includes("application/json")) {
+          data = await res.json();
+        } else {
+          data = await res.text();
+        }
+
+        const responseData: APIResponse = {
+          status: res.status,
+          statusText: res.statusText,
+          headers,
+          data,
+          duration,
+        };
+
+        setResponse(responseData);
+        setHistory(prev => [{
+          method,
+          endpoint,
+          response: responseData,
+          timestamp: new Date().toISOString(),
+        }, ...prev.slice(0, 9)]); // Keep last 10 requests
+
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}: ${data.message || res.statusText}`);
+        }
+      } catch (e) {
+        showTranslatedError(e);
       }
-
-      const responseData: APIResponse = {
-        status: res.status,
-        statusText: res.statusText,
-        headers,
-        data,
-        duration,
-      };
-
-      setResponse(responseData);
-      setHistory(prev => [{
-        method,
-        endpoint,
-        response: responseData,
-        timestamp: new Date().toISOString(),
-      }, ...prev.slice(0, 9)]); // Keep last 10 requests
-
-      toast({
-        title: "Request Complete",
-        description: `Status: ${res.status} ${res.statusText}`,
-        variant: res.ok ? "default" : "destructive",
-      });
     } catch (error) {
-      toast({
-        title: "Request Failed",
-        description: error instanceof Error ? error.message : "Unknown error occurred",
-        variant: "destructive",
-      });
+      showTranslatedError(error);
     } finally {
       setLoading(false);
     }
@@ -190,8 +185,8 @@ export function APITester() {
                 <div className="space-y-2">
                   <h3 className="text-sm font-medium">Body</h3>
                   <pre className="bg-muted p-2 rounded-md text-xs overflow-x-auto">
-                    {typeof response.data === 'string' 
-                      ? response.data 
+                    {typeof response.data === 'string'
+                      ? response.data
                       : JSON.stringify(response.data, null, 2)}
                   </pre>
                 </div>

@@ -257,6 +257,42 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Analytics Endpoints
+  app.get("/api/analytics/workload", (req, res) => {
+    const timeRange = req.query.timeRange || 'month';
+    const mockWorkloadData = [
+      { name: "Dr. Smith", actualDays: 20, targetDays: 22, utilization: 90 },
+      { name: "Dr. Johnson", actualDays: 18, targetDays: 20, utilization: 90 },
+      { name: "Dr. Williams", actualDays: 15, targetDays: 18, utilization: 83 },
+      { name: "Dr. Brown", actualDays: 22, targetDays: 22, utilization: 100 },
+      { name: "Dr. Jones", actualDays: 19, targetDays: 20, utilization: 95 }
+    ];
+    res.json(mockWorkloadData);
+  });
+
+  app.get("/api/analytics/distribution", (req, res) => {
+    const timeRange = req.query.timeRange || 'month';
+    const mockDistributionData = [
+      { type: "Day Shift", totalDays: 120, shiftCount: 60, avgShiftLength: 12 },
+      { type: "Night Shift", totalDays: 80, shiftCount: 40, avgShiftLength: 12 },
+      { type: "On-Call", totalDays: 40, shiftCount: 20, avgShiftLength: 24 },
+      { type: "Weekend", totalDays: 60, shiftCount: 30, avgShiftLength: 12 }
+    ];
+    res.json(mockDistributionData);
+  });
+
+  app.get("/api/analytics/fatigue", (req, res) => {
+    const timeRange = req.query.timeRange || 'month';
+    const mockFatigueData = [
+      { name: "Dr. Smith", maxAllowed: 5, currentConsecutive: 3, fatigueRisk: "low" },
+      { name: "Dr. Johnson", maxAllowed: 5, currentConsecutive: 4, fatigueRisk: "medium" },
+      { name: "Dr. Williams", maxAllowed: 5, currentConsecutive: 2, fatigueRisk: "low" },
+      { name: "Dr. Brown", maxAllowed: 5, currentConsecutive: 5, fatigueRisk: "high" },
+      { name: "Dr. Jones", maxAllowed: 5, currentConsecutive: 1, fatigueRisk: "low" }
+    ];
+    res.json(mockFatigueData);
+  });
+
   return httpServer;
 }
 

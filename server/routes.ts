@@ -42,7 +42,7 @@ let metrics: ServerMetrics = {
 };
 
 // Update metrics every 5 seconds
-setInterval(() => {
+const metricsInterval = setInterval(() => {
   const totalMem = os.totalmem();
   const freeMem = os.freemem();
 
@@ -54,7 +54,7 @@ setInterval(() => {
       free: freeMem,
       used: totalMem - freeMem
     },
-    activeConnections: 0,
+    activeConnections: 0, // Will be updated by WebSocket server
     lastUpdated: new Date().toISOString()
   };
 }, 5000);
@@ -62,20 +62,42 @@ setInterval(() => {
 export function registerRoutes(app: Express): Server {
   const httpServer = createServer(app);
 
-  // Setup WebSocket server
-  setupWebSocket(httpServer).then(ws => {
-    setInterval(() => {
-      ws.broadcast({
-        type: 'metrics_update',
-        data: metrics,
-        timestamp: new Date().toISOString()
-      });
-    }, 5000);
+  // Initialize WebSocket server after HTTP server creation
+  let wsInitialized = false;
+
+  httpServer.on('listening', async () => {
+    if (!wsInitialized) {
+      try {
+        const ws = await setupWebSocket(httpServer);
+        wsInitialized = true;
+
+        // Update metrics with WebSocket connections
+        setInterval(() => {
+          if (ws.clients) {
+            metrics.activeConnections = ws.clients.size;
+          }
+          ws.broadcast({
+            type: 'metrics_update',
+            data: metrics,
+            timestamp: new Date().toISOString()
+          });
+        }, 5000);
+
+        log('WebSocket server initialized successfully');
+      } catch (error) {
+        console.error('Failed to initialize WebSocket server:', error);
+      }
+    }
+  });
+
+  // Cleanup on server close
+  httpServer.on('close', () => {
+    clearInterval(metricsInterval);
   });
 
   // Basic health check endpoint
   app.get("/api/health", (_req, res) => {
-    res.json({ status: "ok" });
+    res.json({ status: "ok", wsInitialized });
   });
 
   // Get server metrics

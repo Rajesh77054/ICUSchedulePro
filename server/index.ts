@@ -1,8 +1,11 @@
-import express from "express";
+import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
+
+// Track active connections for proper cleanup
+const activeConnections = new Set<any>();
 
 // Add JSON and URL-encoded parsing middleware first
 app.use(express.json());
@@ -24,6 +27,18 @@ app.use((req, res, next) => {
   next();
 });
 
+// Track connections for cleanup
+app.use((req, res, next) => {
+  const socket = req.socket;
+  if (socket) {
+    activeConnections.add(socket);
+    socket.once('close', () => {
+      activeConnections.delete(socket);
+    });
+  }
+  next();
+});
+
 // Register routes first
 const server = registerRoutes(app);
 
@@ -41,16 +56,34 @@ const server = registerRoutes(app);
     }
 
     // Error handling middleware
-    app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
       console.error('Server error:', err);
       res.status(500).json({ message: err.message || 'Internal Server Error' });
     });
 
-    // Start server only after middleware setup is complete
-    const PORT = 5000;
-    server.listen(PORT, "0.0.0.0", () => {
-      log(`Server running on port ${PORT}`);
+    // Cleanup function
+    const cleanup = () => {
+      log('Cleaning up connections...');
+      activeConnections.forEach((socket) => {
+        socket.destroy();
+      });
+      activeConnections.clear();
+
+      server.close(() => {
+        log('Server closed');
+        process.exit(0);
+      });
+    };
+
+    // Handle graceful shutdown
+    process.once('SIGTERM', cleanup);
+    process.once('SIGINT', cleanup);
+
+    // Start server
+    server.listen(5000, "0.0.0.0", () => {
+      log(`Server running on port 5000`);
     });
+
   } catch (error) {
     console.error('Failed to start server:', error);
     process.exit(1);

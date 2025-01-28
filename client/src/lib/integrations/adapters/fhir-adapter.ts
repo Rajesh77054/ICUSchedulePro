@@ -22,7 +22,8 @@ export class FHIRAdapter implements SchedulingSystemAdapter {
   async initialize(config: IntegrationConfig): Promise<void> {
     try {
       this.config = config;
-      // We'll implement the actual client initialization when we have the proper FHIR server credentials
+      // Initialize FHIR client with server configuration
+      // For now using a mock client until we have server credentials
       this.client = {
         search: async () => ({ entry: [] }),
         create: async () => ({ entry: [] })
@@ -39,8 +40,11 @@ export class FHIRAdapter implements SchedulingSystemAdapter {
     }
 
     try {
-      // For now, just return true since we're using a mock client
-      return true;
+      // Test connection by fetching capability statement
+      const response = await this.client.search({
+        resourceType: 'CapabilityStatement'
+      });
+      return !!response;
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       throw new Error(`FHIR connection test failed: ${errorMessage}`);
@@ -53,7 +57,8 @@ export class FHIRAdapter implements SchedulingSystemAdapter {
     }
 
     try {
-      const response = await this.client.search({
+      // First fetch all schedules
+      const scheduleResponse = await this.client.search({
         resourceType: 'Schedule',
         searchParams: {
           date: `ge${startDate.toISOString()}`,
@@ -61,14 +66,39 @@ export class FHIRAdapter implements SchedulingSystemAdapter {
         }
       });
 
-      const schedules: ExternalSchedule[] = (response.entry || []).map((entry: any) => {
+      // Then fetch associated slots
+      const slotResponse = await this.client.search({
+        resourceType: 'Slot',
+        searchParams: {
+          'schedule': scheduleResponse.entry.map((e: any) => e.resource.id).join(','),
+          status: 'free,busy'
+        }
+      });
+
+      // Map FHIR resources to our schedule format
+      const schedules: ExternalSchedule[] = scheduleResponse.entry.map((entry: any) => {
         const resource = entry.resource;
+        const slots = slotResponse.entry
+          .filter((slot: any) => slot.resource.schedule.reference === `Schedule/${resource.id}`)
+          .map((slot: any) => ({
+            id: slot.resource.id,
+            startDate: slot.resource.start,
+            endDate: slot.resource.end,
+            providerId: slot.resource.actor?.[0]?.reference?.split('/')[1] || '',
+            providerName: slot.resource.actor?.[0]?.display || 'Unknown',
+            providerType: 'practitioner',
+            status: slot.resource.status
+          }));
+
         return {
           id: resource.id || String(Date.now()),
           source: 'FHIR',
           provider: resource?.actor?.[0]?.reference || 'unknown',
-          shifts: [],
-          metadata: {},
+          shifts: slots,
+          metadata: {
+            serviceType: resource.serviceType?.[0]?.coding?.[0]?.display,
+            specialty: resource.specialty?.[0]?.coding?.[0]?.display
+          },
           lastSync: new Date().toISOString()
         };
       });
@@ -87,7 +117,46 @@ export class FHIRAdapter implements SchedulingSystemAdapter {
     }
 
     try {
-      // For now, just return true since we're using a mock client
+      for (const schedule of schedules) {
+        // Create or update Schedule resource
+        await this.client.create({
+          resourceType: 'Schedule',
+          body: {
+            resourceType: 'Schedule',
+            id: schedule.id,
+            status: 'active',
+            actor: [{
+              reference: schedule.provider,
+              display: schedule.shifts[0]?.providerName || 'Unknown'
+            }],
+            planningHorizon: {
+              start: schedule.shifts[0]?.startDate,
+              end: schedule.shifts[schedule.shifts.length - 1]?.endDate
+            }
+          }
+        });
+
+        // Create or update Slot resources
+        for (const shift of schedule.shifts) {
+          await this.client.create({
+            resourceType: 'Slot',
+            body: {
+              resourceType: 'Slot',
+              id: shift.id,
+              schedule: {
+                reference: `Schedule/${schedule.id}`
+              },
+              status: shift.status === 'scheduled' ? 'busy' : 'free',
+              start: shift.startDate,
+              end: shift.endDate,
+              actor: [{
+                reference: `Practitioner/${shift.providerId}`,
+                display: shift.providerName
+              }]
+            }
+          });
+        }
+      }
       return true;
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
@@ -105,14 +174,17 @@ export class FHIRAdapter implements SchedulingSystemAdapter {
         resourceType: 'Practitioner'
       });
 
-      return (response.entry || []).map((entry: any) => {
+      return response.entry.map((entry: any) => {
         const resource = entry.resource;
         return {
           id: resource.id || String(Date.now()),
           name: resource.name?.[0]?.text || 'Unknown',
           type: 'practitioner',
-          externalId: resource.id || String(Date.now()),
-          metadata: {}
+          externalId: resource.id,
+          metadata: {
+            qualification: resource.qualification?.[0]?.code?.coding?.[0]?.display,
+            specialty: resource.specialty?.[0]?.coding?.[0]?.display
+          }
         };
       });
     } catch (error: unknown) {

@@ -17,6 +17,7 @@ import {
   BarChart,
   MessageSquare,
   User,
+  Activity,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -42,14 +43,14 @@ interface NavItemProps {
   label: string;
   tooltip?: string;
   active?: boolean;
-  indent?: boolean; // Added for indentation
+  indent?: boolean;
 }
 
 function NavItem({ href, icon, label, tooltip, active, indent }: NavItemProps) {
   const buttonClass = cn(
     "w-full justify-start gap-2 transition-colors",
     active && "bg-accent text-accent-foreground hover:bg-accent/90",
-    indent && "pl-8" // Apply indentation if needed
+    indent && "pl-8"
   );
   return (
     <TooltipProvider>
@@ -137,6 +138,12 @@ export function Sidebar() {
         icon: <BarChart className="h-4 w-4" />,
         label: "Analytics",
         tooltip: "View workload analytics and distribution metrics",
+      },
+      {
+        href: "/server-health",
+        icon: <Activity className="h-4 w-4" />,
+        label: "Server Health",
+        tooltip: "Monitor server performance metrics",
       },
     ],
   };

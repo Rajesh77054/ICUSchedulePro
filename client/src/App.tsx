@@ -24,6 +24,48 @@ import { updateUsers } from './lib/constants';
 import React, { useEffect, useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { NotificationsList } from "@/components/ui/notification-toast";
+
+interface ErrorBoundaryProps {
+  children: React.ReactNode;
+}
+
+interface ErrorBoundaryState {
+  error: Error | null;
+  errorInfo: React.ErrorInfo | null;
+}
+
+//Added ErrorBoundary Component
+function ErrorBoundary({ children }: ErrorBoundaryProps) {
+  const [error, setError] = React.useState<Error | null>(null);
+  const [errorInfo, setErrorInfo] = React.useState<React.ErrorInfo | null>(null);
+
+  React.useEffect(() => {
+    if (error) {
+      console.error("Uncaught error:", error, errorInfo);
+    }
+  }, [error, errorInfo]);
+
+  const handleError = (error: Error, errorInfo: React.ErrorInfo) => {
+    setError(error);
+    setErrorInfo(errorInfo);
+  };
+
+  if (error) {
+    return (
+      <div>
+        <h2>Something went wrong.</h2>
+        <details style={{ whiteSpace: 'pre-wrap' }}>
+          {error.message}
+          <br/>
+          {error.stack}
+        </details>
+      </div>
+    );
+  }
+
+  return children;
+}
 
 // PWA Install Prompt Component
 function InstallPWA() {
@@ -132,38 +174,6 @@ function InstallPWA() {
   );
 }
 
-//Added ErrorBoundary Component
-function ErrorBoundary({ children }) {
-  const [error, setError] = React.useState(null);
-  const [errorInfo, setErrorInfo] = React.useState(null);
-
-  React.useEffect(() => {
-    if (error) {
-      console.error("Uncaught error:", error, errorInfo);
-    }
-  }, [error, errorInfo]);
-
-  const handleError = (error, errorInfo) => {
-    setError(error);
-    setErrorInfo(errorInfo);
-  };
-
-  if (error) {
-    return (
-      <div>
-        <h2>Something went wrong.</h2>
-        <details style={{ whiteSpace: 'pre-wrap' }}>
-          {error.message}
-          <br/>
-          {error.stack}
-        </details>
-      </div>
-    );
-  }
-
-  return children;
-}
-
 function App() {
   const { users } = useSyncUsers();
 
@@ -201,7 +211,7 @@ function App() {
                 <Route path="/admin/schedule" component={ScheduleManagement} />
                 <Route path="/analytics" component={AnalyticsPage} />
                 <Route path="/server-health" component={ServerHealth} />
-                <Route path="/api-tester" component={APITester} /> {/* Added route */}
+                <Route path="/api-tester" component={APITester} />
                 <Route component={NotFound} />
               </Switch>
             </main>
@@ -210,7 +220,7 @@ function App() {
               {location.pathname.includes('provider') ? (
                 <PersonalChatDialog pathname={location.pathname} />
               ) : (
-                <ChatDialog 
+                <ChatDialog
                   currentPage={location.pathname.split('/')[1] || 'dashboard'}
                   pageContext={{
                     shifts: shifts || [],
@@ -221,6 +231,8 @@ function App() {
             </div>
             {/* PWA Install Prompt */}
             <InstallPWA />
+            {/* Notifications */}
+            <NotificationsList />
           </div>
         </ErrorBoundary>
       </div>

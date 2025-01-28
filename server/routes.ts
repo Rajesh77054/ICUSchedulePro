@@ -5,13 +5,17 @@ import { db } from "@db";
 import os from 'os';
 import { setupWebSocket } from './websocket';
 import { conflictResolutionService } from './services/conflict-resolution';
+import { notificationService } from './services/notification';
 import { 
   schedulingRules, 
   conflicts,
   resolutionAttempts,
-  type ResolutionStrategy 
+  notifications,
+  notificationSubscriptions,
+  type ResolutionStrategy,
+  type NotificationChannel
 } from "@db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 
 interface ServerMetrics {
   uptime: number;
@@ -162,6 +166,72 @@ export function registerRoutes(app: Express): Server {
     } catch (error) {
       console.error('Error fetching users:', error);
       res.status(500).json({ error: "Failed to fetch users" });
+    }
+  });
+
+  // Notification Endpoints
+  app.post("/api/notifications/subscribe", async (req, res) => {
+    try {
+      const { userId, channel, endpoint, keys } = req.body;
+      const subscription = await db.insert(notificationSubscriptions)
+        .values({
+          userId,
+          channel: channel as NotificationChannel,
+          endpoint,
+          keys: keys || {},
+        })
+        .returning();
+
+      res.json(subscription[0]);
+    } catch (error) {
+      console.error('Error creating notification subscription:', error);
+      res.status(500).json({ error: "Failed to create notification subscription" });
+    }
+  });
+
+  app.get("/api/notifications", async (req, res) => {
+    try {
+      const userId = parseInt(req.query.userId as string);
+      if (!userId) {
+        return res.status(400).json({ error: "User ID is required" });
+      }
+
+      const userNotifications = await notificationService.getUserNotifications(userId);
+      res.json(userNotifications);
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+      res.status(500).json({ error: "Failed to fetch notifications" });
+    }
+  });
+
+  app.post("/api/notifications/:id/read", async (req, res) => {
+    try {
+      const notificationId = parseInt(req.params.id);
+      const userId = parseInt(req.body.userId);
+
+      await notificationService.markAsRead(notificationId, userId);
+      res.json({ status: "success" });
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+      res.status(500).json({ error: "Failed to mark notification as read" });
+    }
+  });
+
+  app.delete("/api/notifications/subscription", async (req, res) => {
+    try {
+      const { userId, channel } = req.body;
+      await db.delete(notificationSubscriptions)
+        .where(
+          and(
+            eq(notificationSubscriptions.userId, userId),
+            eq(notificationSubscriptions.channel, channel)
+          )
+        );
+
+      res.json({ status: "success" });
+    } catch (error) {
+      console.error('Error deleting notification subscription:', error);
+      res.status(500).json({ error: "Failed to delete notification subscription" });
     }
   });
 

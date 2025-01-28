@@ -18,7 +18,10 @@ interface NotificationShift {
 }
 
 interface NotificationMessage {
-  type: 'shift_created' | 'shift_updated' | 'shift_deleted' | 'shift_swap_requested' | 'shift_swap_responded' | 'shift_swap_cancelled' | 'time_off_requested' | 'time_off_responded' | 'time_off_cancelled' | 'chat_message' | 'urgent_coverage';
+  type: 'shift_created' | 'shift_updated' | 'shift_deleted' | 'shift_swap_requested' | 
+        'shift_swap_responded' | 'shift_swap_cancelled' | 'time_off_requested' | 
+        'time_off_responded' | 'time_off_cancelled' | 'chat_message' | 'urgent_coverage' |
+        'metrics_update' | 'system_notification';
   data: any;
   timestamp: string;
 }

@@ -286,3 +286,66 @@ export const selectConflictSchema = createSelectSchema(conflicts);
 
 export const insertResolutionAttemptSchema = createInsertSchema(resolutionAttempts);
 export const selectResolutionAttemptSchema = createSelectSchema(resolutionAttempts);
+
+
+// Add notification related enums
+export const NotificationChannel = ['web_push', 'websocket', 'email'] as const;
+export type NotificationChannel = typeof NotificationChannel[number];
+
+export const NotificationType = ['schedule_change', 'shift_swap', 'conflict_detected', 'system_alert'] as const;
+export type NotificationType = typeof NotificationType[number];
+
+export const NotificationStatus = ['pending', 'sent', 'failed', 'read'] as const;
+export type NotificationStatus = typeof NotificationStatus[number];
+
+// Notification subscriptions for different channels
+export const notificationSubscriptions = pgTable("notification_subscriptions", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  channel: text("channel", { enum: NotificationChannel }).notNull(),
+  endpoint: text("endpoint").notNull(), // Push notification endpoint or email
+  keys: jsonb("keys").default({}), // Web push keys
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Notification messages
+export const notifications = pgTable("notifications", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  type: text("type", { enum: NotificationType }).notNull(),
+  title: text("title").notNull(),
+  body: text("body").notNull(),
+  data: jsonb("data").default({}),
+  status: text("status", { enum: NotificationStatus }).notNull().default('pending'),
+  channel: text("channel", { enum: NotificationChannel }).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  sentAt: timestamp("sent_at"),
+  readAt: timestamp("read_at"),
+});
+
+// Add relations
+export const notificationSubscriptionsRelations = relations(notificationSubscriptions, ({ one }) => ({
+  user: one(users, {
+    fields: [notificationSubscriptions.userId],
+    references: [users.id],
+  }),
+}));
+
+export const notificationsRelations = relations(notifications, ({ one }) => ({
+  user: one(users, {
+    fields: [notifications.userId],
+    references: [users.id],
+  }),
+}));
+
+// Add new types
+export type NotificationSubscription = InferModel<typeof notificationSubscriptions>;
+export type Notification = InferModel<typeof notifications>;
+
+// Add new schemas
+export const insertNotificationSubscriptionSchema = createInsertSchema(notificationSubscriptions);
+export const selectNotificationSubscriptionSchema = createSelectSchema(notificationSubscriptions);
+
+export const insertNotificationSchema = createInsertSchema(notifications);
+export const selectNotificationSchema = createSelectSchema(notifications);

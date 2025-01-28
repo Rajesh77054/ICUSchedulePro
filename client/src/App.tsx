@@ -8,6 +8,8 @@ import { Settings } from "@/pages/Settings";
 import { UserManagement } from "@/pages/admin/UserManagement";
 import { ScheduleManagement } from "@/pages/admin/ScheduleManagement";
 import AnalyticsPage from "@/pages/AnalyticsPage";
+import { ServerHealth } from "@/pages/ServerHealth";
+import { APITester } from "@/pages/APITester"; // Added import
 import Chat from "@/pages/chat";
 import { AlertCircle, Download } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -22,7 +24,6 @@ import { updateUsers } from './lib/constants';
 import React, { useEffect, useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { ServerHealth } from "@/pages/ServerHealth"; // Added import
 
 // PWA Install Prompt Component
 function InstallPWA() {
@@ -199,7 +200,8 @@ function App() {
                 <Route path="/admin/users" component={UserManagement} />
                 <Route path="/admin/schedule" component={ScheduleManagement} />
                 <Route path="/analytics" component={AnalyticsPage} />
-                <Route path="/server-health" component={ServerHealth} /> {/* Added route */}
+                <Route path="/server-health" component={ServerHealth} />
+                <Route path="/api-tester" component={APITester} /> {/* Added route */}
                 <Route component={NotFound} />
               </Switch>
             </main>

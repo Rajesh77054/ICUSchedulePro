@@ -18,6 +18,7 @@ import {
   MessageSquare,
   User,
   Activity,
+  Webhook, // Added for API Tester icon
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -144,6 +145,12 @@ export function Sidebar() {
         icon: <Activity className="h-4 w-4" />,
         label: "Server Health",
         tooltip: "Monitor server performance metrics",
+      },
+      {
+        href: "/api-tester",
+        icon: <Webhook className="h-4 w-4" />,
+        label: "API Tester",
+        tooltip: "Test API endpoints with one click",
       },
     ],
   };

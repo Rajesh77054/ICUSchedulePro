@@ -8,7 +8,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/data-display/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Select,
   SelectContent,
@@ -20,23 +20,19 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Loader2, Calendar, AlertTriangle } from "lucide-react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Shift } from "@/lib/types";
-import { useQueryClient } from "@tanstack/react-query";
 
 interface ConflictingShift {
-  qgenda: {
-    startDate: string;
-    endDate: string;
-    summary: string;
-  };
-  local: Shift;
+  type: 'overlap' | 'consecutive_shifts' | 'overtime' | 'understaffed';
+  shiftId: number;
+  strategy?: 'auto_reassign' | 'notify_admin' | 'suggest_swap' | 'enforce_rule';
 }
 
 interface ConflictResolutionWizardProps {
   open: boolean;
   conflicts: ConflictingShift[];
   onOpenChange: (open: boolean) => void;
-  onResolve: (resolutions: Array<{ shiftId: number; action: 'keep-qgenda' | 'keep-local' }>) => Promise<void>;
   onResolved?: () => void;
 }
 
@@ -44,23 +40,41 @@ export function ConflictResolutionWizard({
   open,
   conflicts,
   onOpenChange,
-  onResolve,
   onResolved
 }: ConflictResolutionWizardProps) {
   const [currentStep, setCurrentStep] = useState(0);
-  const [resolutions, setResolutions] = useState<Record<number, 'keep-qgenda' | 'keep-local'>>({});
-  const [batchMode, setBatchMode] = useState<'keep-qgenda' | 'keep-local' | 'manual'>('manual');
-  const [isResolving, setIsResolving] = useState(false);
+  const [resolutions, setResolutions] = useState<Record<number, string>>({});
+  const [batchMode, setBatchMode] = useState<string>('manual');
   const queryClient = useQueryClient();
+
+  const resolveMutation = useMutation({
+    mutationFn: async (conflictId: number) => {
+      const strategy = resolutions[conflictId];
+      const response = await fetch(`/api/conflicts/${conflictId}/resolve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ strategy }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to resolve conflict');
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/conflicts'] });
+    },
+  });
 
   const progress = Math.round((Object.keys(resolutions).length / conflicts.length) * 100);
 
-  const handleBatchModeChange = (value: 'keep-qgenda' | 'keep-local' | 'manual') => {
+  const handleBatchModeChange = (value: string) => {
     setBatchMode(value);
     if (value !== 'manual') {
-      const newResolutions: Record<number, 'keep-qgenda' | 'keep-local'> = {};
+      const newResolutions: Record<number, string> = {};
       conflicts.forEach(conflict => {
-        newResolutions[conflict.local.id] = value;
+        newResolutions[conflict.shiftId] = value;
       });
       setResolutions(newResolutions);
     }
@@ -68,13 +82,10 @@ export function ConflictResolutionWizard({
 
   const handleResolve = async () => {
     try {
-      setIsResolving(true);
-      await onResolve(
-        Object.entries(resolutions).map(([shiftId, action]) => ({
-          shiftId: parseInt(shiftId),
-          action,
-        }))
-      );
+      // Resolve each conflict sequentially
+      for (const conflict of conflicts) {
+        await resolveMutation.mutateAsync(conflict.shiftId);
+      }
 
       // Reset state
       setResolutions({});
@@ -88,8 +99,6 @@ export function ConflictResolutionWizard({
       onOpenChange(false);
     } catch (error) {
       console.error('Failed to resolve conflicts:', error);
-    } finally {
-      setIsResolving(false);
     }
   };
 
@@ -97,10 +106,9 @@ export function ConflictResolutionWizard({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Resolve Calendar Conflicts</DialogTitle>
+          <DialogTitle>Resolve Schedule Conflicts</DialogTitle>
           <DialogDescription>
-            {conflicts.length} conflicts found between QGenda and local schedules.
-            Choose how to resolve each conflict.
+            {conflicts.length} conflicts detected. Choose how to resolve each conflict.
           </DialogDescription>
         </DialogHeader>
 
@@ -113,8 +121,9 @@ export function ConflictResolutionWizard({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="manual">Resolve Manually</SelectItem>
-                <SelectItem value="keep-qgenda">Keep All QGenda Shifts</SelectItem>
-                <SelectItem value="keep-local">Keep All Local Shifts</SelectItem>
+                <SelectItem value="auto_reassign">Auto-reassign All Shifts</SelectItem>
+                <SelectItem value="notify_admin">Notify Admin for All</SelectItem>
+                <SelectItem value="suggest_swap">Suggest Swaps for All</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -129,52 +138,41 @@ export function ConflictResolutionWizard({
               </div>
 
               {conflicts.map((conflict, index) => (
-                <Card key={conflict.local.id} className={index !== currentStep ? 'hidden' : undefined}>
+                <Card key={conflict.shiftId} className={index !== currentStep ? 'hidden' : undefined}>
                   <CardContent className="pt-6 space-y-4">
                     <div className="flex items-start gap-6">
                       <div className="flex-1">
-                        <h3 className="font-medium mb-2">QGenda Shift</h3>
+                        <h3 className="font-medium mb-2">Conflict Type</h3>
                         <div className="space-y-2 text-sm">
-                          <p className="flex items-center gap-2">
-                            <Calendar className="h-4 w-4" />
-                            {format(new Date(conflict.qgenda.startDate), 'MMM d, yyyy')} -
-                            {format(new Date(conflict.qgenda.endDate), 'MMM d, yyyy')}
-                          </p>
-                          <p>{conflict.qgenda.summary}</p>
-                        </div>
-                      </div>
-
-                      <div className="flex-1">
-                        <h3 className="font-medium mb-2">Local Shift</h3>
-                        <div className="space-y-2 text-sm">
-                          <p className="flex items-center gap-2">
-                            <Calendar className="h-4 w-4" />
-                            {format(new Date(conflict.local.startDate), 'MMM d, yyyy')} -
-                            {format(new Date(conflict.local.endDate), 'MMM d, yyyy')}
-                          </p>
-                          {conflict.local.schedulingNotes && (
-                            <p>{conflict.local.schedulingNotes}</p>
-                          )}
+                          <p className="capitalize">{conflict.type.replace('_', ' ')}</p>
                         </div>
                       </div>
                     </div>
 
                     <RadioGroup
-                      value={resolutions[conflict.local.id]}
-                      onValueChange={(value: 'keep-qgenda' | 'keep-local') => {
+                      value={resolutions[conflict.shiftId]}
+                      onValueChange={(value: string) => {
                         setResolutions(prev => ({
                           ...prev,
-                          [conflict.local.id]: value
+                          [conflict.shiftId]: value
                         }));
                       }}
                     >
                       <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="keep-qgenda" id={`qgenda-${conflict.local.id}`} />
-                        <Label htmlFor={`qgenda-${conflict.local.id}`}>Keep QGenda shift</Label>
+                        <RadioGroupItem value="auto_reassign" id={`auto-${conflict.shiftId}`} />
+                        <Label htmlFor={`auto-${conflict.shiftId}`}>Auto-reassign shift</Label>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="keep-local" id={`local-${conflict.local.id}`} />
-                        <Label htmlFor={`local-${conflict.local.id}`}>Keep local shift</Label>
+                        <RadioGroupItem value="notify_admin" id={`notify-${conflict.shiftId}`} />
+                        <Label htmlFor={`notify-${conflict.shiftId}`}>Notify admin</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="suggest_swap" id={`swap-${conflict.shiftId}`} />
+                        <Label htmlFor={`swap-${conflict.shiftId}`}>Suggest swap</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="enforce_rule" id={`enforce-${conflict.shiftId}`} />
+                        <Label htmlFor={`enforce-${conflict.shiftId}`}>Enforce scheduling rule</Label>
                       </div>
                     </RadioGroup>
 
@@ -188,7 +186,7 @@ export function ConflictResolutionWizard({
                       </Button>
                       <Button
                         onClick={() => setCurrentStep(prev => Math.min(conflicts.length - 1, prev + 1))}
-                        disabled={currentStep === conflicts.length - 1 || !resolutions[conflict.local.id]}
+                        disabled={currentStep === conflicts.length - 1 || !resolutions[conflict.shiftId]}
                       >
                         Next
                       </Button>
@@ -204,7 +202,8 @@ export function ConflictResolutionWizard({
               <div className="flex items-center gap-2 text-amber-600">
                 <AlertTriangle className="h-4 w-4" />
                 <p className="text-sm">
-                  All conflicts will be resolved by keeping the {batchMode === 'keep-qgenda' ? 'QGenda' : 'local'} shifts.
+                  All conflicts will be resolved using the selected strategy.
+                  This action cannot be undone.
                 </p>
               </div>
             </div>
@@ -214,11 +213,11 @@ export function ConflictResolutionWizard({
             <Button
               onClick={handleResolve}
               disabled={
-                isResolving ||
+                resolveMutation.isPending ||
                 (batchMode === 'manual' && Object.keys(resolutions).length !== conflicts.length)
               }
             >
-              {isResolving ? (
+              {resolveMutation.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Resolving...

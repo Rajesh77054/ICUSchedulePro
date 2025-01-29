@@ -10,6 +10,7 @@ app.use(express.urlencoded({ extended: false }));
 // Track active connections for proper cleanup
 const activeConnections = new Set<any>();
 
+// Enhanced connection tracking middleware
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -28,11 +29,9 @@ app.use((req, res, next) => {
       if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
-
       if (logLine.length > 80) {
         logLine = logLine.slice(0, 79) + "…";
       }
-
       log(logLine);
     }
   });
@@ -40,7 +39,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// Track connections for cleanup
+// Enhanced connection tracking
 app.use((req, _res, next) => {
   const socket = req.socket;
   if (socket) {
@@ -52,37 +51,88 @@ app.use((req, _res, next) => {
   next();
 });
 
-const findAvailablePort = async (startPort: number, maxAttempts: number = 10): Promise<number> => {
-  // Wait for potential port release
-  await new Promise(resolve => setTimeout(resolve, 1000));
+const checkPortAvailability = async (port: number): Promise<boolean> => {
+  return new Promise((resolve) => {
+    const tester = net.createServer()
+      .once('error', () => {
+        resolve(false);
+      })
+      .once('listening', () => {
+        tester.close(() => resolve(true));
+      })
+      .listen(port, '0.0.0.0');
+  });
+};
 
-  for (let port = startPort; port < startPort + maxAttempts; port++) {
+const findAvailablePort = async (startPort: number, maxAttempts: number = 10): Promise<number> => {
+  // Enhanced port release wait
+  const portReleaseWait = 2000; // 2 seconds wait for port release
+  await new Promise(resolve => setTimeout(resolve, portReleaseWait));
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const port = startPort + attempt;
     try {
-      await new Promise<void>((resolve, reject) => {
-        const testServer = net.createServer()
-          .once('error', () => {
-            testServer.close();
-            resolve(); // Continue to next port
-          })
-          .once('listening', () => {
-            // Add a small delay before closing to ensure proper release
-            setTimeout(() => {
-              testServer.close(() => resolve());
-            }, 100);
-          })
-          .listen(port, '0.0.0.0');
-      });
-      return port; // Port is available
-    } catch {
-      continue; // Try next port
+      const isAvailable = await checkPortAvailability(port);
+      if (isAvailable) {
+        // Double-check availability after a short delay
+        await new Promise(resolve => setTimeout(resolve, 500));
+        const secondCheck = await checkPortAvailability(port);
+        if (secondCheck) {
+          log(`Found available port: ${port}`);
+          return port;
+        }
+      }
+    } catch (error) {
+      log(`Port ${port} check failed: ${error.message}`);
+      continue;
     }
   }
-  throw new Error(`No available port found after ${maxAttempts} attempts`);
+  throw new Error(`No available port found after ${maxAttempts} attempts starting from ${startPort}`);
+};
+
+// Enhanced graceful shutdown handler
+const setupGracefulShutdown = (server: net.Server) => {
+  let isShuttingDown = false;
+
+  const cleanup = async () => {
+    if (isShuttingDown) return;
+    isShuttingDown = true;
+
+    log('Starting graceful shutdown...');
+
+    // Close server first to stop accepting new connections
+    server.close(() => {
+      log('Server stopped accepting new connections');
+    });
+
+    // Set a timeout for existing connections
+    const forcedShutdownTimeout = setTimeout(() => {
+      log('Forcing shutdown after timeout');
+      process.exit(1);
+    }, 10000);
+
+    // Close all existing connections
+    activeConnections.forEach((socket) => {
+      socket.destroy();
+    });
+    activeConnections.clear();
+
+    // Clear the timeout if we complete gracefully
+    clearTimeout(forcedShutdownTimeout);
+    log('Graceful shutdown completed');
+    process.exit(0);
+  };
+
+  // Register shutdown handlers
+  process.on('SIGTERM', cleanup);
+  process.on('SIGINT', cleanup);
+
+  return cleanup;
 };
 
 (async () => {
   try {
-    // Find an available port first
+    // Find an available port with enhanced port finding
     const port = await findAvailablePort(5000);
 
     // Register routes
@@ -91,7 +141,7 @@ const findAvailablePort = async (startPort: number, maxAttempts: number = 10): P
     // Initialize server with WebSocket support
     const server = await initializeServer(app);
 
-    // Error handling middleware
+    // Setup enhanced error handling middleware
     app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
       console.error('Server error:', err);
       const status = err.status || err.statusCode || 500;
@@ -106,26 +156,20 @@ const findAvailablePort = async (startPort: number, maxAttempts: number = 10): P
       serveStatic(app);
     }
 
-    // Setup graceful shutdown
-    const cleanup = () => {
-      log('Starting cleanup...');
-      activeConnections.forEach((socket) => {
-        socket.destroy();
-      });
-      activeConnections.clear();
+    // Setup enhanced graceful shutdown
+    const cleanup = setupGracefulShutdown(server);
 
-      server.close(() => {
-        log('Server closed');
-        process.exit(0);
-      });
-    };
-
-    process.once('SIGTERM', cleanup);
-    process.once('SIGINT', cleanup);
-
-    // Start server
+    // Start server with enhanced error handling
     server.listen(port, '0.0.0.0', () => {
-      log(`Server started on port ${port}`);
+      log(`Server started successfully on port ${port}`);
+    }).on('error', (error: Error & { code?: string }) => {
+      if (error.code === 'EADDRINUSE') {
+        log(`Port ${port} is in use, attempting to find another port...`);
+        server.close();
+      } else {
+        console.error('Server error:', error);
+        cleanup();
+      }
     });
 
   } catch (error) {

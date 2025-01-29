@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Activity, Server, HardDrive, Users } from "lucide-react";
-import { Alert, AlertDescription, AlertTitle, AlertCircle } from "@/components/ui/alert";
 
 interface ServerMetrics {
   uptime: number;
@@ -15,12 +14,6 @@ interface ServerMetrics {
   };
   activeConnections: number;
   lastUpdated: string;
-  portStatus: {
-    port: number;
-    status: 'active' | 'conflict' | 'error';
-    connections: number;
-    lastChecked: string;
-  };
 }
 
 export function ServerHealth() {
@@ -44,7 +37,7 @@ export function ServerHealth() {
     websocket.onmessage = (event) => {
       const data = JSON.parse(event.data);
       if (data.type === 'metrics_update') {
-        setRealtimeMetrics(data.data);
+        setRealtimeMetrics(data.metrics);
       }
     };
 
@@ -86,14 +79,6 @@ export function ServerHealth() {
   };
 
   const memoryUsagePercent = (metrics.memoryUsage.used / metrics.memoryUsage.total) * 100;
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active': return 'bg-green-500';
-      case 'conflict': return 'bg-red-500';
-      case 'error': return 'bg-yellow-500';
-      default: return 'bg-gray-500';
-    }
-  };
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -157,44 +142,21 @@ export function ServerHealth() {
           </CardContent>
         </Card>
 
-        {/* Port Status */}
+        {/* Active Connections */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Port Status
+              Active Connections
             </CardTitle>
-            <Server className="h-4 w-4 text-muted-foreground" />
+            <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <span className={`h-2 w-2 rounded-full ${getStatusColor(metrics.portStatus.status)}`} />
-                <span className="text-sm">
-                  Port {metrics.portStatus.port} - {metrics.portStatus.status}
-                </span>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {metrics.portStatus.connections} active connections
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Last checked: {new Date(metrics.portStatus.lastChecked).toLocaleTimeString()}
-              </p>
+            <div className="text-2xl font-bold">
+              {metrics.activeConnections}
             </div>
+            <Progress value={metrics.activeConnections} max={100} className="mt-2" />
           </CardContent>
         </Card>
-
-        {/* Alert for Port Conflicts */}
-        {metrics.portStatus.status === 'conflict' && (
-          <div className="col-span-full">
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Port Conflict Detected</AlertTitle>
-              <AlertDescription>
-                Port {metrics.portStatus.port} is experiencing conflicts. This may affect server performance.
-              </AlertDescription>
-            </Alert>
-          </div>
-        )}
       </div>
     </div>
   );

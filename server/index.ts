@@ -10,7 +10,10 @@ app.use(express.urlencoded({ extended: false }));
 // Track active connections for proper cleanup
 const activeConnections = new Set<any>();
 
-// Enhanced connection tracking middleware
+// Development mode flag
+const isDevelopment = app.get("env") === "development";
+
+// Enhanced connection tracking middleware with development logging
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -24,7 +27,7 @@ app.use((req, res, next) => {
 
   res.on("finish", () => {
     const duration = Date.now() - start;
-    if (path.startsWith("/api")) {
+    if (path.startsWith("/api") || isDevelopment) {
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
       if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
@@ -39,25 +42,40 @@ app.use((req, res, next) => {
   next();
 });
 
-// Enhanced connection tracking
+// Enhanced connection tracking with development mode logging
 app.use((req, _res, next) => {
   const socket = req.socket;
   if (socket) {
     activeConnections.add(socket);
+    if (isDevelopment) {
+      log(`New connection established. Total active connections: ${activeConnections.size}`);
+    }
     socket.once('close', () => {
       activeConnections.delete(socket);
+      if (isDevelopment) {
+        log(`Connection closed. Remaining active connections: ${activeConnections.size}`);
+      }
     });
   }
   next();
 });
 
 const checkPortAvailability = async (port: number): Promise<boolean> => {
+  if (isDevelopment) {
+    log(`Checking availability of port ${port}...`);
+  }
   return new Promise((resolve) => {
     const tester = net.createServer()
       .once('error', () => {
+        if (isDevelopment) {
+          log(`Port ${port} is in use`);
+        }
         resolve(false);
       })
       .once('listening', () => {
+        if (isDevelopment) {
+          log(`Port ${port} is available`);
+        }
         tester.close(() => resolve(true));
       })
       .listen(port, '0.0.0.0');
@@ -65,6 +83,11 @@ const checkPortAvailability = async (port: number): Promise<boolean> => {
 };
 
 const findAvailablePort = async (startPort: number, maxAttempts: number = 10): Promise<number> => {
+  if (isDevelopment) {
+    log(`Starting port search from ${startPort}`);
+    log(`Waiting for potential port release (2 seconds)...`);
+  }
+
   // Enhanced port release wait
   const portReleaseWait = 2000; // 2 seconds wait for port release
   await new Promise(resolve => setTimeout(resolve, portReleaseWait));
@@ -75,6 +98,9 @@ const findAvailablePort = async (startPort: number, maxAttempts: number = 10): P
       const isAvailable = await checkPortAvailability(port);
       if (isAvailable) {
         // Double-check availability after a short delay
+        if (isDevelopment) {
+          log(`Double-checking port ${port} availability...`);
+        }
         await new Promise(resolve => setTimeout(resolve, 500));
         const secondCheck = await checkPortAvailability(port);
         if (secondCheck) {
@@ -90,7 +116,7 @@ const findAvailablePort = async (startPort: number, maxAttempts: number = 10): P
   throw new Error(`No available port found after ${maxAttempts} attempts starting from ${startPort}`);
 };
 
-// Enhanced graceful shutdown handler
+// Enhanced graceful shutdown handler with development logging
 const setupGracefulShutdown = (server: net.Server) => {
   let isShuttingDown = false;
 
@@ -99,6 +125,9 @@ const setupGracefulShutdown = (server: net.Server) => {
     isShuttingDown = true;
 
     log('Starting graceful shutdown...');
+    if (isDevelopment) {
+      log(`Active connections before shutdown: ${activeConnections.size}`);
+    }
 
     // Close server first to stop accepting new connections
     server.close(() => {
@@ -116,6 +145,9 @@ const setupGracefulShutdown = (server: net.Server) => {
       socket.destroy();
     });
     activeConnections.clear();
+    if (isDevelopment) {
+      log('All active connections have been closed');
+    }
 
     // Clear the timeout if we complete gracefully
     clearTimeout(forcedShutdownTimeout);
@@ -150,7 +182,8 @@ const setupGracefulShutdown = (server: net.Server) => {
     });
 
     // Setup environment-specific middleware
-    if (app.get("env") === "development") {
+    if (isDevelopment) {
+      log('Starting server in development mode');
       await setupVite(app, server);
     } else {
       serveStatic(app);
@@ -161,7 +194,7 @@ const setupGracefulShutdown = (server: net.Server) => {
 
     // Start server with enhanced error handling
     server.listen(port, '0.0.0.0', () => {
-      log(`Server started successfully on port ${port}`);
+      log(`Server started successfully on port ${port} in ${isDevelopment ? 'development' : 'production'} mode`);
     }).on('error', (error: Error & { code?: string }) => {
       if (error.code === 'EADDRINUSE') {
         log(`Port ${port} is in use, attempting to find another port...`);

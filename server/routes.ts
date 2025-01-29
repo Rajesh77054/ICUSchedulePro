@@ -27,6 +27,12 @@ interface ServerMetrics {
   };
   activeConnections: number;
   lastUpdated: string;
+  portStatus: {
+    port: number;
+    status: 'active' | 'conflict' | 'error';
+    connections: number;
+    lastChecked: string;
+  };
 }
 
 let metrics: ServerMetrics = {
@@ -38,7 +44,13 @@ let metrics: ServerMetrics = {
     free: 0
   },
   activeConnections: 0,
-  lastUpdated: new Date().toISOString()
+  lastUpdated: new Date().toISOString(),
+  portStatus: {
+    port: 0,
+    status: 'error',
+    connections: 0,
+    lastChecked: new Date().toISOString()
+  }
 };
 
 let metricsInterval: NodeJS.Timeout;
@@ -54,10 +66,12 @@ export async function initializeServer(app: Express): Promise<Server> {
   // Initialize WebSocket server
   const ws = await setupWebSocket(httpServer);
 
-  // Setup metrics update interval
+  // Setup metrics update interval with enhanced port monitoring
   metricsInterval = setInterval(() => {
     const totalMem = os.totalmem();
     const freeMem = os.freemem();
+    const address = httpServer.address();
+    const port = typeof address === 'object' && address ? address.port : 0;
 
     metrics = {
       uptime: process.uptime(),
@@ -68,7 +82,13 @@ export async function initializeServer(app: Express): Promise<Server> {
         used: totalMem - freeMem
       },
       activeConnections: ws.clients.size,
-      lastUpdated: new Date().toISOString()
+      lastUpdated: new Date().toISOString(),
+      portStatus: {
+        port,
+        status: httpServer.listening ? 'active' : 'error',
+        connections: ws.clients.size,
+        lastChecked: new Date().toISOString()
+      }
     };
 
     // Broadcast metrics update

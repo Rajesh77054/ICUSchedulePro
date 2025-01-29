@@ -1,7 +1,6 @@
 import express, { type Request, Response, NextFunction } from "express";
-import { registerRoutes } from "./routes";
+import { registerRoutes, initializeServer } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import { createServer } from "http";
 import net from "net";
 
 const app = express();
@@ -29,6 +28,11 @@ app.use((req, res, next) => {
       if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
+
+      if (logLine.length > 80) {
+        logLine = logLine.slice(0, 79) + "…";
+      }
+
       log(logLine);
     }
   });
@@ -48,28 +52,44 @@ app.use((req, _res, next) => {
   next();
 });
 
-// Check if a port is available
-const isPortAvailable = (port: number): Promise<boolean> => {
-  return new Promise((resolve) => {
-    const server = net.createServer();
-    server.once('error', () => {
-      resolve(false);
-    });
-    server.once('listening', () => {
-      server.close();
-      resolve(true);
-    });
-    server.listen(port, '0.0.0.0');
-  });
+const findAvailablePort = async (startPort: number, maxAttempts: number = 10): Promise<number> => {
+  // Wait for potential port release
+  await new Promise(resolve => setTimeout(resolve, 1000));
+
+  for (let port = startPort; port < startPort + maxAttempts; port++) {
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const testServer = net.createServer()
+          .once('error', () => {
+            testServer.close();
+            resolve(); // Continue to next port
+          })
+          .once('listening', () => {
+            // Add a small delay before closing to ensure proper release
+            setTimeout(() => {
+              testServer.close(() => resolve());
+            }, 100);
+          })
+          .listen(port, '0.0.0.0');
+      });
+      return port; // Port is available
+    } catch {
+      continue; // Try next port
+    }
+  }
+  throw new Error(`No available port found after ${maxAttempts} attempts`);
 };
 
 (async () => {
   try {
-    // Create HTTP server
-    const server = createServer(app);
+    // Find an available port first
+    const port = await findAvailablePort(5000);
 
-    // Register routes and WebSocket handlers
+    // Register routes
     registerRoutes(app);
+
+    // Initialize server with WebSocket support
+    const server = await initializeServer(app);
 
     // Error handling middleware
     app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
@@ -86,9 +106,9 @@ const isPortAvailable = (port: number): Promise<boolean> => {
       serveStatic(app);
     }
 
-    // Cleanup function for graceful shutdown
+    // Setup graceful shutdown
     const cleanup = () => {
-      log('Cleaning up connections...');
+      log('Starting cleanup...');
       activeConnections.forEach((socket) => {
         socket.destroy();
       });
@@ -100,39 +120,14 @@ const isPortAvailable = (port: number): Promise<boolean> => {
       });
     };
 
-    // Handle graceful shutdown
     process.once('SIGTERM', cleanup);
     process.once('SIGINT', cleanup);
 
-    // Find available port and start server
-    const startServer = async (initialPort: number = 5000): Promise<void> => {
-      let currentPort = initialPort;
-      const maxAttempts = 3;
+    // Start server
+    server.listen(port, '0.0.0.0', () => {
+      log(`Server started on port ${port}`);
+    });
 
-      for (let attempt = 0; attempt < maxAttempts; attempt++) {
-        const isAvailable = await isPortAvailable(currentPort);
-
-        if (isAvailable) {
-          return new Promise((resolve, reject) => {
-            server.listen(currentPort, '0.0.0.0')
-              .once('listening', () => {
-                log(`Server running on port ${currentPort}`);
-                resolve();
-              })
-              .once('error', (err) => {
-                reject(err);
-              });
-          });
-        }
-
-        log(`Port ${currentPort} is in use`);
-        currentPort++;
-      }
-
-      throw new Error(`Could not find an available port after ${maxAttempts} attempts`);
-    };
-
-    await startServer();
   } catch (error) {
     console.error('Failed to start server:', error);
     process.exit(1);

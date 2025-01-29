@@ -35,6 +35,7 @@ interface ChatClient extends WebSocket {
 export interface WebSocketInterface {
   broadcast: (message: NotificationMessage) => void;
   cleanup: () => Promise<void>;
+  clients: Set<ChatClient>;
 }
 
 export async function setupWebSocket(server: Server): Promise<WebSocketInterface> {
@@ -119,35 +120,6 @@ export async function setupWebSocket(server: Server): Promise<WebSocketInterface
       }
     });
 
-    // Cleanup function that ensures all connections are properly closed
-    const cleanup = async () => {
-      log('Starting WebSocket cleanup...');
-
-      clearInterval(cleanupInterval);
-
-      const closePromises = Array.from(clients).map(client => 
-        new Promise<void>(resolve => {
-          try {
-            client.terminate();
-            clients.delete(client);
-          } catch (e) {
-            console.error('Error terminating client during cleanup:', e);
-          }
-          resolve();
-        })
-      );
-
-      await Promise.all(closePromises);
-      clients.clear();
-
-      await new Promise<void>(resolve => {
-        wss.close(() => {
-          log('WebSocket server closed');
-          resolve();
-        });
-      });
-    };
-
     // Start periodic cleanup of dead connections
     cleanupInterval = setInterval(() => {
       const now = Date.now();
@@ -201,8 +173,36 @@ export async function setupWebSocket(server: Server): Promise<WebSocketInterface
       });
     };
 
+    // Cleanup function that ensures all connections are properly closed
+    const cleanup = async () => {
+      log('Starting WebSocket cleanup...');
+      clearInterval(cleanupInterval);
+
+      const closePromises = Array.from(clients).map(client => 
+        new Promise<void>(resolve => {
+          try {
+            client.terminate();
+            clients.delete(client);
+          } catch (e) {
+            console.error('Error terminating client during cleanup:', e);
+          }
+          resolve();
+        })
+      );
+
+      await Promise.all(closePromises);
+      clients.clear();
+
+      await new Promise<void>(resolve => {
+        wss.close(() => {
+          log('WebSocket server closed');
+          resolve();
+        });
+      });
+    };
+
     log('WebSocket server initialized successfully');
-    resolve({ broadcast, cleanup });
+    resolve({ broadcast, cleanup, clients });
   });
 }
 

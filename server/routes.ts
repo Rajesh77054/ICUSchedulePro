@@ -1,5 +1,4 @@
 import type { Express } from "express";
-import { createServer, type Server } from "http";
 import { log } from './vite';
 import { db } from "@db";
 import os from 'os';
@@ -16,6 +15,7 @@ import {
   type NotificationChannel
 } from "@db/schema";
 import { eq, and } from "drizzle-orm";
+import { createServer, type Server } from "http";
 
 interface ServerMetrics {
   uptime: number;
@@ -41,63 +41,59 @@ let metrics: ServerMetrics = {
   lastUpdated: new Date().toISOString()
 };
 
-// Update metrics every 5 seconds
-const metricsInterval = setInterval(() => {
-  const totalMem = os.totalmem();
-  const freeMem = os.freemem();
+let metricsInterval: NodeJS.Timeout;
 
-  metrics = {
-    uptime: process.uptime(),
-    cpuUsage: os.loadavg()[0],
-    memoryUsage: {
-      total: totalMem,
-      free: freeMem,
-      used: totalMem - freeMem
-    },
-    activeConnections: 0, // Will be updated by WebSocket server
-    lastUpdated: new Date().toISOString()
-  };
-}, 5000);
+export async function initializeServer(app: Express): Promise<Server> {
+  // Clear existing intervals if they exist
+  if (metricsInterval) {
+    clearInterval(metricsInterval);
+  }
 
-export function registerRoutes(app: Express): Server {
   const httpServer = createServer(app);
 
-  // Initialize WebSocket server after HTTP server creation
-  let wsInitialized = false;
+  // Initialize WebSocket server
+  const ws = await setupWebSocket(httpServer);
 
-  httpServer.on('listening', async () => {
-    if (!wsInitialized) {
-      try {
-        const ws = await setupWebSocket(httpServer);
-        wsInitialized = true;
+  // Setup metrics update interval
+  metricsInterval = setInterval(() => {
+    const totalMem = os.totalmem();
+    const freeMem = os.freemem();
 
-        // Update metrics with WebSocket connections
-        setInterval(() => {
-          if (ws.clients) {
-            metrics.activeConnections = ws.clients.size;
-          }
-          ws.broadcast({
-            type: 'metrics_update',
-            data: metrics,
-            timestamp: new Date().toISOString()
-          });
-        }, 5000);
+    metrics = {
+      uptime: process.uptime(),
+      cpuUsage: os.loadavg()[0],
+      memoryUsage: {
+        total: totalMem,
+        free: freeMem,
+        used: totalMem - freeMem
+      },
+      activeConnections: ws.clients.size,
+      lastUpdated: new Date().toISOString()
+    };
 
-        log('WebSocket server initialized successfully');
-      } catch (error) {
-        console.error('Failed to initialize WebSocket server:', error);
-      }
+    // Broadcast metrics update
+    ws.broadcast({
+      type: 'metrics_update',
+      data: metrics,
+      timestamp: new Date().toISOString()
+    });
+  }, 5000);
+
+  // Setup cleanup handlers
+  httpServer.on('close', async () => {
+    if (metricsInterval) {
+      clearInterval(metricsInterval);
     }
+    await ws.cleanup();
   });
 
-  // Cleanup on server close
-  httpServer.on('close', () => {
-    clearInterval(metricsInterval);
-  });
+  return httpServer;
+}
 
+export function registerRoutes(app: Express) {
   // Basic health check endpoint
   app.get("/api/health", (_req, res) => {
-    res.json({ status: "ok", wsInitialized });
+    res.json({ status: "ok" });
   });
 
   // Get server metrics
@@ -292,8 +288,11 @@ export function registerRoutes(app: Express): Server {
     ];
     res.json(mockFatigueData);
   });
+}
 
-  return httpServer;
+// Update active connections count
+export function updateMetricsConnections(count: number) {
+  metrics.activeConnections = count;
 }
 
 export { metrics };

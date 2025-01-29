@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { type Server } from "http";
 import { log } from './vite';
-import { serviceRegistry } from './services/registry';
+import { serviceOrchestrator } from './services/orchestration';
 import type { DatabaseConnection } from '@db';
 import os from 'os';
 import { setupWebSocket } from './websocket';
@@ -73,12 +73,12 @@ export function registerRoutes(app: Express, server: Server) {
   // Conflicts Endpoints with proper error handling
   app.get("/api/conflicts", async (_req, res) => {
     try {
-      const dbService = serviceRegistry.getService<DatabaseConnection>('database');
-      const activeConflicts = await dbService.db.query.conflicts.findMany({
-        where: eq(conflicts.status, 'detected'),
-      });
+      const dbService = serviceOrchestrator.getService<DatabaseConnection>('database');
+      const activeConflicts = await dbService.db
+        .select()
+        .from(conflicts)
+        .where(eq(conflicts.status, 'detected'));
 
-      res.setHeader('Content-Type', 'application/json');
       res.json(activeConflicts);
     } catch (error) {
       console.error('Failed to fetch conflicts:', error);
@@ -95,7 +95,6 @@ export function registerRoutes(app: Express, server: Server) {
         return res.status(400).json({ error: "Invalid conflict ID" });
       }
 
-      const dbService = serviceRegistry.getService<DatabaseConnection>('database');
       const success = await conflictResolutionService.resolveConflict(
         conflictId,
         strategy
@@ -115,15 +114,17 @@ export function registerRoutes(app: Express, server: Server) {
   app.get("/api/conflicts/:id/attempts", async (req, res) => {
     try {
       const conflictId = parseInt(req.params.id);
-      const dbService = serviceRegistry.getService<DatabaseConnection>('database');
+      const dbService = serviceOrchestrator.getService<DatabaseConnection>('database');
 
       if (!conflictId || isNaN(conflictId)) {
         return res.status(400).json({ error: "Invalid conflict ID" });
       }
 
-      const attempts = await dbService.db.query.resolutionAttempts.findMany({
-        where: eq(resolutionAttempts.conflictId, conflictId),
-      });
+      const attempts = await dbService.db
+        .select()
+        .from(resolutionAttempts)
+        .where(eq(resolutionAttempts.conflictId, conflictId));
+
       res.json(attempts);
     } catch (error) {
       console.error('Failed to fetch resolution attempts:', error);
@@ -134,8 +135,11 @@ export function registerRoutes(app: Express, server: Server) {
   // Scheduling Rules Endpoints
   app.get("/api/scheduling-rules", async (_req, res) => {
     try {
-      const dbService = serviceRegistry.getService<DatabaseConnection>('database');
-      const rules = await dbService.db.query.schedulingRules.findMany();
+      const dbService = serviceOrchestrator.getService<DatabaseConnection>('database');
+      const rules = await dbService.db
+        .select()
+        .from(schedulingRules);
+
       res.json(rules);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch scheduling rules" });
@@ -144,8 +148,12 @@ export function registerRoutes(app: Express, server: Server) {
 
   app.post("/api/scheduling-rules", async (req, res) => {
     try {
-      const dbService = serviceRegistry.getService<DatabaseConnection>('database');
-      const rule = await dbService.db.insert(schedulingRules).values(req.body).returning();
+      const dbService = serviceOrchestrator.getService<DatabaseConnection>('database');
+      const rule = await dbService.db
+        .insert(schedulingRules)
+        .values(req.body)
+        .returning();
+
       res.json(rule[0]);
     } catch (error) {
       res.status(500).json({ error: "Failed to create scheduling rule" });
@@ -156,9 +164,10 @@ export function registerRoutes(app: Express, server: Server) {
   // Notification Endpoints
   app.post("/api/notifications/subscribe", async (req, res) => {
     try {
-      const dbService = serviceRegistry.getService<DatabaseConnection>('database');
+      const dbService = serviceOrchestrator.getService<DatabaseConnection>('database');
       const { userId, channel, endpoint, keys } = req.body;
-      const subscription = await dbService.db.insert(notificationSubscriptions)
+      const subscription = await dbService.db
+        .insert(notificationSubscriptions)
         .values({
           userId,
           channel: channel as NotificationChannel,
@@ -204,9 +213,10 @@ export function registerRoutes(app: Express, server: Server) {
 
   app.delete("/api/notifications/subscription", async (req, res) => {
     try {
-      const dbService = serviceRegistry.getService<DatabaseConnection>('database');
+      const dbService = serviceOrchestrator.getService<DatabaseConnection>('database');
       const { userId, channel } = req.body;
-      await dbService.db.delete(notificationSubscriptions)
+      await dbService.db
+        .delete(notificationSubscriptions)
         .where(
           and(
             eq(notificationSubscriptions.userId, userId),

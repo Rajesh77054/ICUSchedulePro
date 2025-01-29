@@ -2,14 +2,16 @@ import { drizzle } from "drizzle-orm/neon-serverless";
 import ws from "ws";
 import * as schema from "@db/schema";
 import { sql } from 'drizzle-orm';
-import { serviceRegistry } from '../server/services/registry';
+import { serviceOrchestrator } from '../server/services/orchestration';
+import type { ServiceInstance } from '../server/services/orchestration';
 
 interface DBConnectionConfig {
   maxRetries?: number;
-  retryInterval?: number; // in milliseconds
+  retryInterval?: number;
+  timeout?: number;
 }
 
-class DatabaseConnection {
+class DatabaseConnection implements ServiceInstance {
   private static instance: DatabaseConnection;
   private _db: ReturnType<typeof drizzle> | null = null;
   private connectionAttempts = 0;
@@ -23,51 +25,28 @@ class DatabaseConnection {
     return DatabaseConnection.instance;
   }
 
-  async initialize(config: DBConnectionConfig = {}): Promise<void> {
-    const success = await this.connect(config);
-    if (!success) {
-      throw new Error('Failed to initialize database connection');
-    }
-  }
-
-  async connect(config: DBConnectionConfig = {}): Promise<boolean> {
-    const { maxRetries = 3, retryInterval = 5000 } = config;
-
+  async initialize(): Promise<void> {
     if (!process.env.DATABASE_URL) {
       throw new Error("DATABASE_URL must be set. Did you forget to provision a database?");
     }
 
-    while (this.connectionAttempts < maxRetries) {
-      try {
-        this._db = drizzle({
-          connection: process.env.DATABASE_URL,
-          schema,
-          ws: ws,
-        });
+    this._db = drizzle({
+      connection: process.env.DATABASE_URL,
+      schema,
+      ws: ws,
+    });
 
-        // Verify connection by running a simple query
-        await this._db.execute(sql`SELECT 1`);
-        console.log('Database connection established successfully');
-        return true;
-      } catch (error) {
-        this.connectionAttempts++;
-        console.error(`Database connection attempt ${this.connectionAttempts} failed:`, error);
-
-        if (this.connectionAttempts < maxRetries) {
-          console.log(`Retrying in ${retryInterval / 1000} seconds...`);
-          await new Promise(resolve => setTimeout(resolve, retryInterval));
-        }
-      }
-    }
-
-    throw new Error(`Failed to connect to database after ${maxRetries} attempts`);
+    // Verify connection
+    await this._db.execute(sql`SELECT 1`);
   }
 
-  get db(): ReturnType<typeof drizzle> {
-    if (!this._db) {
-      throw new Error('Database not initialized. Call initialize() first.');
-    }
-    return this._db;
+  async start(): Promise<void> {
+    // Additional startup tasks if needed
+    return;
+  }
+
+  async stop(): Promise<void> {
+    this._db = null;
   }
 
   async healthCheck(): Promise<boolean> {
@@ -80,14 +59,28 @@ class DatabaseConnection {
       return false;
     }
   }
+
+  get db(): ReturnType<typeof drizzle> {
+    if (!this._db) {
+      throw new Error('Database not initialized. Wait for service initialization.');
+    }
+    return this._db;
+  }
 }
 
+// Create singleton instance
 const dbInstance = DatabaseConnection.getInstance();
 
-// Register database service with the registry
-serviceRegistry.register('database', dbInstance, []);
+// Register with orchestrator
+serviceOrchestrator.register(dbInstance, {
+  name: 'database',
+  dependencies: [],
+  maxRetries: 3,
+  retryDelay: 5000,
+  timeout: 30000,
+});
 
-// Export a getter function for the database instance
+// Exports
+export type { DatabaseConnection };
 export const getDb = () => dbInstance.db;
-export const db = getDb;
-export { DatabaseConnection };
+export const db = getDb();

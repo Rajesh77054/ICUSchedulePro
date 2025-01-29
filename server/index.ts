@@ -2,12 +2,12 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { createServer } from "http";
-import { serviceRegistry } from "./services/registry";
-import type { ServiceStatus } from "./services/registry";
+import { serviceOrchestrator } from "./services/orchestration";
+import type { ServiceState } from "./services/orchestration";
 
 interface ServerHealth {
-  status: ServiceStatus;
-  services: Record<string, ServiceStatus>;
+  status: 'healthy' | 'degraded' | 'failed';
+  services: Record<string, ServiceState>;
   uptime: number;
   startTime: Date;
 }
@@ -56,21 +56,24 @@ async function startServer() {
   });
 
   // Health check endpoint
-  app.get("/api/health", (_req, res) => {
+  app.get("/api/health", async (_req, res) => {
+    const serviceHealth = await serviceOrchestrator.checkHealth();
+
     const health: ServerHealth = {
       status: 'healthy',
-      services: {},
+      services: serviceHealth,
       uptime: process.uptime(),
       startTime,
     };
 
-    const serviceHealth = serviceRegistry.getHealth();
-    for (const [name, serviceStatus] of Object.entries(serviceHealth)) {
-      health.services[name] = serviceStatus.status;
-      if (serviceStatus.status === 'failed' || serviceStatus.status === 'degraded') {
+    // Check if any services are degraded or failed
+    Object.values(serviceHealth).forEach(state => {
+      if (state.status === 'failed') {
+        health.status = 'failed';
+      } else if (state.status === 'degraded' && health.status !== 'failed') {
         health.status = 'degraded';
       }
-    }
+    });
 
     res.json(health);
   });
@@ -88,13 +91,24 @@ async function startServer() {
   });
 
   // Cleanup function
-  const cleanup = () => {
-    log('Cleaning up connections...');
+  const cleanup = async () => {
+    log('Starting graceful shutdown...');
+
+    // Stop all services
+    try {
+      await serviceOrchestrator.shutdown();
+      log('Services stopped successfully');
+    } catch (error) {
+      console.error('Error during service shutdown:', error);
+    }
+
+    // Close all active connections
     activeConnections.forEach((socket) => {
       socket.destroy();
     });
     activeConnections.clear();
 
+    // Close the server
     server.close(() => {
       log('Server closed');
       process.exit(0);
@@ -108,7 +122,7 @@ async function startServer() {
   try {
     // Phase 1: Initialize Services
     log('Initializing services...');
-    await serviceRegistry.initialize();
+    await serviceOrchestrator.initialize();
     log('Services initialized successfully');
 
     // Phase 2: Register Routes
@@ -151,7 +165,7 @@ async function startServer() {
     // Start periodic health checks
     setInterval(async () => {
       try {
-        await serviceRegistry.checkHealth();
+        await serviceOrchestrator.checkHealth();
       } catch (error) {
         console.error('Health check failed:', error);
       }

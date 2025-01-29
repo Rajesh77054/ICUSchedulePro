@@ -1,6 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { createServer } from "http";
 
 const app = express();
 
@@ -11,19 +12,34 @@ const activeConnections = new Set<any>();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Add CORS headers for development
-app.use((_req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  next();
-});
-
-// Simple request logging
+// Request logging middleware with JSON response capture
 app.use((req, res, next) => {
-  if (req.path.startsWith("/api")) {
-    log(`${req.method} ${req.path}`);
-  }
+  const start = Date.now();
+  const path = req.path;
+  let capturedJsonResponse: Record<string, any> | undefined = undefined;
+
+  const originalResJson = res.json;
+  res.json = function (bodyJson, ...args) {
+    capturedJsonResponse = bodyJson;
+    return originalResJson.apply(res, [bodyJson, ...args]);
+  };
+
+  res.on("finish", () => {
+    const duration = Date.now() - start;
+    if (path.startsWith("/api")) {
+      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
+      if (capturedJsonResponse) {
+        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+      }
+
+      if (logLine.length > 80) {
+        logLine = logLine.slice(0, 79) + "…";
+      }
+
+      log(logLine);
+    }
+  });
+
   next();
 });
 
@@ -39,13 +55,24 @@ app.use((req, res, next) => {
   next();
 });
 
-// Register routes first
-const server = registerRoutes(app);
-
 // Main setup function
 (async () => {
   try {
-    // Setup Vite in development
+    // Create HTTP server first
+    const server = createServer(app);
+
+    // Register API routes first before any other middleware
+    registerRoutes(app, server);
+
+    // API Error handling middleware
+    app.use('/api', (err: any, _req: Request, res: Response, _next: NextFunction) => {
+      console.error('API error:', err);
+      const status = err.status || err.statusCode || 500;
+      const message = err.message || "Internal Server Error";
+      res.status(status).json({ error: message });
+    });
+
+    // Setup Vite in development (after API routes)
     if (app.get("env") === "development") {
       log('Setting up Vite middleware...');
       await setupVite(app, server);
@@ -54,12 +81,6 @@ const server = registerRoutes(app);
       log('Setting up static file serving...');
       serveStatic(app);
     }
-
-    // Error handling middleware
-    app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-      console.error('Server error:', err);
-      res.status(500).json({ message: err.message || 'Internal Server Error' });
-    });
 
     // Cleanup function
     const cleanup = () => {
@@ -79,10 +100,22 @@ const server = registerRoutes(app);
     process.once('SIGTERM', cleanup);
     process.once('SIGINT', cleanup);
 
-    // Start server
-    server.listen(5000, "0.0.0.0", () => {
-      log(`Server running on port 5000`);
-    });
+    const startServer = (port: number) => {
+      server.listen(port, "0.0.0.0", () => {
+        log(`Server running on port ${port}`);
+      }).on('error', (err: any) => {
+        if (err.code === 'EADDRINUSE') {
+          log(`Port ${port} is busy, trying ${port + 1}...`);
+          startServer(port + 1);
+        } else {
+          console.error('Failed to start server:', err);
+          process.exit(1);
+        }
+      });
+    };
+
+    // Start with port 5000 and increment if busy
+    startServer(5000);
 
   } catch (error) {
     console.error('Failed to start server:', error);

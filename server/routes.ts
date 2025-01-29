@@ -1,5 +1,5 @@
 import type { Express } from "express";
-import { createServer, type Server } from "http";
+import { type Server } from "http";
 import { log } from './vite';
 import { db } from "@db";
 import os from 'os';
@@ -59,50 +59,72 @@ const metricsInterval = setInterval(() => {
   };
 }, 5000);
 
-export function registerRoutes(app: Express): Server {
-  const httpServer = createServer(app);
-
+export function registerRoutes(app: Express, server: Server) {
   // Initialize WebSocket server after HTTP server creation
   let wsInitialized = false;
+  let wsServer: any;
 
-  httpServer.on('listening', async () => {
-    if (!wsInitialized) {
-      try {
-        const ws = await setupWebSocket(httpServer);
-        wsInitialized = true;
-
-        // Update metrics with WebSocket connections
-        setInterval(() => {
-          if (ws.clients) {
-            metrics.activeConnections = ws.clients.size;
-          }
-          ws.broadcast({
-            type: 'metrics_update',
-            data: metrics,
-            timestamp: new Date().toISOString()
-          });
-        }, 5000);
-
-        log('WebSocket server initialized successfully');
-      } catch (error) {
-        console.error('Failed to initialize WebSocket server:', error);
-      }
-    }
-  });
-
-  // Cleanup on server close
-  httpServer.on('close', () => {
-    clearInterval(metricsInterval);
-  });
-
-  // Basic health check endpoint
+  // Health check endpoint
   app.get("/api/health", (_req, res) => {
     res.json({ status: "ok", wsInitialized });
   });
 
-  // Get server metrics
-  app.get("/api/metrics", (_req, res) => {
-    res.json(metrics);
+  // Conflicts Endpoints with proper error handling
+  app.get("/api/conflicts", async (_req, res) => {
+    try {
+      const activeConflicts = await db.query.conflicts.findMany({
+        where: eq(conflicts.status, 'detected'),
+      });
+
+      res.setHeader('Content-Type', 'application/json');
+      res.json(activeConflicts);
+    } catch (error) {
+      console.error('Failed to fetch conflicts:', error);
+      res.status(500).json({ error: "Failed to fetch conflicts" });
+    }
+  });
+
+  app.post("/api/conflicts/:id/resolve", async (req, res) => {
+    try {
+      const conflictId = parseInt(req.params.id);
+      const strategy = req.body.strategy as ResolutionStrategy;
+
+      if (!conflictId || isNaN(conflictId)) {
+        return res.status(400).json({ error: "Invalid conflict ID" });
+      }
+
+      const success = await conflictResolutionService.resolveConflict(
+        conflictId,
+        strategy
+      );
+
+      if (success) {
+        res.json({ status: "resolved" });
+      } else {
+        res.status(400).json({ error: "Failed to resolve conflict" });
+      }
+    } catch (error) {
+      console.error('Error processing conflict resolution:', error);
+      res.status(500).json({ error: "Error processing conflict resolution" });
+    }
+  });
+
+  app.get("/api/conflicts/:id/attempts", async (req, res) => {
+    try {
+      const conflictId = parseInt(req.params.id);
+
+      if (!conflictId || isNaN(conflictId)) {
+        return res.status(400).json({ error: "Invalid conflict ID" });
+      }
+
+      const attempts = await db.query.resolutionAttempts.findMany({
+        where: eq(resolutionAttempts.conflictId, conflictId),
+      });
+      res.json(attempts);
+    } catch (error) {
+      console.error('Failed to fetch resolution attempts:', error);
+      res.status(500).json({ error: "Failed to fetch resolution attempts" });
+    }
   });
 
   // Scheduling Rules Endpoints
@@ -124,50 +146,6 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Conflicts Endpoints
-  app.get("/api/conflicts", async (_req, res) => {
-    try {
-      const activeConflicts = await db.query.conflicts.findMany({
-        where: eq(conflicts.status, 'detected'),
-      });
-      res.json(activeConflicts);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch conflicts" });
-    }
-  });
-
-  app.post("/api/conflicts/:id/resolve", async (req, res) => {
-    try {
-      const conflictId = parseInt(req.params.id);
-      const strategy = req.body.strategy as ResolutionStrategy;
-
-      const success = await conflictResolutionService.resolveConflict(
-        conflictId,
-        strategy
-      );
-
-      if (success) {
-        res.json({ status: "resolved" });
-      } else {
-        res.status(400).json({ error: "Failed to resolve conflict" });
-      }
-    } catch (error) {
-      res.status(500).json({ error: "Error processing conflict resolution" });
-    }
-  });
-
-  // Resolution Attempts Endpoints
-  app.get("/api/conflicts/:id/attempts", async (req, res) => {
-    try {
-      const conflictId = parseInt(req.params.id);
-      const attempts = await db.query.resolutionAttempts.findMany({
-        where: eq(resolutionAttempts.conflictId, conflictId),
-      });
-      res.json(attempts);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch resolution attempts" });
-    }
-  });
 
   // Get all shifts
   app.get("/api/shifts", async (_req, res) => {
@@ -293,7 +271,37 @@ export function registerRoutes(app: Express): Server {
     res.json(mockFatigueData);
   });
 
-  return httpServer;
+  // WebSocket setup
+  server.on('listening', async () => {
+    if (!wsInitialized) {
+      try {
+        wsServer = await setupWebSocket(server);
+        wsInitialized = true;
+        log('WebSocket server initialized successfully');
+
+        // Update metrics with WebSocket connections
+        setInterval(() => {
+          if (wsServer && wsServer.clients) {
+            metrics.activeConnections = wsServer.clients.size;
+          }
+          wsServer?.broadcast({
+            type: 'metrics_update',
+            data: metrics,
+            timestamp: new Date().toISOString()
+          });
+        }, 5000);
+      } catch (error) {
+        console.error('Failed to initialize WebSocket server:', error);
+      }
+    }
+  });
+
+  // Cleanup on server close
+  server.on('close', () => {
+    clearInterval(metricsInterval);
+  });
+
+  return server;
 }
 
 export { metrics };

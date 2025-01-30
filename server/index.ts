@@ -53,8 +53,7 @@ app.use((req, _res, next) => {
 });
 
 const findAvailablePort = async (startPort: number, maxAttempts: number = 10): Promise<number> => {
-  // Wait longer for port release and add more detailed logging
-  log(`Waiting for port availability starting from ${startPort}`);
+  log(`Checking port availability starting from ${startPort}`);
   await new Promise(resolve => setTimeout(resolve, 2000));
 
   for (let port = startPort; port < startPort + maxAttempts; port++) {
@@ -62,15 +61,13 @@ const findAvailablePort = async (startPort: number, maxAttempts: number = 10): P
       await new Promise<void>((resolve, reject) => {
         const testServer = net.createServer()
           .once('error', (err) => {
-            log(`Port ${port} is in use, trying next port`);
+            log(`Port ${port} is in use: ${err.message}`);
             testServer.close();
             resolve();
           })
           .once('listening', () => {
             log(`Found available port: ${port}`);
-            setTimeout(() => {
-              testServer.close(() => resolve());
-            }, 500); // Increased delay for proper cleanup
+            testServer.close(() => resolve());
           })
           .listen(port, '0.0.0.0');
       });
@@ -86,9 +83,9 @@ const findAvailablePort = async (startPort: number, maxAttempts: number = 10): P
 (async () => {
   try {
     // Find an available port first
-    const port = await findAvailablePort(3000); // Changed default port to 3000
+    const port = await findAvailablePort(3000);
 
-    // Register routes
+    // Register routes before setting up Vite
     registerRoutes(app);
 
     // Initialize server with WebSocket support
@@ -102,30 +99,30 @@ const findAvailablePort = async (startPort: number, maxAttempts: number = 10): P
       res.status(status).json({ message });
     });
 
-    // Setup environment-specific middleware
+    // Setup Vite middleware in development
     if (app.get("env") === "development") {
       await setupVite(app, server);
     }
 
     // Setup graceful shutdown with proper connection draining
     const cleanup = async () => {
-      log('Starting cleanup...');
+      log('Starting graceful shutdown...');
 
-      // Set a timeout for graceful shutdown
+      // Set a timeout for force shutdown
       const forceShutdownTimeout = setTimeout(() => {
         log('Force closing remaining connections');
         process.exit(1);
       }, 10000);
 
-      // Close all active connections
-      const closePromises = Array.from(activeConnections).map(socket => 
-        new Promise<void>(resolve => {
-          socket.destroy();
-          resolve();
-        })
-      );
-
       try {
+        // Close all active connections
+        const closePromises = Array.from(activeConnections).map(socket => 
+          new Promise<void>(resolve => {
+            socket.destroy();
+            resolve();
+          })
+        );
+
         await Promise.all(closePromises);
         activeConnections.clear();
 

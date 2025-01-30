@@ -1,5 +1,4 @@
 import OpenAI from 'openai';
-import { ChatCompletionMessageParam } from 'openai/resources/chat';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
@@ -19,7 +18,10 @@ interface ChatContext {
 
 export class OpenAIChatHandler {
   private systemPrompt: string;
-  private conversationHistory: ChatCompletionMessageParam[];
+  private conversationHistory: Array<{
+    role: 'system' | 'user' | 'assistant';
+    content: string;
+  }>;
 
   constructor() {
     this.systemPrompt = `You are an advanced scheduling assistant for medical professionals that learns from historical patterns.
@@ -53,6 +55,11 @@ export class OpenAIChatHandler {
 
   async handleChat(userMessage: string, context: ChatContext) {
     try {
+      // Verify API key is present
+      if (!process.env.OPENAI_API_KEY) {
+        throw new Error('OpenAI API key not found');
+      }
+
       // Sanitize context before logging
       const sanitizedContext = {
         shifts: context?.shifts?.map(shift => ({
@@ -105,7 +112,7 @@ export class OpenAIChatHandler {
           return `It is ${date} at ${time} Central Time`;
         }
 
-        const format = userMessage.toLowerCase().includes('time') ? 
+        const format = userMessage.toLowerCase().includes('time') ?
           now.toLocaleTimeString('en-US', options) :
           now.toLocaleDateString('en-US', { timeZone: 'America/Chicago' });
         return `It is currently ${format} Central Time`;
@@ -150,7 +157,7 @@ export class OpenAIChatHandler {
           parameters: {
             type: "object",
             properties: {
-              timeRange: { 
+              timeRange: {
                 type: "string",
                 description: "Time range for pattern analysis (e.g., '3months', '6months', '1year')"
               },

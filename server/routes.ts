@@ -3,8 +3,7 @@ import { log } from './vite';
 import { db } from "@db";
 import os from 'os';
 import { setupWebSocket } from './websocket';
-import { conflictResolutionService } from './services/conflict-resolution';
-import { notificationService } from './services/notification';
+import { OpenAIChatHandler } from './openai-handler';
 import { 
   schedulingRules, 
   conflicts,
@@ -212,11 +211,15 @@ export function registerRoutes(app: Express) {
         });
       }
 
-      const openAIHandler = new OpenAIChatHandler(); // Assuming OpenAIChatHandler exists elsewhere
+      const openAIHandler = new OpenAIChatHandler();
       const response = await openAIHandler.handleChat(
         req.body.message,
         req.body.pageContext || {}
       );
+
+      if (!response) {
+        throw new Error('Failed to get response from AI handler');
+      }
 
       res.json({ content: response });
 

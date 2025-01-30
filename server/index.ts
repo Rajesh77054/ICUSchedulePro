@@ -29,11 +29,36 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
 
 // Setup Vite in development
 if (app.get("env") === "development") {
-  setupVite(app);
+  setupVite(app, { hmr: true });
 }
 
-// Start server
-const port = 5000;
-app.listen(port, '0.0.0.0', () => {
+// Start server with proper error handling
+const port = parseInt(process.env.PORT || "5000", 10);
+const server = app.listen(port, '0.0.0.0', () => {
   console.log(`Server started on port ${port}`);
+}).on('error', (err: any) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`Port ${port} is already in use. Please free up the port or use a different one.`);
+    process.exit(1);
+  } else {
+    console.error('Failed to start server:', err);
+    process.exit(1);
+  }
+});
+
+// Graceful shutdown handling
+process.on('SIGTERM', () => {
+  console.log('SIGTERM signal received: closing HTTP server');
+  server.close(() => {
+    console.log('HTTP server closed');
+    process.exit(0);
+  });
+});
+
+process.on('SIGINT', () => {
+  console.log('SIGINT signal received: closing HTTP server');
+  server.close(() => {
+    console.log('HTTP server closed');
+    process.exit(0);
+  });
 });

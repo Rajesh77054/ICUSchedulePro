@@ -62,14 +62,29 @@ export default function AnalyticsPage() {
 
   const { data: workloadData, isLoading: isLoadingWorkload, error: workloadError } = useQuery<WorkloadData[]>({
     queryKey: ["/api/analytics/workload", timeRange],
+    queryFn: async () => {
+      const res = await fetch(`/api/analytics/workload?timeRange=${timeRange}`);
+      if (!res.ok) throw new Error('Failed to fetch workload data');
+      return res.json();
+    }
   });
 
   const { data: distributionData, isLoading: isLoadingDistribution, error: distributionError } = useQuery<DistributionData[]>({
     queryKey: ["/api/analytics/distribution", timeRange],
+    queryFn: async () => {
+      const res = await fetch(`/api/analytics/distribution?timeRange=${timeRange}`);
+      if (!res.ok) throw new Error('Failed to fetch distribution data');
+      return res.json();
+    }
   });
 
   const { data: fatigueData, isLoading: isLoadingFatigue, error: fatigueError } = useQuery<FatigueData[]>({
     queryKey: ["/api/analytics/fatigue", timeRange],
+    queryFn: async () => {
+      const res = await fetch(`/api/analytics/fatigue?timeRange=${timeRange}`);
+      if (!res.ok) throw new Error('Failed to fetch fatigue data');
+      return res.json();
+    }
   });
 
   if (isLoadingWorkload || isLoadingDistribution || isLoadingFatigue) {

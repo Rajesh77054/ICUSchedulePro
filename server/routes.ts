@@ -96,6 +96,41 @@ export function registerRoutes(app: Express) {
     res.json({ status: "ok" });
   });
 
+  // Get metrics for server health monitoring
+  app.get("/api/metrics", (_req, res) => {
+    res.json(metrics);
+  });
+
+  // Analytics endpoints
+  app.get("/api/analytics/workload", (_req, res) => {
+    // Mock workload data
+    const workloadData = [
+      { name: "Dr. Smith", actualDays: 15, targetDays: 20, utilization: 75 },
+      { name: "Dr. Johnson", actualDays: 18, targetDays: 15, utilization: 120 },
+      { name: "Dr. Williams", actualDays: 12, targetDays: 12, utilization: 100 }
+    ];
+    res.json(workloadData);
+  });
+
+  app.get("/api/analytics/distribution", (_req, res) => {
+    // Mock distribution data
+    const distributionData = [
+      { type: "Physician", totalDays: 45, shiftCount: 15, avgShiftLength: 3 },
+      { type: "APP", totalDays: 30, shiftCount: 10, avgShiftLength: 3 }
+    ];
+    res.json(distributionData);
+  });
+
+  app.get("/api/analytics/fatigue", (_req, res) => {
+    // Mock fatigue data
+    const fatigueData = [
+      { name: "Dr. Smith", maxAllowed: 5, currentConsecutive: 3, fatigueRisk: "low" },
+      { name: "Dr. Johnson", maxAllowed: 5, currentConsecutive: 4, fatigueRisk: "medium" },
+      { name: "Dr. Williams", maxAllowed: 5, currentConsecutive: 2, fatigueRisk: "low" }
+    ];
+    res.json(fatigueData);
+  });
+
   // Get all shifts - simplified mock response
   app.get("/api/shifts", (_req, res) => {
     res.json([]);

@@ -7,7 +7,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { useQueryClient, useMutation } from "@tanstack/react-query";
+import { useQueryClient, useMutation, useQuery } from "@tanstack/react-query";
 import { format, differenceInDays, addDays } from "date-fns";
 import type { Shift, User } from "@/lib/types";
 import { ShiftDialog } from "./ShiftDialog";
@@ -18,7 +18,6 @@ import multiMonthPlugin from '@fullcalendar/multimonth';
 import interactionPlugin from '@fullcalendar/interaction';
 import type { EventDragStartArg, EventDragStopArg, EventResizeDoneArg, EventClickArg, DateSelectArg } from '@fullcalendar/interaction';
 import listPlugin from '@fullcalendar/list';
-import { useQuery } from "@tanstack/react-query";
 
 type CalendarView = 'dayGridWeek' | 'dayGridMonth' | 'multiMonth' | 'listWeek';
 

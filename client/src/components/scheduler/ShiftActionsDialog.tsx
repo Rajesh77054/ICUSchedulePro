@@ -28,33 +28,26 @@ export function ShiftActionsDialog({
 
   // Delete shift mutation
   const { mutate: deleteShift, isPending: isDeleting } = useMutation({
-    mutationFn: async () => {
-      if (!shift) throw new Error("No shift selected");
-      const res = await fetch(`/api/shifts/${shift.id}`, {
+    mutationFn: async (shiftId: number) => {
+      const res = await fetch(`/api/shifts/${shiftId}`, {
         method: "DELETE",
-        headers: {
-          "Content-Type": "application/json"
-        }
       });
       if (!res.ok) {
         const error = await res.text();
         throw new Error(error || "Failed to delete shift");
       }
-      return shift.id;
+      return shiftId;
     },
-    onMutate: async () => {
-      if (!shift) return;
-
+    onMutate: async (shiftId: number) => {
       // Cancel any outgoing refetches
-      await queryClient.cancelQueries();
+      await queryClient.cancelQueries({ queryKey: ["/api/shifts"] });
 
-      // Snapshot all related queries
-      const previousShifts = queryClient.getQueriesData({ queryKey: ["/api/shifts"] });
+      // Get snapshot of previous data
+      const previousShifts = queryClient.getQueryData(["/api/shifts"]);
 
-      // Optimistically remove the shift from all related queries
-      queryClient.setQueriesData({ queryKey: ["/api/shifts"] }, (old: any) => {
-        if (!Array.isArray(old)) return [];
-        return old.filter(s => s.id !== shift.id);
+      // Optimistically update shifts cache
+      queryClient.setQueryData(["/api/shifts"], (old: any[] = []) => {
+        return old.filter(s => s.id !== shiftId);
       });
 
       return { previousShifts };
@@ -81,7 +74,7 @@ export function ShiftActionsDialog({
       });
       onOpenChange(false);
     },
-    onError: (err: Error, shiftId: number, context: any) => {
+    onError: (err: Error, _: number, context: any) => {
       // Rollback on error
       if (context?.previousShifts) {
         queryClient.setQueryData(["/api/shifts"], context.previousShifts);
@@ -95,6 +88,11 @@ export function ShiftActionsDialog({
   });
 
   if (!shift) return null;
+
+  const handleDelete = () => {
+    if (!shift?.id) return;
+    deleteShift(shift.id);
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -123,7 +121,7 @@ export function ShiftActionsDialog({
             </Button>
             <Button
               variant="destructive"
-              onClick={() => deleteShift()}
+              onClick={handleDelete}
               disabled={isDeleting}
             >
               {isDeleting ? "Deleting..." : "Delete Shift"}

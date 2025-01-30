@@ -47,21 +47,24 @@ export function NotificationToast({ notification }: NotificationToastProps) {
   });
 
   return (
-    <Toast>
-      <div className="grid gap-1">
+    <Toast className="w-full max-w-md mx-auto sm:w-auto">
+      <div className="grid gap-1 p-2">
         <div className="flex items-center gap-2">
           {notification.status === 'read' ? (
-            <Bell className="h-4 w-4" />
+            <Bell className="h-4 w-4 flex-shrink-0" />
           ) : (
-            <BellRing className="h-4 w-4 text-primary animate-pulse" />
+            <BellRing className="h-4 w-4 flex-shrink-0 text-primary animate-pulse" />
           )}
-          <ToastTitle>{notification.title}</ToastTitle>
+          <ToastTitle className="text-sm sm:text-base">{notification.title}</ToastTitle>
         </div>
-        <ToastDescription>
+        <ToastDescription className="text-xs sm:text-sm break-words">
           {notification.body}
         </ToastDescription>
       </div>
-      <ToastClose onClick={() => markAsRead.mutate()} />
+      <ToastClose 
+        onClick={() => markAsRead.mutate()} 
+        className="absolute right-2 top-2 rounded-md p-1 opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+      />
     </Toast>
   );
 }
@@ -118,13 +121,15 @@ export function NotificationsList() {
 
   return (
     <ToastProvider>
-      {notifications?.map((notification) => (
-        <NotificationToast
-          key={notification.id}
-          notification={notification}
-        />
-      ))}
-      <ToastViewport />
+      <div className="fixed bottom-0 right-0 z-50 p-4 sm:bottom-4 sm:right-4 flex flex-col gap-2 max-h-screen overflow-y-auto">
+        {notifications?.map((notification) => (
+          <NotificationToast
+            key={notification.id}
+            notification={notification}
+          />
+        ))}
+      </div>
+      <ToastViewport className="fixed bottom-0 right-0 z-50 flex flex-col p-4 sm:bottom-4 sm:right-4 gap-2" />
     </ToastProvider>
   );
 }

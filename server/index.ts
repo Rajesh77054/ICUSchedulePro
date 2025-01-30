@@ -1,6 +1,6 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes, initializeServer } from "./routes";
-import { setupVite, serveStatic, log } from "./vite";
+import { setupVite, log } from "./vite";
 import net from "net";
 
 const app = express();
@@ -53,28 +53,31 @@ app.use((req, _res, next) => {
 });
 
 const findAvailablePort = async (startPort: number, maxAttempts: number = 10): Promise<number> => {
-  // Wait for potential port release
-  await new Promise(resolve => setTimeout(resolve, 1000));
+  // Wait longer for port release and add more detailed logging
+  log(`Waiting for port availability starting from ${startPort}`);
+  await new Promise(resolve => setTimeout(resolve, 2000));
 
   for (let port = startPort; port < startPort + maxAttempts; port++) {
     try {
       await new Promise<void>((resolve, reject) => {
         const testServer = net.createServer()
-          .once('error', () => {
+          .once('error', (err) => {
+            log(`Port ${port} is in use, trying next port`);
             testServer.close();
-            resolve(); // Continue to next port
+            resolve();
           })
           .once('listening', () => {
-            // Add a small delay before closing to ensure proper release
+            log(`Found available port: ${port}`);
             setTimeout(() => {
               testServer.close(() => resolve());
-            }, 100);
+            }, 500); // Increased delay for proper cleanup
           })
           .listen(port, '0.0.0.0');
       });
-      return port; // Port is available
-    } catch {
-      continue; // Try next port
+      return port;
+    } catch (err) {
+      log(`Error testing port ${port}: ${err}`);
+      continue;
     }
   }
   throw new Error(`No available port found after ${maxAttempts} attempts`);
@@ -83,7 +86,7 @@ const findAvailablePort = async (startPort: number, maxAttempts: number = 10): P
 (async () => {
   try {
     // Find an available port first
-    const port = await findAvailablePort(5000);
+    const port = await findAvailablePort(3000); // Changed default port to 3000
 
     // Register routes
     registerRoutes(app);
@@ -102,22 +105,39 @@ const findAvailablePort = async (startPort: number, maxAttempts: number = 10): P
     // Setup environment-specific middleware
     if (app.get("env") === "development") {
       await setupVite(app, server);
-    } else {
-      serveStatic(app);
     }
 
-    // Setup graceful shutdown
-    const cleanup = () => {
+    // Setup graceful shutdown with proper connection draining
+    const cleanup = async () => {
       log('Starting cleanup...');
-      activeConnections.forEach((socket) => {
-        socket.destroy();
-      });
-      activeConnections.clear();
 
-      server.close(() => {
-        log('Server closed');
-        process.exit(0);
-      });
+      // Set a timeout for graceful shutdown
+      const forceShutdownTimeout = setTimeout(() => {
+        log('Force closing remaining connections');
+        process.exit(1);
+      }, 10000);
+
+      // Close all active connections
+      const closePromises = Array.from(activeConnections).map(socket => 
+        new Promise<void>(resolve => {
+          socket.destroy();
+          resolve();
+        })
+      );
+
+      try {
+        await Promise.all(closePromises);
+        activeConnections.clear();
+
+        server.close(() => {
+          log('Server closed successfully');
+          clearTimeout(forceShutdownTimeout);
+          process.exit(0);
+        });
+      } catch (err) {
+        console.error('Error during cleanup:', err);
+        process.exit(1);
+      }
     };
 
     process.once('SIGTERM', cleanup);

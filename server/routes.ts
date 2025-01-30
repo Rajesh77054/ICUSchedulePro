@@ -207,9 +207,22 @@ export function registerRoutes(app: Express) {
     }
   });
 
-  // Get all users - simplified mock response
-  app.get("/api/users", (_req, res) => {
-    res.json([]);
+  // Get all users - with proper implementation
+  app.get("/api/users", async (_req, res) => {
+    try {
+      // Mock user data for now - should be replaced with actual DB query
+      const users = [
+        { id: 1, name: "Dr. Smith", title: "Physician", color: "#0088FE", userType: "physician" },
+        { id: 2, name: "Dr. Johnson", title: "Physician", color: "#00C49F", userType: "physician" },
+        { id: 3, name: "Dr. Williams", title: "Physician", color: "#FFBB28", userType: "physician" },
+        { id: 4, name: "Sarah Brown", title: "APP", color: "#FF8042", userType: "app" },
+        { id: 5, name: "Mike Davis", title: "APP", color: "#8884d8", userType: "app" }
+      ];
+      res.json(users);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      res.status(500).json({ error: "Failed to fetch users" });
+    }
   });
 
   // New endpoint for historical patterns

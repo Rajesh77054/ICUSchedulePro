@@ -201,6 +201,33 @@ export function registerRoutes(app: Express) {
       });
     }
   });
+
+  // Add chat endpoint with proper error handling
+  app.post("/api/chat", async (req, res) => {
+    try {
+      if (!req.body?.message) {
+        return res.status(400).json({ 
+          error: "Missing message in request body",
+          content: null 
+        });
+      }
+
+      const openAIHandler = new OpenAIChatHandler(); // Assuming OpenAIChatHandler exists elsewhere
+      const response = await openAIHandler.handleChat(
+        req.body.message,
+        req.body.pageContext || {}
+      );
+
+      res.json({ content: response });
+
+    } catch (error: any) {
+      console.error('Chat API Error:', error);
+      res.status(500).json({ 
+        error: error.message || 'Internal server error',
+        content: null 
+      });
+    }
+  });
 }
 
 // Helper functions for pattern analysis

@@ -9,6 +9,12 @@ interface ChatContext {
   shifts: any[];
   users: any[];
   currentPage: string;
+  historicalPatterns?: {
+    preferredShifts: any[];
+    previousSwaps: any[];
+    workloadHistory: any[];
+    consecutiveShiftPatterns: any[];
+  };
 }
 
 export class OpenAIChatHandler {
@@ -16,18 +22,28 @@ export class OpenAIChatHandler {
   private conversationHistory: ChatCompletionMessageParam[];
 
   constructor() {
-    this.systemPrompt = `You are a scheduling assistant helping medical professionals manage their shifts and schedules.
-    You have access to the following information:
-    - User schedules and shifts
-    - Staff information including roles (Physician/APP)
-    - Current page context
+    this.systemPrompt = `You are an advanced scheduling assistant for medical professionals that learns from historical patterns.
+    You have access to:
+    - Current and historical schedules
+    - Staff preferences and past behavior patterns
+    - Workload distribution history
+    - Shift swap patterns
+    - Consecutive shift patterns
 
-    Please help users with:
-    - Scheduling inquiries
-    - Shift management
-    - Time-off requests
-    - Schedule conflicts
-    - Staff availability`;
+    You should:
+    - Learn from historical scheduling patterns
+    - Identify optimal shift arrangements based on past success
+    - Consider staff preferences and past behavior
+    - Detect potential scheduling conflicts before they occur
+    - Suggest improvements based on historical data
+    - Provide data-driven recommendations
+
+    Always consider:
+    - Individual provider preferences
+    - Historical workload balance
+    - Past conflict patterns
+    - Successful shift combinations
+    - Staff satisfaction indicators`;
 
     this.conversationHistory = [{
       role: 'system',
@@ -51,14 +67,27 @@ export class OpenAIChatHandler {
           title: user.title,
           userType: user.userType
         })) || [],
-        currentPage: context?.currentPage
+        currentPage: context?.currentPage,
+        historicalPatterns: context?.historicalPatterns
       };
-      
+
       console.log('Processing chat with context:', sanitizedContext);
-      
+
       if (!context || (!context.shifts && !context.users)) {
         console.warn('Missing context data');
         return 'I apologize, but I cannot access the schedule information at the moment.';
+      }
+
+      // Add historical pattern analysis
+      let historicalInsights = '';
+      if (context.historicalPatterns) {
+        const { preferredShifts, previousSwaps, workloadHistory, consecutiveShiftPatterns } = context.historicalPatterns;
+
+        historicalInsights = `Based on historical data:
+        - Common preferred shifts: ${JSON.stringify(preferredShifts)}
+        - Previous swap patterns: ${JSON.stringify(previousSwaps)}
+        - Workload distribution: ${JSON.stringify(workloadHistory)}
+        - Consecutive shift trends: ${JSON.stringify(consecutiveShiftPatterns)}`;
       }
 
       // Handle time-related queries directly
@@ -69,25 +98,24 @@ export class OpenAIChatHandler {
           timeZone: 'America/Chicago',
           hour12: true
         };
-        
+
         if (userMessage.toLowerCase().includes('date') && userMessage.toLowerCase().includes('time')) {
           const date = now.toLocaleDateString('en-US', { timeZone: 'America/Chicago' });
           const time = now.toLocaleTimeString('en-US', options);
           return `It is ${date} at ${time} Central Time`;
         }
-        
+
         const format = userMessage.toLowerCase().includes('time') ? 
           now.toLocaleTimeString('en-US', options) :
           now.toLocaleDateString('en-US', { timeZone: 'America/Chicago' });
         return `It is currently ${format} Central Time`;
       }
 
-      // Add context to the message
-      // Validate and prepare context message
-      const contextStr = JSON.stringify(context) || '{}';
+      // Add context and historical insights to the message
+      const contextStr = JSON.stringify({ ...context, historicalInsights }) || '{}';
       const contextMessage = {
         role: 'system' as const,
-        content: `Current context: ${contextStr}`
+        content: `Current context: ${contextStr}\n\nHistorical Insights: ${historicalInsights}`
       };
 
       // Validate user message
@@ -103,7 +131,7 @@ export class OpenAIChatHandler {
 
       // Clean conversation history of any null contents
       this.conversationHistory = this.conversationHistory.filter(msg => msg.content != null);
-      
+
       // Add new messages
       this.conversationHistory.push(contextMessage, userMsg);
 
@@ -117,13 +145,20 @@ export class OpenAIChatHandler {
         max_tokens: 500,
         stream: false,
         functions: [{
-          name: "get_schedule_conflicts",
-          description: "Get conflicts in the current schedule",
+          name: "analyze_historical_patterns",
+          description: "Analyze historical scheduling patterns and provide insights",
           parameters: {
             type: "object",
             properties: {
-              startDate: { type: "string", description: "Start date of the period to check" },
-              endDate: { type: "string", description: "End date of the period to check" }
+              timeRange: { 
+                type: "string",
+                description: "Time range for pattern analysis (e.g., '3months', '6months', '1year')"
+              },
+              patternTypes: {
+                type: "array",
+                items: { type: "string" },
+                description: "Types of patterns to analyze (e.g., 'shifts', 'swaps', 'conflicts')"
+              }
             }
           }
         }]

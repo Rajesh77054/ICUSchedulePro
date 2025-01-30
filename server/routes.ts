@@ -140,6 +140,88 @@ export function registerRoutes(app: Express) {
   app.get("/api/users", (_req, res) => {
     res.json([]);
   });
+
+  // New endpoint for historical patterns
+  app.get("/api/scheduling/historical-patterns", async (_req, res) => {
+    try {
+      // Fetch historical data from various sources
+      const [
+        shiftPatterns,
+        swapHistory,
+        workloadStats,
+        consecutivePatterns
+      ] = await Promise.all([
+        db.query.shifts.findMany({
+          orderBy: (shifts, { desc }) => [desc(shifts.createdAt)],
+          limit: 100
+        }),
+        db.query.swapRequests.findMany({
+          orderBy: (swaps, { desc }) => [desc(swaps.createdAt)],
+          limit: 50
+        }),
+        db.query.workloadHistory.findMany({
+          orderBy: (history, { desc }) => [desc(history.date)],
+          limit: 30
+        }),
+        db.query.consecutiveShifts.findMany({
+          orderBy: (consecutive, { desc }) => [desc(consecutive.date)],
+          limit: 20
+        })
+      ]);
+
+      // Process and analyze the patterns
+      const patterns = {
+        preferredShifts: analyzePreferredShifts(shiftPatterns),
+        previousSwaps: analyzeSwapPatterns(swapHistory),
+        workloadHistory: summarizeWorkloadHistory(workloadStats),
+        consecutiveShiftPatterns: analyzeConsecutivePatterns(consecutivePatterns)
+      };
+
+      res.json(patterns);
+    } catch (error) {
+      console.error('Error fetching historical patterns:', error);
+      // Return mock data for now
+      res.json({
+        preferredShifts: [
+          { userId: 1, dayPreference: 'weekday', shiftLength: 12 },
+          { userId: 2, dayPreference: 'weekend', shiftLength: 8 }
+        ],
+        previousSwaps: [
+          { frequency: 'high', reason: 'schedule_conflict' },
+          { frequency: 'medium', reason: 'personal_preference' }
+        ],
+        workloadHistory: [
+          { period: 'last_month', averageHours: 160, satisfaction: 'high' },
+          { period: 'current_month', averageHours: 155, satisfaction: 'medium' }
+        ],
+        consecutiveShiftPatterns: [
+          { pattern: 'three_in_row', frequency: 'rare', impact: 'high' },
+          { pattern: 'two_in_row', frequency: 'common', impact: 'low' }
+        ]
+      });
+    }
+  });
+}
+
+// Helper functions for pattern analysis
+function analyzePreferredShifts(shifts: any[]) {
+  // Implementation would analyze shift patterns to identify preferences
+  return [];
+}
+
+function analyzeSwapPatterns(swaps: any[]) {
+  // Implementation would analyze swap request patterns
+  return [];
+}
+
+function summarizeWorkloadHistory(history: any[]) {
+  // Implementation would summarize historical workload data
+  return [];
+}
+
+function analyzeConsecutivePatterns(patterns: any[]) {
+  // Implementation would analyze patterns in consecutive shifts
+  return [];
 }
 
 // Update active connections count

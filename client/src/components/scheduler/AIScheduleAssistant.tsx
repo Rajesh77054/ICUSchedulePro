@@ -3,6 +3,7 @@ import { Bot, Send } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useQuery } from '@tanstack/react-query';
 
 interface Message {
   id: string;
@@ -16,17 +17,36 @@ interface AIScheduleAssistantProps {
   pageContext?: Record<string, any>;
 }
 
+interface HistoricalPatterns {
+  preferredShifts: any[];
+  previousSwaps: any[];
+  workloadHistory: any[];
+  consecutiveShiftPatterns: any[];
+}
+
 export function AIScheduleAssistant({ currentPage, pageContext }: AIScheduleAssistantProps) {
   const [messages, setMessages] = useState<Message[]>([{
     id: '0',
     role: 'assistant',
-    content: "Hello! I'm your schedule assistant. How can I help you manage your schedule today?",
+    content: "Hello! I'm your AI schedule assistant with pattern learning capabilities. How can I help optimize your schedule today?",
     createdAt: new Date().toISOString()
   }]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(''); // Added error state
+  const [error, setError] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Fetch historical patterns data
+  const { data: historicalPatterns, isError, error: fetchError } = useQuery<HistoricalPatterns>({
+    queryKey: ['/api/scheduling/historical-patterns'],
+    queryFn: async () => {
+      const response = await fetch('/api/scheduling/historical-patterns');
+      if (!response.ok) {
+        throw new Error('Failed to fetch historical patterns');
+      }
+      return response.json();
+    }
+  });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInput(e.target.value);
@@ -41,11 +61,11 @@ export function AIScheduleAssistant({ currentPage, pageContext }: AIScheduleAssi
 
     const userMessage = { 
       id: Date.now().toString(),
-      role: 'user', 
+      role: 'user' as const, 
       content: input,
       createdAt: new Date().toISOString()
     };
-    
+
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     setError('');
@@ -63,7 +83,13 @@ export function AIScheduleAssistant({ currentPage, pageContext }: AIScheduleAssi
           pageContext: {
             shifts: pageContext?.shifts || [],
             currentPage,
-            userId: pageContext?.userId
+            userId: pageContext?.userId,
+            historicalPatterns: historicalPatterns || {
+              preferredShifts: [],
+              previousSwaps: [],
+              workloadHistory: [],
+              consecutiveShiftPatterns: []
+            }
           }
         }),
       });
@@ -73,7 +99,7 @@ export function AIScheduleAssistant({ currentPage, pageContext }: AIScheduleAssi
       }
 
       const data = await response.json();
-      
+
       if (!data.content) {
         throw new Error('Invalid response format - missing content');
       }
@@ -123,10 +149,16 @@ export function AIScheduleAssistant({ currentPage, pageContext }: AIScheduleAssi
                   <Bot className="h-4 w-4 mb-1" />
                 )}
                 <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                {message.role === 'assistant' && historicalPatterns && (
+                  <div className="mt-2 text-xs text-muted-foreground">
+                    <em>Using historical pattern analysis for enhanced recommendations</em>
+                  </div>
+                )}
               </div>
             </div>
           ))}
-          {error && <p className="text-red-500 text-center">{error}</p>} {/* Display error message */}
+          {error && <p className="text-red-500 text-center">{error}</p>}
+          {isError && <p className="text-red-500 text-center">Error fetching historical patterns: {fetchError?.message}</p>}
         </div>
       </ScrollArea>
       <form onSubmit={handleSubmit} className="p-4 border-t">

@@ -11,7 +11,8 @@ import {
   notifications,
   notificationSubscriptions,
   type ResolutionStrategy,
-  type NotificationChannel
+  type NotificationChannel,
+  shifts
 } from "@db/schema";
 import { eq, and } from "drizzle-orm";
 import { createServer, type Server } from "http";
@@ -130,9 +131,80 @@ export function registerRoutes(app: Express) {
     res.json(fatigueData);
   });
 
-  // Get all shifts - simplified mock response
-  app.get("/api/shifts", (_req, res) => {
-    res.json([]);
+  // Get all shifts - with proper implementation
+  app.get("/api/shifts", async (_req, res) => {
+    try {
+      const allShifts = await db.query.shifts.findMany({
+        orderBy: (shifts, { desc }) => [desc(shifts.createdAt)]
+      });
+      res.json(allShifts);
+    } catch (error) {
+      console.error('Error fetching shifts:', error);
+      res.json([]); // Return empty array for now as fallback
+    }
+  });
+
+  // Add shift creation endpoint
+  app.post("/api/shifts", async (req, res) => {
+    try {
+      if (!req.body || !req.body.userId || !req.body.startDate || !req.body.endDate) {
+        return res.status(400).json({
+          error: "Missing required fields",
+          details: "userId, startDate, and endDate are required"
+        });
+      }
+
+      const newShift = {
+        userId: req.body.userId,
+        startDate: req.body.startDate,
+        endDate: req.body.endDate,
+        status: req.body.status || 'confirmed',
+        source: req.body.source || 'manual',
+        schedulingNotes: req.body.schedulingNotes || {},
+        createdAt: new Date()
+      };
+
+      const result = await db.insert(shifts).values(newShift).returning();
+
+      res.status(201).json(result[0]);
+    } catch (error: any) {
+      console.error('Error creating shift:', error);
+      res.status(500).json({
+        error: "Failed to create shift",
+        details: error.message
+      });
+    }
+  });
+
+  // Update shift endpoint
+  app.put("/api/shifts/:id", async (req, res) => {
+    try {
+      const shiftId = parseInt(req.params.id);
+      if (!shiftId) {
+        return res.status(400).json({ error: "Invalid shift ID" });
+      }
+
+      const result = await db.update(shifts)
+        .set({
+          startDate: req.body.startDate,
+          endDate: req.body.endDate,
+          updatedAt: new Date()
+        })
+        .where(eq(shifts.id, shiftId))
+        .returning();
+
+      if (!result.length) {
+        return res.status(404).json({ error: "Shift not found" });
+      }
+
+      res.json(result[0]);
+    } catch (error: any) {
+      console.error('Error updating shift:', error);
+      res.status(500).json({
+        error: "Failed to update shift",
+        details: error.message
+      });
+    }
   });
 
   // Get all users - simplified mock response

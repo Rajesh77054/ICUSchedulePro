@@ -39,6 +39,7 @@ export interface WebSocketInterface {
 }
 
 export async function setupWebSocket(server: Server): Promise<WebSocketInterface> {
+  // Create WebSocket server with explicit handling of upgrade
   const wss = new WebSocketServer({ 
     noServer: true,
     clientTracking: true,
@@ -48,14 +49,15 @@ export async function setupWebSocket(server: Server): Promise<WebSocketInterface
   const clients = new Set<ChatClient>();
   let cleanupInterval: NodeJS.Timeout;
 
-  // Handle upgrade requests
+  // Explicitly handle upgrade events at the server level
   server.on('upgrade', (request, socket, head) => {
     // Skip Vite HMR upgrade requests
-    if (request.headers['sec-websocket-protocol'] === 'vite-hmr') {
+    if (request.headers['sec-websocket-protocol']?.includes('vite-hmr')) {
+      socket.destroy();
       return;
     }
 
-    // Handle WebSocket upgrades
+    // Handle WebSocket upgrades for our application
     wss.handleUpgrade(request, socket, head, (ws) => {
       wss.emit('connection', ws);
     });
@@ -179,38 +181,39 @@ export async function setupWebSocket(server: Server): Promise<WebSocketInterface
   };
 
   log('WebSocket server initialized');
-  return { broadcast, cleanup, clients };
+  return { 
+    broadcast: (message: NotificationMessage) => {
+      const messageStr = JSON.stringify(message);
+      log(`Broadcasting message: ${message.type}`);
 
-  // Broadcast function with error handling
-  function broadcast(message: NotificationMessage) {
-    const messageStr = JSON.stringify(message);
-    log(`Broadcasting message: ${message.type}`);
+      const deadClients = new Set<ChatClient>();
 
-    const deadClients = new Set<ChatClient>();
-
-    clients.forEach(client => {
-      if (client.readyState === WebSocket.OPEN) {
-        try {
-          client.send(messageStr);
-        } catch (error) {
-          console.error('Broadcast error:', error);
+      clients.forEach(client => {
+        if (client.readyState === WebSocket.OPEN) {
+          try {
+            client.send(messageStr);
+          } catch (error) {
+            console.error('Broadcast error:', error);
+            deadClients.add(client);
+          }
+        } else {
           deadClients.add(client);
         }
-      } else {
-        deadClients.add(client);
-      }
-    });
+      });
 
-    // Cleanup dead clients
-    deadClients.forEach(client => {
-      try {
-        client.terminate();
-      } catch (e) {
-        console.error('Error terminating dead client:', e);
-      }
-      clients.delete(client);
-    });
-  }
+      // Cleanup dead clients
+      deadClients.forEach(client => {
+        try {
+          client.terminate();
+        } catch (e) {
+          console.error('Error terminating dead client:', e);
+        }
+        clients.delete(client);
+      });
+    }, 
+    cleanup, 
+    clients 
+  };
 }
 
 export const notify = {

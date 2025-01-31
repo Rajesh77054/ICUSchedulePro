@@ -1,6 +1,8 @@
 import type { Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { log } from "./vite";
+import { createServer } from "http";
+import type { Express } from "express";
 
 // Type definitions for notifications
 interface NotificationUser {
@@ -38,8 +40,12 @@ export interface WebSocketInterface {
   clients: Set<ChatClient>;
 }
 
-export async function setupWebSocket(server: Server): Promise<WebSocketInterface> {
-  // Create WebSocket server with explicit handling of upgrade
+let wsInterface: WebSocketInterface | null = null;
+
+export async function initializeServer(app: Express): Promise<Server> {
+  const httpServer = createServer(app);
+
+  // Create WebSocket server
   const wss = new WebSocketServer({ 
     noServer: true,
     clientTracking: true,
@@ -49,8 +55,8 @@ export async function setupWebSocket(server: Server): Promise<WebSocketInterface
   const clients = new Set<ChatClient>();
   let cleanupInterval: NodeJS.Timeout;
 
-  // Explicitly handle upgrade events at the server level
-  server.on('upgrade', (request, socket, head) => {
+  // Handle upgrade requests
+  httpServer.on('upgrade', (request, socket, head) => {
     // Skip Vite HMR upgrade requests
     if (request.headers['sec-websocket-protocol']?.includes('vite-hmr')) {
       socket.destroy();
@@ -153,35 +159,8 @@ export async function setupWebSocket(server: Server): Promise<WebSocketInterface
     });
   }, 30000);
 
-  // Cleanup function
-  const cleanup = async () => {
-    clearInterval(cleanupInterval);
-
-    const closePromises = Array.from(clients).map(client => 
-      new Promise<void>(resolve => {
-        try {
-          client.terminate();
-        } catch (e) {
-          console.error('Error terminating client during cleanup:', e);
-        }
-        clients.delete(client);
-        resolve();
-      })
-    );
-
-    await Promise.all(closePromises);
-    clients.clear();
-
-    return new Promise<void>(resolve => {
-      wss.close(() => {
-        log('WebSocket server closed');
-        resolve();
-      });
-    });
-  };
-
-  log('WebSocket server initialized');
-  return { 
+  // Create WebSocket interface
+  wsInterface = {
     broadcast: (message: NotificationMessage) => {
       const messageStr = JSON.stringify(message);
       log(`Broadcasting message: ${message.type}`);
@@ -210,10 +189,37 @@ export async function setupWebSocket(server: Server): Promise<WebSocketInterface
         }
         clients.delete(client);
       });
-    }, 
-    cleanup, 
-    clients 
+    },
+    cleanup: async () => {
+      clearInterval(cleanupInterval);
+
+      const closePromises = Array.from(clients).map(client => 
+        new Promise<void>(resolve => {
+          try {
+            client.terminate();
+          } catch (e) {
+            console.error('Error terminating client during cleanup:', e);
+          }
+          clients.delete(client);
+          resolve();
+        })
+      );
+
+      await Promise.all(closePromises);
+      clients.clear();
+
+      return new Promise<void>(resolve => {
+        wss.close(() => {
+          log('WebSocket server closed');
+          resolve();
+        });
+      });
+    },
+    clients
   };
+
+  log('WebSocket server initialized');
+  return httpServer;
 }
 
 export const notify = {

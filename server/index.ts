@@ -1,8 +1,26 @@
 import express from "express";
+import cors from "cors";
 import { registerRoutes } from "./routes";
 import { setupVite } from "./vite";
 
 const app = express();
+
+// Configure CORS to allow Replit domains
+app.use(cors({
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+
+    // Allow all replit.dev subdomains
+    if (origin.endsWith('.replit.dev')) return callback(null, true);
+
+    callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 

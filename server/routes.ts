@@ -147,6 +147,7 @@ export function registerRoutes(app: Express) {
   // Add shift creation endpoint
   app.post("/api/shifts", async (req, res) => {
     try {
+      // Validate required fields
       if (!req.body || !req.body.userId || !req.body.startDate || !req.body.endDate) {
         return res.status(400).json({
           error: "Missing required fields",
@@ -154,8 +155,25 @@ export function registerRoutes(app: Express) {
         });
       }
 
+      // Validate user exists
+      const users = [
+        { id: 1, name: "Dr. Smith", title: "Physician", color: "#0088FE", userType: "physician" },
+        { id: 2, name: "Dr. Johnson", title: "Physician", color: "#00C49F", userType: "physician" },
+        { id: 3, name: "Dr. Williams", title: "Physician", color: "#FFBB28", userType: "physician" },
+        { id: 4, name: "Sarah Brown", title: "APP", color: "#FF8042", userType: "app" },
+        { id: 5, name: "Mike Davis", title: "APP", color: "#8884d8", userType: "app" }
+      ];
+
+      const userExists = users.some(user => user.id === parseInt(req.body.userId));
+      if (!userExists) {
+        return res.status(400).json({
+          error: "Invalid user",
+          details: "The specified user does not exist"
+        });
+      }
+
       const newShift = {
-        userId: req.body.userId,
+        userId: parseInt(req.body.userId),
         startDate: req.body.startDate,
         endDate: req.body.endDate,
         status: req.body.status || 'confirmed',
@@ -165,6 +183,10 @@ export function registerRoutes(app: Express) {
       };
 
       const result = await db.insert(shifts).values(newShift).returning();
+
+      if (!result.length) {
+        throw new Error('Failed to create shift - no result returned');
+      }
 
       res.status(201).json(result[0]);
     } catch (error: any) {

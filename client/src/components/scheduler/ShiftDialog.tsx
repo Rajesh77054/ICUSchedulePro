@@ -16,9 +16,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { USERS } from "@/lib/constants";
 import { detectShiftConflicts } from "@/lib/utils";
-import type { Shift } from "@/lib/types";
+import type { Shift, User } from "@/lib/types";
 import { format } from "date-fns";
 
 interface ShiftDialogProps {
@@ -33,6 +32,16 @@ export function ShiftDialog({ open, onOpenChange, startDate, endDate }: ShiftDia
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Fetch users from API instead of using constant
+  const { data: users = [] } = useQuery<User[]>({
+    queryKey: ["/api/users"],
+    queryFn: async () => {
+      const res = await fetch("/api/users");
+      if (!res.ok) throw new Error("Failed to fetch users");
+      return res.json();
+    }
+  });
+
   // Move useQuery to component level
   const { data: userPrefs } = useQuery({
     queryKey: ["/api/user-preferences", userId],
@@ -45,7 +54,7 @@ export function ShiftDialog({ open, onOpenChange, startDate, endDate }: ShiftDia
   });
 
   // Get existing shifts for conflict detection
-  const { data: existingShifts = [] } = useQuery({
+  const { data: existingShifts = [] } = useQuery<Shift[]>({
     queryKey: ["/api/shifts"],
     queryFn: async () => {
       const res = await fetch("/api/shifts");
@@ -179,7 +188,7 @@ export function ShiftDialog({ open, onOpenChange, startDate, endDate }: ShiftDia
                 <SelectValue placeholder="Select healthcare provider" />
               </SelectTrigger>
               <SelectContent>
-                {USERS.map(user => (
+                {users.map(user => (
                   <SelectItem key={user.id} value={user.id.toString()}>
                     {user.name}, {user.title}
                   </SelectItem>

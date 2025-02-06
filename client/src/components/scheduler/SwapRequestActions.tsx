@@ -21,31 +21,36 @@ export function SwapRequestActions({ request, onClose }: SwapRequestActionsProps
         body: JSON.stringify({ status }),
       });
 
-      let responseData;
-      try {
-        // Try to get response as text first
-        const text = await res.text();
-
-        // Then try to parse it as JSON if possible
-        try {
-          responseData = JSON.parse(text);
-        } catch (e) {
-          // If it's not JSON, use the text as is
-          responseData = { message: text };
-        }
-      } catch (e) {
-        throw new Error('Could not read server response');
-      }
-
       if (!res.ok) {
-        throw new Error(responseData.message || 'Failed to respond to swap request');
+        const text = await res.text();
+        let error;
+        try {
+          const json = JSON.parse(text);
+          error = json.message || 'Failed to respond to swap request';
+        } catch (e) {
+          error = text || 'Failed to respond to swap request';
+        }
+        throw new Error(error);
       }
 
-      return responseData;
+      const text = await res.text();
+      if (!text) {
+        return { success: true };
+      }
+
+      try {
+        return JSON.parse(text);
+      } catch (e) {
+        return { message: text };
+      }
     },
     onSuccess: (_, { status }) => {
+      // Invalidate all related queries
       queryClient.invalidateQueries({ queryKey: ['/api/shifts'] });
       queryClient.invalidateQueries({ queryKey: ['/api/swap-requests'] });
+
+      // Force refetch to ensure data is fresh
+      queryClient.refetchQueries({ queryKey: ['/api/swap-requests'] });
 
       toast({
         title: 'Success',
@@ -57,6 +62,7 @@ export function SwapRequestActions({ request, onClose }: SwapRequestActionsProps
       }
     },
     onError: (error: Error) => {
+      console.error('Swap request action error:', error);
       toast({
         title: 'Error',
         description: error.message,
@@ -71,31 +77,36 @@ export function SwapRequestActions({ request, onClose }: SwapRequestActionsProps
         method: 'DELETE',
       });
 
-      let responseData;
-      try {
-        // Try to get response as text first
-        const text = await res.text();
-
-        // Then try to parse it as JSON if possible
-        try {
-          responseData = JSON.parse(text);
-        } catch (e) {
-          // If it's not JSON, use the text as is
-          responseData = { message: text };
-        }
-      } catch (e) {
-        throw new Error('Could not read server response');
-      }
-
       if (!res.ok) {
-        throw new Error(responseData.message || 'Failed to cancel request');
+        const text = await res.text();
+        let error;
+        try {
+          const json = JSON.parse(text);
+          error = json.message || 'Failed to cancel request';
+        } catch (e) {
+          error = text || 'Failed to cancel request';
+        }
+        throw new Error(error);
       }
 
-      return responseData;
+      const text = await res.text();
+      if (!text) {
+        return { success: true };
+      }
+
+      try {
+        return JSON.parse(text);
+      } catch (e) {
+        return { message: text };
+      }
     },
     onSuccess: () => {
+      // Invalidate all related queries
       queryClient.invalidateQueries({ queryKey: ['/api/shifts'] });
       queryClient.invalidateQueries({ queryKey: ['/api/swap-requests'] });
+
+      // Force refetch to ensure data is fresh
+      queryClient.refetchQueries({ queryKey: ['/api/swap-requests'] });
 
       toast({
         title: 'Success',
@@ -107,6 +118,7 @@ export function SwapRequestActions({ request, onClose }: SwapRequestActionsProps
       }
     },
     onError: (error: Error) => {
+      console.error('Cancel request error:', error);
       toast({
         title: 'Error',
         description: error.message,

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Bell, X, Check, AlertCircle, Calendar } from "lucide-react";
+import { Bell, X, Check, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -37,14 +37,38 @@ export function Notifications() {
   const { data: swapRequests } = useQuery({
     queryKey: ['/api/swap-requests'],
     queryFn: async () => {
-      console.log('Fetching swap requests for notifications'); // Debug log
-      const res = await fetch('/api/swap-requests');
-      if (!res.ok) throw new Error('Failed to fetch swap requests');
-      const data = await res.json();
-      console.log('Fetched swap requests:', data); // Debug log
-      return data;
+      console.log('Fetching swap requests for notifications');
+      try {
+        const res = await fetch('/api/swap-requests');
+
+        if (!res.ok) {
+          const text = await res.text();
+          let error;
+          try {
+            const json = JSON.parse(text);
+            error = json.message;
+          } catch (e) {
+            error = text;
+          }
+          throw new Error(error || 'Failed to fetch swap requests');
+        }
+
+        const text = await res.text();
+        if (!text) return [];
+
+        try {
+          const data = JSON.parse(text);
+          console.log('Fetched swap requests:', data);
+          return data;
+        } catch (e) {
+          console.error('Error parsing swap requests:', e);
+          return [];
+        }
+      } catch (error) {
+        console.error('Error fetching swap requests:', error);
+        return [];
+      }
     },
-    // Reduce stale time and add refetch interval to keep data fresh
     staleTime: 1000,
     refetchInterval: 5000
   });
@@ -57,19 +81,41 @@ export function Notifications() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status }),
       });
+
       if (!res.ok) {
-        const error = await res.text();
+        const text = await res.text();
+        let error;
+        try {
+          const json = JSON.parse(text);
+          error = json.message;
+        } catch (e) {
+          error = text;
+        }
         throw new Error(error || 'Failed to respond to swap request');
       }
-      return res.json();
+
+      const text = await res.text();
+      if (!text) {
+        return { success: true };
+      }
+
+      try {
+        return JSON.parse(text);
+      } catch (e) {
+        return { message: text };
+      }
     },
     onSuccess: (_, variables) => {
+      // Invalidate and refetch all related queries
       queryClient.invalidateQueries({ queryKey: ['/api/shifts'] });
       queryClient.invalidateQueries({ queryKey: ['/api/swap-requests'] });
+      queryClient.refetchQueries({ queryKey: ['/api/swap-requests'] });
+
       toast({
         title: 'Success',
         description: `Successfully ${variables.status} the shift swap request.`,
       });
+
       // Remove the notification for this request
       setNotifications(prev => 
         prev.filter(n => 
@@ -79,6 +125,7 @@ export function Notifications() {
       );
     },
     onError: (error: Error) => {
+      console.error('Error responding to swap request:', error);
       setError(error.message);
       toast({
         title: 'Error',
@@ -91,7 +138,7 @@ export function Notifications() {
   useEffect(() => {
     // Add pending swap requests to notifications
     if (swapRequests) {
-      console.log('Processing swap requests for notifications:', swapRequests); // Debug log
+      console.log('Processing swap requests for notifications:', swapRequests);
       const pendingRequests = swapRequests
         .filter((req: any) => req.status === 'pending')
         .map((req: any) => ({
@@ -105,7 +152,7 @@ export function Notifications() {
           timestamp: req.createdAt
         }));
 
-      console.log('Pending requests processed:', pendingRequests); // Debug log
+      console.log('Pending requests processed:', pendingRequests);
 
       setNotifications(prev => {
         // Remove any existing pending requests to avoid duplicates

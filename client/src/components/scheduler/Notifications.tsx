@@ -37,10 +37,16 @@ export function Notifications() {
   const { data: swapRequests } = useQuery({
     queryKey: ['/api/swap-requests'],
     queryFn: async () => {
+      console.log('Fetching swap requests for notifications'); // Debug log
       const res = await fetch('/api/swap-requests');
       if (!res.ok) throw new Error('Failed to fetch swap requests');
-      return res.json();
-    }
+      const data = await res.json();
+      console.log('Fetched swap requests:', data); // Debug log
+      return data;
+    },
+    // Reduce stale time and add refetch interval to keep data fresh
+    staleTime: 1000,
+    refetchInterval: 5000
   });
 
   const { mutate: respondToSwap, isPending: isResponding } = useMutation({
@@ -85,6 +91,7 @@ export function Notifications() {
   useEffect(() => {
     // Add pending swap requests to notifications
     if (swapRequests) {
+      console.log('Processing swap requests for notifications:', swapRequests); // Debug log
       const pendingRequests = swapRequests
         .filter((req: any) => req.status === 'pending')
         .map((req: any) => ({
@@ -97,6 +104,8 @@ export function Notifications() {
           },
           timestamp: req.createdAt
         }));
+
+      console.log('Pending requests processed:', pendingRequests); // Debug log
 
       setNotifications(prev => {
         // Remove any existing pending requests to avoid duplicates

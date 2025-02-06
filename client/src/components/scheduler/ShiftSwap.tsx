@@ -11,7 +11,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { USERS } from "@/lib/constants";
-import type { Shift, SwapRequest, User, Preference } from "@/lib/types";
+import type { Shift, SwapRequest, User } from "@/lib/types";
 import { format } from "date-fns";
 import { getSwapRecommendations } from "@/lib/utils";
 import { Progress } from "@/components/ui/progress";
@@ -22,7 +22,6 @@ import {
 } from "@/components/ui/tooltip";
 import { AlertCircle, Info } from "lucide-react";
 import { AlertTriangle } from "lucide-react";
-import type { TimeOffRequest, Holiday } from "@/lib/types";
 
 interface ShiftSwapProps {
   shift: Shift;
@@ -35,34 +34,14 @@ export function ShiftSwap({ shift, onClose }: ShiftSwapProps) {
   const queryClient = useQueryClient();
   const currentUser = USERS.find(u => u.id === shift.userId);
 
-  const { data: shifts = [], isLoading: isLoadingShifts } = useQuery<Shift[]>({
+  // Use consistent query keys
+  const { data: shifts = [] } = useQuery<Shift[]>({
     queryKey: ["/api/shifts"],
-  });
-
-  const { data: timeOffRequests = [] } = useQuery<TimeOffRequest[]>({
-    queryKey: ["/api/time-off-requests"],
-  });
-
-  const { data: holidays = [] } = useQuery<Holiday[]>({
-    queryKey: ["/api/holidays"],
   });
 
   const { data: swapHistory = [] } = useQuery<SwapRequest[]>({
     queryKey: ["/api/swap-requests"],
   });
-
-  const { data: preferences = [] } = useQuery<Preference[]>({
-    queryKey: ["/api/provider-preferences"],
-  });
-
-  const recommendations = getSwapRecommendations(
-    shift,
-    shifts,
-    timeOffRequests,
-    holidays,
-    swapHistory,
-    preferences || []
-  );
 
   const { mutate: requestSwap, isPending: isSubmitting } = useMutation({
     mutationFn: async () => {
@@ -91,31 +70,29 @@ export function ShiftSwap({ shift, onClose }: ShiftSwapProps) {
         }),
       });
 
-      let responseData;
-      try {
-        // Try to get response as text first
-        const text = await res.text();
-
-        // Then try to parse it as JSON if possible
-        try {
-          responseData = JSON.parse(text);
-        } catch (e) {
-          // If it's not JSON, use the text as is
-          responseData = { message: text };
-        }
-      } catch (e) {
-        throw new Error('Could not read server response');
-      }
-
       if (!res.ok) {
-        throw new Error(responseData.message || 'Failed to request swap');
+        const text = await res.text();
+        let error;
+        try {
+          const json = JSON.parse(text);
+          error = json.message;
+        } catch (e) {
+          error = text;
+        }
+        throw new Error(error || 'Failed to request swap');
       }
 
-      return responseData;
+      const data = await res.json();
+      console.log('Swap request created:', data); // Debug log
+      return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      // Invalidate all related queries
       queryClient.invalidateQueries({ queryKey: ["/api/shifts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/swap-requests"] });
+
+      // Force refetch swap requests
+      queryClient.refetchQueries({ queryKey: ["/api/swap-requests"] });
 
       toast({
         title: "Success",
@@ -124,6 +101,7 @@ export function ShiftSwap({ shift, onClose }: ShiftSwapProps) {
       onClose();
     },
     onError: (error: Error) => {
+      console.error('Swap request error:', error); // Debug log
       toast({
         title: "Error",
         description: error.message,
@@ -143,10 +121,6 @@ export function ShiftSwap({ shift, onClose }: ShiftSwapProps) {
     }
 
     requestSwap();
-  };
-
-  const getProviderRecommendation = (userId: number) => {
-    return recommendations?.find(r => r.userId === userId);
   };
 
   // Filter users to only show those of the same type
@@ -170,51 +144,24 @@ export function ShiftSwap({ shift, onClose }: ShiftSwapProps) {
           </Tooltip>
         </div>
 
-        {isLoadingShifts ? (
-          <div className="text-sm text-muted-foreground">Loading users...</div>
-        ) : (
-          <Select value={recipientId} onValueChange={setRecipientId}>
-            <SelectTrigger>
-              <SelectValue placeholder={`Select ${currentUser?.userType.toUpperCase()}`} />
-            </SelectTrigger>
-            <SelectContent>
-              {eligibleUsers.map(user => {
-                const recommendation = getProviderRecommendation(user.id);
-                return (
-                  <SelectItem key={user.id} value={user.id.toString()}>
-                    <div className="flex flex-col gap-1">
-                      <div className="flex items-center justify-between">
-                        <span>{user.name}, {user.title}</span>
-                        <span className="text-xs text-muted-foreground">
-                          Match Score: {recommendation?.score || 0}%
-                        </span>
-                      </div>
-                      <Progress
-                        value={recommendation?.score || 0}
-                        className="h-1"
-                        style={{
-                          backgroundColor: `${user.color}40`,
-                          "--progress-background": user.color,
-                        } as any}
-                      />
-                      {recommendation?.reasons && (
-                        <div className="text-xs text-muted-foreground mt-1">
-                          {recommendation.reasons.join(" • ")}
-                        </div>
-                      )}
-                      {recommendation?.warnings && recommendation.warnings.length > 0 && (
-                        <div className="flex items-center gap-1 text-xs text-yellow-600 mt-1">
-                          <AlertTriangle className="h-3 w-3" />
-                          <span>{recommendation.warnings.join(" • ")}</span>
-                        </div>
-                      )}
+        <Select value={recipientId} onValueChange={setRecipientId}>
+          <SelectTrigger>
+            <SelectValue placeholder={`Select ${currentUser?.userType.toUpperCase()}`} />
+          </SelectTrigger>
+          <SelectContent>
+            {eligibleUsers.map(user => {
+              return (
+                <SelectItem key={user.id} value={user.id.toString()}>
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center justify-between">
+                      <span>{user.name}, {user.title}</span>
                     </div>
-                  </SelectItem>
-                );
-              })}
-            </SelectContent>
-          </Select>
-        )}
+                  </div>
+                </SelectItem>
+              );
+            })}
+          </SelectContent>
+        </Select>
       </div>
 
       {eligibleUsers.length === 0 && (

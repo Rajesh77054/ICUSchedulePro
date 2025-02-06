@@ -21,10 +21,15 @@ export function SwapRequests({ userId, variant = 'dashboard' }: Props) {
 
   // Fetch swap requests, including ones where the user is either requestor or recipient
   const { data: swapRequests, isLoading } = useQuery<SwapRequest[]>({
-    queryKey: [`/api/swap-requests${userId ? `?userId=${userId}` : ''}`],
+    queryKey: ['/api/swap-requests', userId],
     queryFn: async () => {
       try {
-        const res = await fetch(`/api/swap-requests${userId ? `?userId=${userId}` : ''}`);
+        const url = new URL('/api/swap-requests', window.location.origin);
+        if (userId) {
+          url.searchParams.append('userId', userId.toString());
+        }
+
+        const res = await fetch(url);
         if (!res.ok) {
           const errorText = await res.text();
           throw new Error(errorText || 'Failed to fetch swap requests');
@@ -34,62 +39,10 @@ export function SwapRequests({ userId, variant = 'dashboard' }: Props) {
         console.error('Error fetching swap requests:', error);
         throw error;
       }
-    }
+    },
+    staleTime: 1000, // Consider data fresh for 1 second
+    refetchInterval: 5000, // Refetch every 5 seconds to keep data fresh
   });
-
-  const { mutate: respondToSwap, isPending: isResponding } = useMutation({
-    mutationFn: async ({ requestId, status }: { requestId: number; status: 'accepted' | 'rejected' }) => {
-      setError(null);
-      try {
-        const res = await fetch(`/api/swap-requests/${requestId}/respond`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status }),
-        });
-
-        if (!res.ok) {
-          const errorText = await res.text();
-          throw new Error(errorText || 'Failed to respond to swap request');
-        }
-
-        return res.json();
-      } catch (error) {
-        console.error('Error responding to swap:', error);
-        throw error;
-      }
-    },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/shifts'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/swap-requests'] });
-      toast({
-        title: 'Success',
-        description: `Successfully ${variables.status} the shift swap request.`,
-      });
-    },
-    onError: (error: Error) => {
-      setError(error.message);
-      toast({
-        title: 'Error',
-        description: error.message,
-        variant: 'destructive',
-      });
-    },
-  });
-
-  if (isLoading) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Shift Swap Requests</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center p-4">
-            Loading requests...
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
 
   // Filter requests based on user role and variant
   const filteredRequests = swapRequests?.filter(request => {
@@ -108,6 +61,21 @@ export function SwapRequests({ userId, variant = 'dashboard' }: Props) {
   const sortedRequests = [...(filteredRequests || [])].sort((a, b) => 
     new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Shift Swap Requests</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-center p-4">
+            Loading requests...
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (!sortedRequests?.length) {
     return (

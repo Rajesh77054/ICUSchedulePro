@@ -91,24 +91,27 @@ export function ShiftSwap({ shift, onClose }: ShiftSwapProps) {
         }),
       });
 
-      if (!res.ok) {
-        let errorMessage = 'Failed to request swap';
+      let responseData;
+      try {
+        // Try to get response as text first
+        const text = await res.text();
+
+        // Then try to parse it as JSON if possible
         try {
-          const errorData = await res.json();
-          errorMessage = errorData.message || errorMessage;
+          responseData = JSON.parse(text);
         } catch (e) {
-          // If JSON parsing fails, try to get the raw text
-          const errorText = await res.text();
-          errorMessage = errorText || errorMessage;
+          // If it's not JSON, use the text as is
+          responseData = { message: text };
         }
-        throw new Error(errorMessage);
+      } catch (e) {
+        throw new Error('Could not read server response');
       }
 
-      try {
-        return await res.json();
-      } catch (e) {
-        throw new Error('Invalid response format from server');
+      if (!res.ok) {
+        throw new Error(responseData.message || 'Failed to request swap');
       }
+
+      return responseData;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/shifts"] });
@@ -147,8 +150,8 @@ export function ShiftSwap({ shift, onClose }: ShiftSwapProps) {
   };
 
   // Filter users to only show those of the same type
-  const eligibleUsers = USERS.filter(user => 
-    user.id !== shift.userId && 
+  const eligibleUsers = USERS.filter(user =>
+    user.id !== shift.userId &&
     currentUser && user.userType === currentUser.userType
   );
 
@@ -186,8 +189,8 @@ export function ShiftSwap({ shift, onClose }: ShiftSwapProps) {
                           Match Score: {recommendation?.score || 0}%
                         </span>
                       </div>
-                      <Progress 
-                        value={recommendation?.score || 0} 
+                      <Progress
+                        value={recommendation?.score || 0}
                         className="h-1"
                         style={{
                           backgroundColor: `${user.color}40`,
@@ -223,9 +226,9 @@ export function ShiftSwap({ shift, onClose }: ShiftSwapProps) {
         </Alert>
       )}
 
-      <Button 
-        onClick={handleSwapRequest} 
-        disabled={!recipientId || isSubmitting || eligibleUsers.length === 0} 
+      <Button
+        onClick={handleSwapRequest}
+        disabled={!recipientId || isSubmitting || eligibleUsers.length === 0}
         className="w-full"
       >
         {isSubmitting ? "Sending Request..." : "Request Swap"}

@@ -21,28 +21,27 @@ export function SwapRequestActions({ request, onClose }: SwapRequestActionsProps
         body: JSON.stringify({ status }),
       });
 
-      if (!res.ok) {
-        // Try to parse error as JSON first
-        const errorText = await res.text();
-        let errorMessage = 'Failed to respond to swap request';
-
-        try {
-          const errorData = JSON.parse(errorText);
-          errorMessage = errorData.message || errorMessage;
-        } catch (e) {
-          // If JSON parsing fails, use the raw error text
-          errorMessage = errorText || errorMessage;
-        }
-
-        throw new Error(errorMessage);
-      }
-
-      // Only try to parse JSON if response is ok
+      let responseData;
       try {
-        return await res.json();
+        // Try to get response as text first
+        const text = await res.text();
+
+        // Then try to parse it as JSON if possible
+        try {
+          responseData = JSON.parse(text);
+        } catch (e) {
+          // If it's not JSON, use the text as is
+          responseData = { message: text };
+        }
       } catch (e) {
-        throw new Error('Invalid response format from server');
+        throw new Error('Could not read server response');
       }
+
+      if (!res.ok) {
+        throw new Error(responseData.message || 'Failed to respond to swap request');
+      }
+
+      return responseData;
     },
     onSuccess: (_, { status }) => {
       queryClient.invalidateQueries({ queryKey: ['/api/shifts'] });
@@ -72,28 +71,27 @@ export function SwapRequestActions({ request, onClose }: SwapRequestActionsProps
         method: 'DELETE',
       });
 
-      if (!res.ok) {
-        // Try to parse error as JSON first
-        const errorText = await res.text();
-        let errorMessage = 'Failed to cancel request';
-
-        try {
-          const errorData = JSON.parse(errorText);
-          errorMessage = errorData.message || errorMessage;
-        } catch (e) {
-          // If JSON parsing fails, use the raw error text
-          errorMessage = errorText || errorMessage;
-        }
-
-        throw new Error(errorMessage);
-      }
-
-      // Only try to parse JSON if response is ok
+      let responseData;
       try {
-        return await res.json();
+        // Try to get response as text first
+        const text = await res.text();
+
+        // Then try to parse it as JSON if possible
+        try {
+          responseData = JSON.parse(text);
+        } catch (e) {
+          // If it's not JSON, use the text as is
+          responseData = { message: text };
+        }
       } catch (e) {
-        throw new Error('Invalid response format from server');
+        throw new Error('Could not read server response');
       }
+
+      if (!res.ok) {
+        throw new Error(responseData.message || 'Failed to cancel request');
+      }
+
+      return responseData;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/shifts'] });

@@ -54,13 +54,21 @@ export function PersonalDashboard() {
   });
 
 
-  // Get all swap requests for the user
+  // Update the swap requests query to include both sent and received requests
   const { data: swapRequests } = useQuery({
     queryKey: ['/api/swap-requests', userId],
     queryFn: async () => {
-      const res = await fetch(`/api/swap-requests?userId=${userId}`);
-      if (!res.ok) throw new Error('Failed to fetch swap requests');
-      return res.json();
+      try {
+        const res = await fetch(`/api/swap-requests?userId=${userId}`);
+        if (!res.ok) {
+          const errorText = await res.text();
+          throw new Error(errorText || 'Failed to fetch swap requests');
+        }
+        return res.json();
+      } catch (error) {
+        console.error('Error fetching swap requests:', error);
+        return [];
+      }
     },
   });
 

@@ -45,35 +45,22 @@ export function SwapRequestsDashboard() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
+  // Update to use consistent query key format
   const { data: requests, isLoading } = useQuery<SwapRequest[]>({
     queryKey: ["/api/swap-requests"],
-  });
-
-  const { mutate: cancelRequest } = useMutation({
-    mutationFn: async (requestId: number) => {
-      const res = await fetch(`/api/swap-requests/${requestId}`, {
-        method: "DELETE",
-      });
-      if (!res.ok) {
-        const error = await res.text();
-        throw new Error(error || "Failed to cancel request");
+    queryFn: async () => {
+      try {
+        const res = await fetch("/api/swap-requests");
+        if (!res.ok) {
+          const errorText = await res.text();
+          throw new Error(errorText || "Failed to fetch swap requests");
+        }
+        return res.json();
+      } catch (error) {
+        console.error("Error fetching swap requests:", error);
+        setError(error instanceof Error ? error.message : "Failed to fetch swap requests");
+        return [];
       }
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/swap-requests"] });
-      toast({
-        title: "Success",
-        description: "Swap request cancelled successfully",
-      });
-    },
-    onError: (error: Error) => {
-      setError(error.message);
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
     },
   });
 
@@ -113,15 +100,8 @@ export function SwapRequestsDashboard() {
     }
   };
 
-  const handleCancelRequest = (requestId: number) => {
-    if (confirm("Are you sure you want to cancel this swap request?")) {
-      cancelRequest(requestId);
-    }
-  };
-
   return (
     <div className="container mx-auto py-6 space-y-6 relative">
-      
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold mb-2">Shift Swap Requests</h1>
@@ -259,11 +239,7 @@ export function SwapRequestsDashboard() {
                       </div>
                     </div>
                     <div className="flex gap-2">
-                      {request.status === "pending" && (
-                        <>
-                          <SwapRequestActions request={request} />
-                        </>
-                      )}
+                      <SwapRequestActions request={request} />
                     </div>
                   </div>
                 </div>

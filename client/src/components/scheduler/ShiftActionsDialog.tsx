@@ -11,88 +11,43 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import type { Shift } from "@/lib/types";
 import { ShiftSwap } from "./ShiftSwap";
+import { useState } from "react";
 
 interface ShiftActionsDialogProps {
   shift: Shift | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onDelete: (shiftId: number) => Promise<void>;
 }
 
 export function ShiftActionsDialog({
   shift,
   open,
   onOpenChange,
+  onDelete,
 }: ShiftActionsDialogProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [isDeleting, setIsDeleting] = useState(false);
 
-  // Delete shift mutation
-  const { mutate: deleteShift, isPending: isDeleting } = useMutation({
-    mutationFn: async () => {
-      if (!shift) throw new Error("No shift selected");
-      const res = await fetch(`/api/shifts/${shift.id}`, {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json"
-        }
-      });
-      if (!res.ok) {
-        const error = await res.text();
-        throw new Error(error || "Failed to delete shift");
-      }
-      return shift.id;
-    },
-    onMutate: async () => {
-      if (!shift) return;
+  const handleDelete = async () => {
+    if (!shift) return;
 
-      // Cancel any outgoing refetches
-      await queryClient.cancelQueries();
-
-      // Snapshot all related queries
-      const previousShifts = queryClient.getQueriesData({ queryKey: ["/api/shifts"] });
-
-      // Optimistically remove the shift from all related queries
-      queryClient.setQueriesData({ queryKey: ["/api/shifts"] }, (old: any) => {
-        if (!Array.isArray(old)) return [];
-        return old.filter(s => s.id !== shift.id);
-      });
-
-      return { previousShifts };
-    },
-    onSuccess: async () => {
-      // Force immediate invalidation and refetch
-      await queryClient.invalidateQueries({
-        queryKey: ["/api/shifts"],
-        refetchType: 'all',
-        exact: false
-      });
-
-      // Clear all shift-related data from cache
-      queryClient.removeQueries({
-        predicate: (query) => query.queryKey[0] === "/api/shifts"
-      });
-
-      // Force calendar refresh
-      window.dispatchEvent(new Event('forceCalendarRefresh'));
-
-      toast({
-        title: "Success",
-        description: "Shift deleted successfully",
-      });
+    setIsDeleting(true);
+    try {
+      await onDelete(shift.id);
       onOpenChange(false);
-    },
-    onError: (err: Error, shiftId: number, context: any) => {
-      // Rollback on error
-      if (context?.previousShifts) {
-        queryClient.setQueryData(["/api/shifts"], context.previousShifts);
-      }
+    } catch (error) {
+      console.error('Error in handleDelete:', error);
       toast({
         title: "Error",
-        description: err.message,
+        description: "Failed to delete shift",
         variant: "destructive",
       });
-    },
-  });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   if (!shift) return null;
 
@@ -123,7 +78,7 @@ export function ShiftActionsDialog({
             </Button>
             <Button
               variant="destructive"
-              onClick={() => deleteShift()}
+              onClick={handleDelete}
               disabled={isDeleting}
             >
               {isDeleting ? "Deleting..." : "Delete Shift"}

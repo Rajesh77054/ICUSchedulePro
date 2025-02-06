@@ -229,6 +229,32 @@ export function registerRoutes(app: Express) {
     }
   });
 
+  // Add shift deletion endpoint
+  app.delete("/api/shifts/:id", async (req, res) => {
+    try {
+      const shiftId = parseInt(req.params.id);
+      if (!shiftId) {
+        return res.status(400).json({ error: "Invalid shift ID" });
+      }
+
+      const result = await db.delete(shifts)
+        .where(eq(shifts.id, shiftId))
+        .returning();
+
+      if (!result.length) {
+        return res.status(404).json({ error: "Shift not found" });
+      }
+
+      res.json({ message: "Shift deleted successfully", deletedShift: result[0] });
+    } catch (error: any) {
+      console.error('Error deleting shift:', error);
+      res.status(500).json({
+        error: "Failed to delete shift",
+        details: error.message
+      });
+    }
+  });
+
   // Get all users - with proper implementation
   app.get("/api/users", async (_req, res) => {
     try {

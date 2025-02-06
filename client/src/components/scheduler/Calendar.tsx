@@ -91,6 +91,51 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
     },
   });
 
+  // Add delete shift mutation
+  const deleteShiftMutation = useMutation({
+    mutationFn: async (shiftId: number) => {
+      const res = await fetch(`/api/shifts/${shiftId}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Failed to delete shift');
+      }
+      return res.json();
+    },
+    onSuccess: async (_, shiftId) => {
+      // Cancel any outgoing queries first
+      await queryClient.cancelQueries({ queryKey: ["/api/shifts"] });
+
+      // Update the cache immediately
+      queryClient.setQueryData(["/api/shifts"], (oldData: Shift[] = []) => {
+        return oldData.filter(shift => shift.id !== shiftId);
+      });
+
+      // Force a refresh of all shift-related queries
+      await queryClient.invalidateQueries({
+        queryKey: ["/api/shifts"],
+        refetchType: 'all',
+        exact: false
+      });
+
+      // Trigger calendar refresh
+      window.dispatchEvent(new Event('forceCalendarRefresh'));
+
+      toast({
+        title: "Success",
+        description: "Shift deleted successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   // Add event listener for manual refresh
   useEffect(() => {
     const handleRefresh = async () => {
@@ -119,12 +164,12 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
     return shifts.map(shift => {
       const normalizedDays = getShiftDuration(shift);
       // For swapped shifts, find the swap request to determine the new owner
-      const swapRequest = swapRequests.find(req => 
-        req.shiftId === shift.id && 
+      const swapRequest = swapRequests.find(req =>
+        req.shiftId === shift.id &&
         req.status === 'accepted'
       );
 
-      const effectiveUserId = shift.status === 'swapped' && swapRequest ? 
+      const effectiveUserId = shift.status === 'swapped' && swapRequest ?
         (shift.userId === swapRequest.requestorId ? swapRequest.recipientId : swapRequest.requestorId) :
         shift.userId;
 
@@ -137,7 +182,7 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
         backgroundColor: getUserColor(effectiveUserId),
         borderColor: getUserColor(effectiveUserId),
         textColor: 'white',
-        extendedProps: { 
+        extendedProps: {
           shift,
           swapped: shift.status === 'swapped',
           originalUserId: shift.userId,
@@ -307,6 +352,15 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
     }
   };
 
+  // Add handleDeleteShift function
+  const handleDeleteShift = async (shiftId: number) => {
+    try {
+      await deleteShiftMutation.mutateAsync(shiftId);
+    } catch (error) {
+      console.error('Error deleting shift:', error);
+    }
+  };
+
   return (
     <Card className="h-full">
       <CardHeader className="flex flex-col space-y-4 md:flex-row md:items-center md:justify-between md:space-y-0 pb-2">
@@ -454,6 +508,7 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
         shift={selectedShift}
         open={shiftActionsOpen}
         onOpenChange={setShiftActionsOpen}
+        onDelete={handleDeleteShift}
       />
     </Card>
   );

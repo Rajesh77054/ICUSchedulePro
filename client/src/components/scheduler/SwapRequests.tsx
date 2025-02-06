@@ -7,6 +7,7 @@ import { Check, X, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { SwapRequest } from "@/lib/types";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { SwapRequestActions } from "./SwapRequestActions";
 
 interface Props {
   userId?: number;
@@ -22,28 +23,40 @@ export function SwapRequests({ userId, variant = 'dashboard' }: Props) {
   const { data: swapRequests, isLoading } = useQuery<SwapRequest[]>({
     queryKey: [`/api/swap-requests${userId ? `?userId=${userId}` : ''}`],
     queryFn: async () => {
-      const res = await fetch(`/api/swap-requests${userId ? `?userId=${userId}` : ''}`);
-      if (!res.ok) {
-        const error = await res.text();
-        throw new Error(error || 'Failed to fetch swap requests');
+      try {
+        const res = await fetch(`/api/swap-requests${userId ? `?userId=${userId}` : ''}`);
+        if (!res.ok) {
+          const errorText = await res.text();
+          throw new Error(errorText || 'Failed to fetch swap requests');
+        }
+        return res.json();
+      } catch (error) {
+        console.error('Error fetching swap requests:', error);
+        throw error;
       }
-      return res.json();
     }
   });
 
   const { mutate: respondToSwap, isPending: isResponding } = useMutation({
     mutationFn: async ({ requestId, status }: { requestId: number; status: 'accepted' | 'rejected' }) => {
       setError(null);
-      const res = await fetch(`/api/swap-requests/${requestId}/respond`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status }),
-      });
-      if (!res.ok) {
-        const error = await res.text();
-        throw new Error(error || 'Failed to respond to swap request');
+      try {
+        const res = await fetch(`/api/swap-requests/${requestId}/respond`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status }),
+        });
+
+        if (!res.ok) {
+          const errorText = await res.text();
+          throw new Error(errorText || 'Failed to respond to swap request');
+        }
+
+        return res.json();
+      } catch (error) {
+        console.error('Error responding to swap:', error);
+        throw error;
       }
-      return res.json();
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['/api/shifts'] });
@@ -51,37 +64,6 @@ export function SwapRequests({ userId, variant = 'dashboard' }: Props) {
       toast({
         title: 'Success',
         description: `Successfully ${variables.status} the shift swap request.`,
-      });
-    },
-    onError: (error: Error) => {
-      setError(error.message);
-      toast({
-        title: 'Error',
-        description: error.message,
-        variant: 'destructive',
-      });
-    },
-  });
-
-  const { mutate: cancelSwap, isPending: isCancelling } = useMutation({
-    mutationFn: async (requestId: number) => {
-      setError(null);
-      const res = await fetch(`/api/swap-requests/${requestId}/cancel`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      });
-      if (!res.ok) {
-        const error = await res.text();
-        throw new Error(error || 'Failed to cancel swap request');
-      }
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/shifts'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/swap-requests'] });
-      toast({
-        title: 'Success',
-        description: 'Successfully cancelled the shift swap request.',
       });
     },
     onError: (error: Error) => {
@@ -174,36 +156,8 @@ export function SwapRequests({ userId, variant = 'dashboard' }: Props) {
                     </p>
                   )}
                 </div>
-                {userId === request.recipientId && request.status === 'pending' && (
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      onClick={() => respondToSwap({ 
-                        requestId: request.id,
-                        status: 'accepted'
-                      })}
-                      disabled={isResponding || isCancelling}
-                    >
-                      <Check className="h-4 w-4 mr-1" />
-                      {isResponding ? 'Processing...' : 'Accept'}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => respondToSwap({ 
-                        requestId: request.id,
-                        status: 'rejected'
-                      })}
-                      disabled={isResponding || isCancelling}
-                    >
-                      <X className="h-4 w-4 mr-1" />
-                      {isResponding ? 'Processing...' : 'Decline'}
-                    </Button>
-                  </div>
-                )}
-                {userId === request.requestorId && request.status === 'pending' && (
-                  <SwapRequestActions request={request} />
-                )}
+                {/* Use SwapRequestActions component for all actions */}
+                <SwapRequestActions request={request} />
               </div>
             </div>
           ))}

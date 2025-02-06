@@ -11,7 +11,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { USERS } from "@/lib/constants";
-import type { Shift, SwapRequest, User } from "@/lib/types";
+import type { Shift, SwapRequest, User, Preference } from "@/lib/types";
 import { format } from "date-fns";
 import { getSwapRecommendations } from "@/lib/utils";
 import { Progress } from "@/components/ui/progress";
@@ -51,7 +51,7 @@ export function ShiftSwap({ shift, onClose }: ShiftSwapProps) {
     queryKey: ["/api/swap-requests"],
   });
 
-  const { data: preferences = [] } = useQuery({
+  const { data: preferences = [] } = useQuery<Preference[]>({
     queryKey: ["/api/provider-preferences"],
   });
 
@@ -61,32 +61,40 @@ export function ShiftSwap({ shift, onClose }: ShiftSwapProps) {
     timeOffRequests,
     holidays,
     swapHistory,
-    preferences
+    preferences || []
   );
 
   const { mutate: requestSwap, isPending: isSubmitting } = useMutation({
     mutationFn: async (data: Partial<SwapRequest>) => {
       const recipient = USERS.find(u => u.id === parseInt(recipientId!));
 
+      if (!recipient || !currentUser) {
+        throw new Error('Invalid user selection');
+      }
+
       // Validate user types match
-      if (recipient && currentUser && recipient.userType !== currentUser.userType) {
+      if (recipient.userType !== currentUser.userType) {
         throw new Error(`Cannot swap shifts between different provider types (${currentUser.userType} and ${recipient.userType})`);
       }
 
       const res = await fetch("/api/swap-requests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          shiftId: shift.id,
+          requestorId: shift.userId,
+          recipientId: parseInt(recipientId!),
+        }),
       });
 
-      const responseData = await res.json();
       if (!res.ok) {
-        throw new Error(responseData.message || "Failed to request swap");
+        const errorData = await res.json().catch(() => null);
+        throw new Error(errorData?.message || "Failed to request swap");
       }
-      return responseData;
+
+      return res.json();
     },
-    onSuccess: (data) => {
-      // Invalidate both shifts and swap requests queries
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/shifts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/swap-requests"] });
 
@@ -106,9 +114,7 @@ export function ShiftSwap({ shift, onClose }: ShiftSwapProps) {
   });
 
   const handleSwapRequest = () => {
-    console.log('ShiftSwap: Initiating swap request');
     if (!recipientId || !shift) {
-      console.warn('ShiftSwap: Missing required data', { recipientId, shift });
       toast({
         title: "Error",
         description: "Please select a user to swap with",

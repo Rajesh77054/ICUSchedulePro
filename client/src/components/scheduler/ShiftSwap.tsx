@@ -11,17 +11,18 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { USERS } from "@/lib/constants";
-import type { Shift, SwapRequest, User } from "@/lib/types";
-import { format } from "date-fns";
-import { getSwapRecommendations } from "@/lib/utils";
-import { Progress } from "@/components/ui/progress";
+import type { Shift, SwapRequest } from "@/lib/types";
+import { AlertCircle, Info } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { AlertCircle, Info } from "lucide-react";
+import { format } from "date-fns";
+import { getSwapRecommendations } from "@/lib/utils";
+import { Progress } from "@/components/ui/progress";
 import { AlertTriangle } from "lucide-react";
+
 
 interface ShiftSwapProps {
   shift: Shift;
@@ -60,6 +61,12 @@ export function ShiftSwap({ shift, onClose }: ShiftSwapProps) {
         throw new Error(`Cannot swap shifts between different provider types (${currentUser.userType} and ${recipient.userType})`);
       }
 
+      console.log('Submitting swap request:', {
+        shiftId: shift.id,
+        requestorId: shift.userId,
+        recipientId: parseInt(recipientId)
+      });
+
       const res = await fetch("/api/swap-requests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -70,28 +77,41 @@ export function ShiftSwap({ shift, onClose }: ShiftSwapProps) {
         }),
       });
 
+      const text = await res.text();
+      console.log('Server response:', text);
+
       if (!res.ok) {
-        const text = await res.text();
         let error;
         try {
           const json = JSON.parse(text);
-          error = json.message;
+          error = json.message || 'Failed to request swap';
         } catch (e) {
-          error = text;
+          error = text || 'Failed to request swap';
         }
-        throw new Error(error || 'Failed to request swap');
+        throw new Error(error);
       }
 
-      const data = await res.json();
-      console.log('Swap request created:', data); // Debug log
-      return data;
+      // Handle empty response
+      if (!text) {
+        return { success: true };
+      }
+
+      // Try to parse JSON response
+      try {
+        return JSON.parse(text);
+      } catch (e) {
+        // If parsing fails, return text as message
+        return { message: text };
+      }
     },
     onSuccess: (data) => {
+      console.log('Swap request successful:', data);
+
       // Invalidate all related queries
       queryClient.invalidateQueries({ queryKey: ["/api/shifts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/swap-requests"] });
 
-      // Force refetch swap requests
+      // Force refetch to ensure data is fresh
       queryClient.refetchQueries({ queryKey: ["/api/swap-requests"] });
 
       toast({
@@ -101,7 +121,7 @@ export function ShiftSwap({ shift, onClose }: ShiftSwapProps) {
       onClose();
     },
     onError: (error: Error) => {
-      console.error('Swap request error:', error); // Debug log
+      console.error('Swap request error:', error);
       toast({
         title: "Error",
         description: error.message,
@@ -149,17 +169,15 @@ export function ShiftSwap({ shift, onClose }: ShiftSwapProps) {
             <SelectValue placeholder={`Select ${currentUser?.userType.toUpperCase()}`} />
           </SelectTrigger>
           <SelectContent>
-            {eligibleUsers.map(user => {
-              return (
-                <SelectItem key={user.id} value={user.id.toString()}>
-                  <div className="flex flex-col gap-1">
-                    <div className="flex items-center justify-between">
-                      <span>{user.name}, {user.title}</span>
-                    </div>
+            {eligibleUsers.map(user => (
+              <SelectItem key={user.id} value={user.id.toString()}>
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center justify-between">
+                    <span>{user.name}, {user.title}</span>
                   </div>
-                </SelectItem>
-              );
-            })}
+                </div>
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>

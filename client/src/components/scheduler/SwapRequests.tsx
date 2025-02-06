@@ -29,14 +29,41 @@ export function SwapRequests({ userId, variant = 'dashboard' }: Props) {
           url.searchParams.append('userId', userId.toString());
         }
 
+        console.log('Fetching swap requests:', url.toString());
         const res = await fetch(url);
+
+        const text = await res.text();
+        console.log('Server response:', text);
+
         if (!res.ok) {
-          const errorText = await res.text();
-          throw new Error(errorText || 'Failed to fetch swap requests');
+          let error;
+          try {
+            const json = JSON.parse(text);
+            error = json.message || 'Failed to fetch swap requests';
+          } catch (e) {
+            error = text || 'Failed to fetch swap requests';
+          }
+          throw new Error(error);
         }
-        return res.json();
+
+        // Handle empty response
+        if (!text) {
+          console.log('Empty response from server');
+          return [];
+        }
+
+        // Try to parse JSON response
+        try {
+          const data = JSON.parse(text);
+          console.log('Parsed swap requests:', data);
+          return data;
+        } catch (e) {
+          console.error('Error parsing swap requests:', e);
+          return [];
+        }
       } catch (error) {
         console.error('Error fetching swap requests:', error);
+        setError(error instanceof Error ? error.message : 'Failed to fetch swap requests');
         throw error;
       }
     },
@@ -124,7 +151,6 @@ export function SwapRequests({ userId, variant = 'dashboard' }: Props) {
                     </p>
                   )}
                 </div>
-                {/* Use SwapRequestActions component for all actions */}
                 <SwapRequestActions request={request} />
               </div>
             </div>

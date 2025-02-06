@@ -55,22 +55,52 @@ export function PersonalDashboard() {
   });
 
 
-  // Update the swap requests query to include both sent and received requests
+  // Updated swap requests query with consistent JSON handling
   const { data: swapRequests } = useQuery({
     queryKey: ['/api/swap-requests', userId],
     queryFn: async () => {
       try {
-        const res = await fetch(`/api/swap-requests?userId=${userId}`);
+        const url = new URL('/api/swap-requests', window.location.origin);
+        url.searchParams.append('userId', userId.toString());
+        console.log('Fetching swap requests for personal dashboard:', url.toString());
+
+        const res = await fetch(url);
+        const text = await res.text();
+        console.log('Server response:', text);
+
         if (!res.ok) {
-          const errorText = await res.text();
-          throw new Error(errorText || 'Failed to fetch swap requests');
+          let error;
+          try {
+            const json = JSON.parse(text);
+            error = json.message || 'Failed to fetch swap requests';
+          } catch (e) {
+            error = text || 'Failed to fetch swap requests';
+          }
+          throw new Error(error);
         }
-        return res.json();
+
+        // Handle empty response
+        if (!text) {
+          console.log('Empty response from server');
+          return [];
+        }
+
+        // Try to parse JSON response
+        try {
+          const data = JSON.parse(text);
+          console.log('Parsed swap requests:', data);
+          return data;
+        } catch (e) {
+          console.error('Error parsing swap requests:', e);
+          return [];
+        }
       } catch (error) {
         console.error('Error fetching swap requests:', error);
         return [];
       }
     },
+    staleTime: 1000, // Consider data fresh for 1 second
+    refetchInterval: 5000 // Refetch every 5 seconds
   });
 
   const handleShiftActions = (shift: Shift) => {

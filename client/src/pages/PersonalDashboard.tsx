@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { ShiftPreferences } from "@/components/scheduler/preferences/ShiftPreferences";
+import { SwapRequests } from "@/components/scheduler/SwapRequests"; // Import SwapRequests component
 
 export function PersonalDashboard() {
   const { id } = useParams<{ id: string }>();
@@ -199,6 +200,7 @@ export function PersonalDashboard() {
         </DialogContent>
       </Dialog>
 
+      {/* Grid section in PersonalDashboard */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Progress Card */}
         <Card>
@@ -253,6 +255,11 @@ export function PersonalDashboard() {
               )}
             </div>
           </CardContent>
+        </Card>
+
+        {/* Add SwapRequests component */}
+        <Card className="md:col-span-2">
+          <SwapRequests userId={userId} variant="dashboard" />
         </Card>
 
         {/* Upcoming Shifts - Full Width */}

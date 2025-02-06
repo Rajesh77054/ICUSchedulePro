@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import {
   Card,
   CardContent,
@@ -18,34 +18,22 @@ import { USERS } from "@/lib/constants";
 import { useState } from "react";
 import {
   ArrowLeft,
-  Check,
-  Clock,
-  X,
   Filter,
   RefreshCcw,
-  Calendar,
 } from "lucide-react";
 import { Link } from "wouter";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import type { SwapRequest } from "@/lib/types";
 import { SwapRequestActions } from "@/components/scheduler/SwapRequestActions";
-import { ChatDialog } from "@/components/scheduler/ChatDialog";
 
 export function SwapRequestsDashboard() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [userFilter, setUserFilter] = useState<string>("all");
   const [error, setError] = useState<string | null>(null);
-  const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  // Update to use consistent query key format
+  // Fetch all swap requests (no userId filter for admin view)
   const { data: requests, isLoading } = useQuery<SwapRequest[]>({
     queryKey: ["/api/swap-requests"],
     queryFn: async () => {
@@ -62,6 +50,8 @@ export function SwapRequestsDashboard() {
         return [];
       }
     },
+    staleTime: 1000, // Consider data fresh for 1 second
+    refetchInterval: 5000, // Refetch every 5 seconds
   });
 
   const filteredRequests = requests?.filter(request => {
@@ -71,34 +61,6 @@ export function SwapRequestsDashboard() {
         request.recipientId.toString() !== userFilter) return false;
     return true;
   });
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "pending":
-        return (
-          <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
-            <Clock className="w-3 h-3 mr-1" />
-            Pending
-          </Badge>
-        );
-      case "accepted":
-        return (
-          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-            <Check className="w-3 h-3 mr-1" />
-            Accepted
-          </Badge>
-        );
-      case "rejected":
-        return (
-          <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
-            <X className="w-3 h-3 mr-1" />
-            Rejected
-          </Badge>
-        );
-      default:
-        return null;
-    }
-  };
 
   return (
     <div className="container mx-auto py-6 space-y-6 relative">
@@ -123,6 +85,7 @@ export function SwapRequestsDashboard() {
         </Alert>
       )}
 
+      {/* Filters Card */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -136,9 +99,8 @@ export function SwapRequestsDashboard() {
               onClick={() => {
                 setStatusFilter("all");
                 setUserFilter("all");
-                queryClient.invalidateQueries({ queryKey: ["/api/swap-requests"] });
               }}
-              title="Reset filters and refresh"
+              title="Reset filters"
             >
               <RefreshCcw className="h-4 w-4" />
             </Button>
@@ -180,17 +142,18 @@ export function SwapRequestsDashboard() {
         </CardContent>
       </Card>
 
+      {/* Requests List */}
       <Card>
         <CardContent className="pt-6">
           {isLoading ? (
             <div className="text-center py-4">Loading requests...</div>
-          ) : filteredRequests?.length === 0 ? (
+          ) : !filteredRequests?.length ? (
             <div className="text-center py-4 text-muted-foreground">
               No swap requests found
             </div>
           ) : (
             <div className="space-y-4">
-              {filteredRequests?.map(request => (
+              {filteredRequests.map(request => (
                 <div
                   key={request.id}
                   className="p-4 border rounded-lg hover:bg-accent transition-colors"
@@ -198,44 +161,20 @@ export function SwapRequestsDashboard() {
                   <div className="flex items-start justify-between">
                     <div>
                       <div className="flex items-center gap-2 mb-2">
-                        {getStatusBadge(request.status)}
                         <span className="text-sm text-muted-foreground">
                           Requested on {format(new Date(request.createdAt), "MMM d, yyyy 'at' h:mm a")}
                         </span>
                       </div>
                       <div className="space-y-1">
-                        <div>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <div
-                                className="inline-block w-3 h-3 rounded-full mr-2"
-                                style={{ backgroundColor: request.requestor.color }}
-                              />
-                            </TooltipTrigger>
-                            <TooltipContent>Requestor</TooltipContent>
-                          </Tooltip>
-                          <span className="font-medium">
-                            {request.requestor.name}, {request.requestor.title}
-                          </span>
-                        </div>
-                        <div>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <div
-                                className="inline-block w-3 h-3 rounded-full mr-2"
-                                style={{ backgroundColor: request.recipient.color }}
-                              />
-                            </TooltipTrigger>
-                            <TooltipContent>Recipient</TooltipContent>
-                          </Tooltip>
-                          <span className="font-medium">
-                            {request.recipient.name}, {request.recipient.title}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
-                        <Calendar className="h-4 w-4" />
-                        Shift period: {format(new Date(request.shift.startDate), "MMM d, yyyy")} - {format(new Date(request.shift.endDate), "MMM d, yyyy")}
+                        <p className="font-medium">
+                          {request.requestor.name} requested to swap with {request.recipient.name}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          Shift: {format(new Date(request.shift.startDate), "MMM d, yyyy")} - {format(new Date(request.shift.endDate), "MMM d, yyyy")}
+                        </p>
+                        <p className="text-sm font-medium capitalize">
+                          Status: {request.status}
+                        </p>
                       </div>
                     </div>
                     <div className="flex gap-2">

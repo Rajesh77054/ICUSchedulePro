@@ -65,8 +65,12 @@ export function ShiftSwap({ shift, onClose }: ShiftSwapProps) {
   );
 
   const { mutate: requestSwap, isPending: isSubmitting } = useMutation({
-    mutationFn: async (data: Partial<SwapRequest>) => {
-      const recipient = USERS.find(u => u.id === parseInt(recipientId!));
+    mutationFn: async () => {
+      if (!recipientId || !shift) {
+        throw new Error("Missing required data for swap request");
+      }
+
+      const recipient = USERS.find(u => u.id === parseInt(recipientId));
 
       if (!recipient || !currentUser) {
         throw new Error('Invalid user selection');
@@ -83,16 +87,28 @@ export function ShiftSwap({ shift, onClose }: ShiftSwapProps) {
         body: JSON.stringify({
           shiftId: shift.id,
           requestorId: shift.userId,
-          recipientId: parseInt(recipientId!),
+          recipientId: parseInt(recipientId),
         }),
       });
 
       if (!res.ok) {
-        const errorData = await res.json().catch(() => null);
-        throw new Error(errorData?.message || "Failed to request swap");
+        let errorMessage = 'Failed to request swap';
+        try {
+          const errorData = await res.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch (e) {
+          // If JSON parsing fails, try to get the raw text
+          const errorText = await res.text();
+          errorMessage = errorText || errorMessage;
+        }
+        throw new Error(errorMessage);
       }
 
-      return res.json();
+      try {
+        return await res.json();
+      } catch (e) {
+        throw new Error('Invalid response format from server');
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/shifts"] });
@@ -123,11 +139,7 @@ export function ShiftSwap({ shift, onClose }: ShiftSwapProps) {
       return;
     }
 
-    requestSwap({
-      shiftId: shift.id,
-      requestorId: shift.userId,
-      recipientId: parseInt(recipientId),
-    });
+    requestSwap();
   };
 
   const getProviderRecommendation = (userId: number) => {

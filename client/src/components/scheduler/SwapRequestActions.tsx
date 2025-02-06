@@ -13,12 +13,8 @@ export function SwapRequestActions({ request, onClose }: SwapRequestActionsProps
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Add debug log
-  console.log('SwapRequestActions received request:', request);
-
   const { mutate: respondToRequest, isPending } = useMutation({
     mutationFn: async ({ status }: { status: 'accepted' | 'rejected' }) => {
-      console.log('Responding to request:', request.id, 'with status:', status);
       const res = await fetch(`/api/swap-requests/${request.id}/respond`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -26,11 +22,27 @@ export function SwapRequestActions({ request, onClose }: SwapRequestActionsProps
       });
 
       if (!res.ok) {
-        const error = await res.text();
-        throw new Error(error);
+        // Try to parse error as JSON first
+        const errorText = await res.text();
+        let errorMessage = 'Failed to respond to swap request';
+
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.message || errorMessage;
+        } catch (e) {
+          // If JSON parsing fails, use the raw error text
+          errorMessage = errorText || errorMessage;
+        }
+
+        throw new Error(errorMessage);
       }
 
-      return res.json();
+      // Only try to parse JSON if response is ok
+      try {
+        return await res.json();
+      } catch (e) {
+        throw new Error('Invalid response format from server');
+      }
     },
     onSuccess: (_, { status }) => {
       queryClient.invalidateQueries({ queryKey: ['/api/shifts'] });
@@ -46,7 +58,6 @@ export function SwapRequestActions({ request, onClose }: SwapRequestActionsProps
       }
     },
     onError: (error: Error) => {
-      console.error('Error responding to swap request:', error);
       toast({
         title: 'Error',
         description: error.message,
@@ -57,17 +68,32 @@ export function SwapRequestActions({ request, onClose }: SwapRequestActionsProps
 
   const { mutate: cancelRequest, isPending: isCanceling } = useMutation({
     mutationFn: async () => {
-      console.log('Canceling request:', request.id);
       const res = await fetch(`/api/swap-requests/${request.id}`, {
         method: 'DELETE',
       });
 
       if (!res.ok) {
-        const error = await res.text();
-        throw new Error(error);
+        // Try to parse error as JSON first
+        const errorText = await res.text();
+        let errorMessage = 'Failed to cancel request';
+
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.message || errorMessage;
+        } catch (e) {
+          // If JSON parsing fails, use the raw error text
+          errorMessage = errorText || errorMessage;
+        }
+
+        throw new Error(errorMessage);
       }
 
-      return res.json();
+      // Only try to parse JSON if response is ok
+      try {
+        return await res.json();
+      } catch (e) {
+        throw new Error('Invalid response format from server');
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/shifts'] });
@@ -83,7 +109,6 @@ export function SwapRequestActions({ request, onClose }: SwapRequestActionsProps
       }
     },
     onError: (error: Error) => {
-      console.error('Error canceling swap request:', error);
       toast({
         title: 'Error',
         description: error.message,
@@ -104,7 +129,7 @@ export function SwapRequestActions({ request, onClose }: SwapRequestActionsProps
             disabled={isPending || isCanceling}
           >
             <Check className="h-4 w-4" />
-            Accept
+            {isPending ? 'Processing...' : 'Accept'}
           </Button>
           <Button
             variant="outline"
@@ -114,7 +139,7 @@ export function SwapRequestActions({ request, onClose }: SwapRequestActionsProps
             disabled={isPending || isCanceling}
           >
             <X className="h-4 w-4" />
-            Reject
+            {isPending ? 'Processing...' : 'Reject'}
           </Button>
           <Button
             variant="destructive"
@@ -128,7 +153,7 @@ export function SwapRequestActions({ request, onClose }: SwapRequestActionsProps
             disabled={isPending || isCanceling}
           >
             <X className="h-4 w-4" />
-            Cancel
+            {isCanceling ? 'Canceling...' : 'Cancel'}
           </Button>
         </>
       )}

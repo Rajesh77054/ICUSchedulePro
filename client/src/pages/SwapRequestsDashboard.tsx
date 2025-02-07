@@ -62,6 +62,14 @@ export function SwapRequestsDashboard() {
     return true;
   });
 
+  const getRequestorName = (request: SwapRequest) => {
+    return request.requestor?.name || `User ${request.requestorId}`;
+  };
+
+  const getRecipientName = (request: SwapRequest) => {
+    return request.recipient?.name || `User ${request.recipientId}`;
+  };
+
   return (
     <div className="container mx-auto py-6 space-y-6 relative">
       <div className="flex items-center justify-between">
@@ -167,13 +175,19 @@ export function SwapRequestsDashboard() {
                       </div>
                       <div className="space-y-1">
                         <p className="font-medium">
-                          {request.requestor.name} requested to swap with {request.recipient.name}
+                          {getRequestorName(request)} requested to swap with {getRecipientName(request)}
                         </p>
-                        <p className="text-sm text-muted-foreground">
-                          Shift: {format(new Date(request.shift.startDate), "MMM d, yyyy")} - {format(new Date(request.shift.endDate), "MMM d, yyyy")}
-                        </p>
+                        {request.shift ? (
+                          <p className="text-sm text-muted-foreground">
+                            Shift: {format(new Date(request.shift.startDate), "MMM d, yyyy")} - {format(new Date(request.shift.endDate), "MMM d, yyyy")}
+                          </p>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">
+                            Shift details not available
+                          </p>
+                        )}
                         <p className="text-sm font-medium capitalize">
-                          Status: {request.status}
+                          Status: {request.status || 'pending'}
                         </p>
                       </div>
                     </div>

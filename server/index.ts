@@ -2,8 +2,10 @@ import express from "express";
 import cors from "cors";
 import { registerRoutes } from "./routes";
 import { setupVite } from "./vite";
+import { createServer } from "http";
 
 const app = express();
+const httpServer = createServer(app);
 
 // Configure CORS to allow Replit domains
 app.use(cors({
@@ -47,11 +49,52 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
 
 // Setup Vite in development
 if (app.get("env") === "development") {
-  setupVite(app);
+  setupVite(app, httpServer);
 }
 
-// Start server
-const port = 5000;
-app.listen(port, '0.0.0.0', () => {
-  console.log(`Server started on port ${port}`);
-});
+// Get port from environment variable or use default
+const port = process.env.PORT || 5000;
+
+// Function to handle graceful shutdown
+function gracefulShutdown(server: any) {
+  console.log('Received shutdown signal, closing server...');
+  server.close(() => {
+    console.log('Server closed');
+    process.exit(0);
+  });
+
+  // Force close after 10s
+  setTimeout(() => {
+    console.error('Could not close connections in time, forcefully shutting down');
+    process.exit(1);
+  }, 10000);
+}
+
+// Start server with better error handling
+const startServer = async () => {
+  try {
+    await new Promise<void>((resolve, reject) => {
+      httpServer.listen(port, '0.0.0.0', () => {
+        console.log(`Server started on port ${port}`);
+        resolve();
+      }).on('error', (err: any) => {
+        if (err.code === 'EADDRINUSE') {
+          console.error(`Port ${port} is already in use. Please use a different port or kill the process using this port.`);
+        } else {
+          console.error('Failed to start server:', err);
+        }
+        reject(err);
+      });
+    });
+  } catch (error) {
+    console.error('Server startup failed:', error);
+    process.exit(1);
+  }
+};
+
+// Handle graceful shutdown signals
+process.on('SIGTERM', () => gracefulShutdown(httpServer));
+process.on('SIGINT', () => gracefulShutdown(httpServer));
+
+// Start the server
+startServer();

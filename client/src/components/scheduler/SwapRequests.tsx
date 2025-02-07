@@ -102,6 +102,13 @@ export function SwapRequests({ userId, variant = 'dashboard' }: Props) {
     return request.recipient?.name || `User ${request.recipientId}`;
   };
 
+  const formatShiftDates = (request: SwapRequest) => {
+    if (!request.shift?.startDate || !request.shift?.endDate) {
+      return '';
+    }
+    return `(${format(new Date(request.shift.startDate), 'MMM d, yyyy')} - ${format(new Date(request.shift.endDate), 'MMM d, yyyy')})`;
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -129,20 +136,15 @@ export function SwapRequests({ userId, variant = 'dashboard' }: Props) {
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="font-medium">
-                      {getRequestorName(request)} requested to swap shift with {getRecipientName(request)}
+                      {getRequestorName(request)} requested to swap shift with {getRecipientName(request)} {formatShiftDates(request)}
                     </p>
-                    {request.shift && (
-                      <p className="text-sm text-muted-foreground">
-                        {format(new Date(request.shift.startDate), 'MMM d')} - {format(new Date(request.shift.endDate), 'MMM d')}
-                      </p>
-                    )}
                     <p className="text-sm font-medium mt-1 capitalize text-muted-foreground">
                       Status: {request.status || 'pending'}
                     </p>
                   </div>
                   <SwapRequestActions 
                     request={request} 
-                    currentUserId={userId} // Pass the userId as currentUserId
+                    currentUserId={userId}
                   />
                 </div>
               </div>

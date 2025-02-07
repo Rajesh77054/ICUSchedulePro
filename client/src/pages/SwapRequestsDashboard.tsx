@@ -50,8 +50,8 @@ export function SwapRequestsDashboard() {
         return [];
       }
     },
-    staleTime: 1000, // Consider data fresh for 1 second
-    refetchInterval: 5000, // Refetch every 5 seconds
+    staleTime: 1000,
+    refetchInterval: 5000,
   });
 
   const filteredRequests = requests?.filter(request => {
@@ -68,6 +68,13 @@ export function SwapRequestsDashboard() {
 
   const getRecipientName = (request: SwapRequest) => {
     return request.recipient?.name || `User ${request.recipientId}`;
+  };
+
+  const formatShiftDates = (request: SwapRequest) => {
+    if (!request.shift?.startDate || !request.shift?.endDate) {
+      return '(Shift dates not available)';
+    }
+    return `(${format(new Date(request.shift.startDate), 'MMM d, yyyy')} - ${format(new Date(request.shift.endDate), 'MMM d, yyyy')})`;
   };
 
   return (
@@ -175,17 +182,8 @@ export function SwapRequestsDashboard() {
                       </div>
                       <div className="space-y-1">
                         <p className="font-medium">
-                          {getRequestorName(request)} requested to swap with {getRecipientName(request)}
+                          {getRequestorName(request)} requested to swap shift with {getRecipientName(request)} {formatShiftDates(request)}
                         </p>
-                        {request.shift ? (
-                          <p className="text-sm text-muted-foreground">
-                            Shift: {format(new Date(request.shift.startDate), "MMM d, yyyy")} - {format(new Date(request.shift.endDate), "MMM d, yyyy")}
-                          </p>
-                        ) : (
-                          <p className="text-sm text-muted-foreground">
-                            Shift details not available
-                          </p>
-                        )}
                         <p className="text-sm font-medium capitalize">
                           Status: {request.status || 'pending'}
                         </p>

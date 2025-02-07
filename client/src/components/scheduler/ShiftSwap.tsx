@@ -64,7 +64,13 @@ export function ShiftSwap({ shift, onClose }: ShiftSwapProps) {
       console.log('Submitting swap request:', {
         shiftId: shift.id,
         requestorId: shift.userId,
-        recipientId: parseInt(recipientId)
+        recipientId: parseInt(recipientId),
+        shift: {
+          id: shift.id,
+          startDate: shift.startDate,
+          endDate: shift.endDate,
+          userId: shift.userId
+        }
       });
 
       const res = await fetch("/api/swap-requests", {
@@ -74,6 +80,12 @@ export function ShiftSwap({ shift, onClose }: ShiftSwapProps) {
           shiftId: shift.id,
           requestorId: shift.userId,
           recipientId: parseInt(recipientId),
+          shift: {
+            id: shift.id,
+            startDate: shift.startDate,
+            endDate: shift.endDate,
+            userId: shift.userId
+          }
         }),
       });
 
@@ -91,16 +103,9 @@ export function ShiftSwap({ shift, onClose }: ShiftSwapProps) {
         throw new Error(error);
       }
 
-      // Handle empty response
-      if (!text) {
-        return { success: true };
-      }
-
-      // Try to parse JSON response
       try {
         return JSON.parse(text);
       } catch (e) {
-        // If parsing fails, return text as message
         return { message: text };
       }
     },

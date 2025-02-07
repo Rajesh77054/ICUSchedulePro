@@ -31,31 +31,40 @@ export function SwapRequests({ userId, variant = 'dashboard' }: Props) {
 
         console.log('Fetching swap requests:', url.toString());
         const res = await fetch(url);
-
-        // Check content type to ensure we're getting JSON
-        const contentType = res.headers.get('content-type');
-        if (!contentType || !contentType.includes('application/json')) {
-          console.error('Invalid content type:', contentType);
-          const text = await res.text();
-          console.error('Response body:', text);
-          throw new Error('Server returned invalid content type');
-        }
+        const text = await res.text();
+        console.log('Raw server response:', text);
 
         if (!res.ok) {
-          const text = await res.text();
-          let error;
-          try {
-            const json = JSON.parse(text);
-            error = json.message;
-          } catch (e) {
-            error = text;
-          }
-          throw new Error(error || 'Failed to fetch swap requests');
+          throw new Error(text || 'Failed to fetch swap requests');
         }
 
-        const data = await res.json();
-        console.log('Received swap requests:', data);
-        return Array.isArray(data) ? data : [];
+        // Handle empty response
+        if (!text) {
+          console.log('Empty response from server');
+          return [];
+        }
+
+        // Try to parse JSON response
+        try {
+          const data = JSON.parse(text);
+          console.log('Parsed swap requests:', data);
+
+          // Verify shift data for each request
+          data.forEach((request: SwapRequest, index: number) => {
+            console.log(`Request ${index} shift data:`, {
+              id: request.id,
+              shiftId: request.shiftId,
+              shift: request.shift,
+              startDate: request.shift?.startDate,
+              endDate: request.shift?.endDate
+            });
+          });
+
+          return Array.isArray(data) ? data : [];
+        } catch (e) {
+          console.error('Error parsing swap requests:', e);
+          return [];
+        }
       } catch (error) {
         console.error('Error fetching swap requests:', error);
         setError(error instanceof Error ? error.message : 'Failed to fetch swap requests');
@@ -64,7 +73,6 @@ export function SwapRequests({ userId, variant = 'dashboard' }: Props) {
     },
     staleTime: 1000,
     refetchInterval: 5000,
-    retry: false // Disable retries to prevent flooding on error
   });
 
   // Filter requests based on user role and variant
@@ -79,21 +87,6 @@ export function SwapRequests({ userId, variant = 'dashboard' }: Props) {
     new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
 
-  if (isLoading) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Shift Swap Requests</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center p-4">
-            Loading requests...
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
   const getRequestorName = (request: SwapRequest) => {
     return request.requestor?.name || `User ${request.requestorId}`;
   };
@@ -104,9 +97,22 @@ export function SwapRequests({ userId, variant = 'dashboard' }: Props) {
 
   const formatShiftDates = (request: SwapRequest) => {
     if (!request.shift?.startDate || !request.shift?.endDate) {
-      return '';
+      console.log('Missing shift dates for request:', {
+        requestId: request.id,
+        shiftId: request.shiftId,
+        shift: request.shift,
+        startDate: request.shift?.startDate,
+        endDate: request.shift?.endDate
+      });
+      return '(Shift dates unavailable)';
     }
-    return `(${format(new Date(request.shift.startDate), 'MMM d, yyyy')} - ${format(new Date(request.shift.endDate), 'MMM d, yyyy')})`;
+
+    try {
+      return `(${format(new Date(request.shift.startDate), 'MMM d, yyyy')} - ${format(new Date(request.shift.endDate), 'MMM d, yyyy')})`;
+    } catch (error) {
+      console.error('Error formatting dates:', error);
+      return '(Invalid dates)';
+    }
   };
 
   return (
@@ -122,7 +128,9 @@ export function SwapRequests({ userId, variant = 'dashboard' }: Props) {
           </Alert>
         )}
 
-        {!sortedRequests?.length ? (
+        {isLoading ? (
+          <div className="text-center py-4">Loading requests...</div>
+        ) : !sortedRequests?.length ? (
           <div className="text-center text-muted-foreground">
             No swap requests found
           </div>

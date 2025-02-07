@@ -39,11 +39,41 @@ export function SwapRequestsDashboard() {
     queryFn: async () => {
       try {
         const res = await fetch("/api/swap-requests");
+        const text = await res.text();
+        console.log('Raw server response:', text);
+
         if (!res.ok) {
           const errorText = await res.text();
           throw new Error(errorText || "Failed to fetch swap requests");
         }
-        return res.json();
+
+        // Handle empty response
+        if (!text) {
+          console.log('Empty response from server');
+          return [];
+        }
+
+        // Try to parse JSON response
+        try {
+          const data = JSON.parse(text);
+          console.log('Parsed swap requests:', data);
+
+          // Verify shift data for each request
+          data.forEach((request: SwapRequest) => {
+            console.log('Request shift data:', {
+              id: request.id,
+              shiftId: request.shiftId,
+              shift: request.shift,
+              startDate: request.shift?.startDate,
+              endDate: request.shift?.endDate
+            });
+          });
+
+          return data;
+        } catch (e) {
+          console.error('Error parsing swap requests:', e);
+          return [];
+        }
       } catch (error) {
         console.error("Error fetching swap requests:", error);
         setError(error instanceof Error ? error.message : "Failed to fetch swap requests");
@@ -72,9 +102,22 @@ export function SwapRequestsDashboard() {
 
   const formatShiftDates = (request: SwapRequest) => {
     if (!request.shift?.startDate || !request.shift?.endDate) {
+      console.log('Missing shift dates for request:', {
+        requestId: request.id,
+        shiftId: request.shiftId,
+        shift: request.shift,
+        startDate: request.shift?.startDate,
+        endDate: request.shift?.endDate
+      });
       return '(Shift dates not available)';
     }
-    return `(${format(new Date(request.shift.startDate), 'MMM d, yyyy')} - ${format(new Date(request.shift.endDate), 'MMM d, yyyy')})`;
+
+    try {
+      return `(${format(new Date(request.shift.startDate), 'MMM d, yyyy')} - ${format(new Date(request.shift.endDate), 'MMM d, yyyy')})`;
+    } catch (error) {
+      console.error('Error formatting shift dates:', error);
+      return '(Invalid dates)';
+    }
   };
 
   return (
@@ -190,7 +233,9 @@ export function SwapRequestsDashboard() {
                       </div>
                     </div>
                     <div className="flex gap-2">
-                      <SwapRequestActions request={request} />
+                      <SwapRequestActions 
+                        request={request}
+                      />
                     </div>
                   </div>
                 </div>

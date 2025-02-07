@@ -12,9 +12,10 @@ import {
   notificationSubscriptions,
   type ResolutionStrategy,
   type NotificationChannel,
-  shifts
+  shifts,
+  swapRequests  
 } from "@db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, or } from "drizzle-orm";
 import { createServer, type Server } from "http";
 
 interface ServerMetrics {
@@ -361,6 +362,129 @@ export function registerRoutes(app: Express) {
       res.status(500).json({ 
         error: error.message || 'Internal server error',
         content: null 
+      });
+    }
+  });
+
+  // Add swap requests endpoints
+  app.get("/api/swap-requests", async (req, res) => {
+    try {
+      const userId = req.query.userId ? parseInt(req.query.userId as string) : undefined;
+
+      let query = db.select().from(swapRequests);
+
+      if (userId) {
+        query = query.where(
+          or(
+            eq(swapRequests.requestorId, userId),
+            eq(swapRequests.recipientId, userId)
+          )
+        );
+      }
+
+      const requests = await query.execute();
+
+      res.setHeader('Content-Type', 'application/json');
+      res.json(requests);
+    } catch (error) {
+      console.error('Error fetching swap requests:', error);
+      res.status(500).json({ 
+        error: "Failed to fetch swap requests",
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  app.post("/api/swap-requests", async (req, res) => {
+    try {
+      const { requestorId, recipientId, shiftId, notes } = req.body;
+
+      if (!requestorId || !recipientId || !shiftId) {
+        return res.status(400).json({
+          error: "Missing required fields",
+          details: "requestorId, recipientId, and shiftId are required"
+        });
+      }
+
+      const [newRequest] = await db
+        .insert(swapRequests)
+        .values({
+          requestorId,
+          recipientId,
+          shiftId,
+          status: 'pending',
+          notes: notes || '',
+          createdAt: new Date(),
+        })
+        .returning();
+
+      res.setHeader('Content-Type', 'application/json');
+      res.status(201).json(newRequest);
+    } catch (error) {
+      console.error('Error creating swap request:', error);
+      res.status(500).json({
+        error: "Failed to create swap request",
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  app.put("/api/swap-requests/:id", async (req, res) => {
+    try {
+      const requestId = parseInt(req.params.id);
+      const { status } = req.body;
+
+      if (!requestId || !status) {
+        return res.status(400).json({
+          error: "Missing required fields",
+          details: "request ID and status are required"
+        });
+      }
+
+      const [updatedRequest] = await db
+        .update(swapRequests)
+        .set({
+          status,
+          updatedAt: new Date()
+        })
+        .where(eq(swapRequests.id, requestId))
+        .returning();
+
+      if (!updatedRequest) {
+        return res.status(404).json({ error: "Swap request not found" });
+      }
+
+      res.setHeader('Content-Type', 'application/json');
+      res.json(updatedRequest);
+    } catch (error) {
+      console.error('Error updating swap request:', error);
+      res.status(500).json({
+        error: "Failed to update swap request",
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  app.delete("/api/swap-requests/:id", async (req, res) => {
+    try {
+      const requestId = parseInt(req.params.id);
+
+      const [deletedRequest] = await db
+        .delete(swapRequests)
+        .where(eq(swapRequests.id, requestId))
+        .returning();
+
+      if (!deletedRequest) {
+        return res.status(404).json({ error: "Swap request not found" });
+      }
+
+      res.setHeader('Content-Type', 'application/json');
+      res.json({ success: true, message: "Swap request deleted successfully" });
+    } catch (error) {
+      console.error('Error deleting swap request:', error);
+      res.status(500).json({
+        error: "Failed to delete swap request",
+        details: error instanceof Error ? error.message : 'Unknown error'
       });
     }
   });

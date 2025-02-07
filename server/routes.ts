@@ -371,6 +371,15 @@ export function registerRoutes(app: Express) {
     try {
       const userId = req.query.userId ? parseInt(req.query.userId as string) : undefined;
 
+      // Mock user data for now since we haven't implemented the full user system
+      const users = [
+        { id: 1, name: "Dr. Smith", title: "Physician" },
+        { id: 2, name: "Dr. Johnson", title: "Physician" },
+        { id: 3, name: "Dr. Williams", title: "Physician" },
+        { id: 4, name: "Sarah Brown", title: "APP" },
+        { id: 5, name: "Mike Davis", title: "APP" }
+      ];
+
       let query = db.select().from(swapRequests);
 
       if (userId) {
@@ -384,8 +393,23 @@ export function registerRoutes(app: Express) {
 
       const requests = await query.execute();
 
+      // Enhance the requests with user data
+      const enhancedRequests = requests.map(request => ({
+        ...request,
+        requestor: users.find(u => u.id === request.requestorId) || { 
+          id: request.requestorId,
+          name: `User ${request.requestorId}`,
+          title: "Unknown"
+        },
+        recipient: users.find(u => u.id === request.recipientId) || {
+          id: request.recipientId,
+          name: `User ${request.recipientId}`,
+          title: "Unknown"
+        }
+      }));
+
       res.setHeader('Content-Type', 'application/json');
-      res.json(requests);
+      res.json(enhancedRequests);
     } catch (error) {
       console.error('Error fetching swap requests:', error);
       res.status(500).json({ 

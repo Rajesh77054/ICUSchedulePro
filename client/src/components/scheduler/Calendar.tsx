@@ -54,9 +54,36 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
     queryKey: ["/api/users"],
   });
 
-  // Fetch swap requests to handle swapped shifts
+  // Update shifts query configuration
+  const { data: shifts = [], error: shiftsError } = useQuery<Shift[]>({
+    queryKey: ["/api/shifts"],
+    staleTime: 0, // Always fetch fresh data
+    refetchInterval: 5000, // Poll every 5 seconds
+    retry: 3,
+    onError: (error) => {
+      console.error('Error fetching shifts:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch shifts. Please try again.",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Update swap requests query with better error handling
   const { data: swapRequests = [] } = useQuery<SwapRequest[]>({
     queryKey: ["/api/swap-requests"],
+    staleTime: 0,
+    refetchInterval: 5000,
+    retry: 3,
+    onError: (error) => {
+      console.error('Error fetching swap requests:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch swap requests. Please try again.",
+        variant: "destructive",
+      });
+    }
   });
 
   const getUserColor = (userId: number) => {
@@ -136,6 +163,25 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
     },
   });
 
+  // Add effect to force refresh on swap request changes
+  useEffect(() => {
+    const handleSwapUpdate = async () => {
+      console.log('Forcing calendar refresh due to swap update');
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["/api/shifts"] }),
+        queryClient.invalidateQueries({ queryKey: ["/api/swap-requests"] })
+      ]);
+
+      if (calendarRef.current) {
+        const api = calendarRef.current.getApi();
+        api.refetchEvents();
+      }
+    };
+
+    window.addEventListener('swapRequestUpdate', handleSwapUpdate);
+    return () => window.removeEventListener('swapRequestUpdate', handleSwapUpdate);
+  }, [queryClient]);
+
   // Add event listener for manual refresh
   useEffect(() => {
     const handleRefresh = async () => {
@@ -150,33 +196,34 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
     return () => window.removeEventListener('forceCalendarRefresh', handleRefresh);
   }, [queryClient]);
 
-  // Get shifts from the query cache
-  const { data: shifts = [] } = useQuery<Shift[]>({
-    queryKey: ["/api/shifts"],
-    staleTime: 0
-  });
-
+  // Update calendar events with better logging
   const calendarEvents = useMemo(() => {
+    console.log('Recalculating calendar events:', { shifts, swapRequests });
+
     if (!Array.isArray(shifts)) {
+      console.warn('Shifts data is not an array:', shifts);
       return [];
     }
 
     return shifts.map(shift => {
-      const normalizedDays = getShiftDuration(shift);
-      // For swapped shifts, find the swap request to determine the new owner
       const swapRequest = swapRequests.find(req =>
         req.shiftId === shift.id &&
         req.status === 'accepted'
       );
 
-      const effectiveUserId = shift.status === 'swapped' && swapRequest ?
-        (shift.userId === swapRequest.requestorId ? swapRequest.recipientId : swapRequest.requestorId) :
-        shift.userId;
+      console.log('Processing shift:', { 
+        shiftId: shift.id, 
+        status: shift.status,
+        swapRequest: swapRequest ? { id: swapRequest.id, status: swapRequest.status } : null
+      });
 
-      const effectiveUser = users.find(u => u.id === effectiveUserId);
+      const effectiveUserId = shift.status === 'swapped' && swapRequest
+        ? (shift.userId === swapRequest.requestorId ? swapRequest.recipientId : swapRequest.requestorId)
+        : shift.userId;
+
       return {
         id: shift.id.toString(),
-        title: effectiveUser?.name || 'Unknown',
+        title: users.find(u => u.id === effectiveUserId)?.name || 'Unknown',
         start: shift.startDate,
         end: shift.endDate,
         backgroundColor: getUserColor(effectiveUserId),
@@ -187,8 +234,7 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
           swapped: shift.status === 'swapped',
           originalUserId: shift.userId,
           effectiveUserId,
-          normalizedDays,
-          isMultiDay: normalizedDays > 1
+          swapRequest: swapRequest || null
         },
         editable: true,
         durationEditable: true,

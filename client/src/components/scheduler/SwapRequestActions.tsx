@@ -13,6 +13,31 @@ export function SwapRequestActions({ request, onClose }: SwapRequestActionsProps
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Helper function to invalidate and refetch all related queries
+  const invalidateAndRefetchQueries = async () => {
+    // List of all related query keys that need to be updated
+    const queryKeys = [
+      ['/api/shifts'],
+      ['/api/swap-requests'],
+      // Include queries with userId
+      ['/api/swap-requests', request.requestorId],
+      ['/api/swap-requests', request.recipientId],
+      // Include shifts queries with userId
+      ['/api/shifts', request.requestorId],
+      ['/api/shifts', request.recipientId],
+    ];
+
+    // Invalidate all queries first
+    await Promise.all(
+      queryKeys.map(key => queryClient.invalidateQueries({ queryKey: key }))
+    );
+
+    // Then force refetch all queries
+    await Promise.all(
+      queryKeys.map(key => queryClient.refetchQueries({ queryKey: key }))
+    );
+  };
+
   const { mutate: respondToRequest, isPending } = useMutation({
     mutationFn: async ({ status }: { status: 'accepted' | 'rejected' }) => {
       console.log('Responding to swap request:', { requestId: request.id, status });
@@ -22,10 +47,8 @@ export function SwapRequestActions({ request, onClose }: SwapRequestActionsProps
         body: JSON.stringify({ status }),
       });
 
-      const text = await res.text();
-      console.log('Server response:', text);
-
       if (!res.ok) {
+        const text = await res.text();
         let error;
         try {
           const json = JSON.parse(text);
@@ -36,30 +59,14 @@ export function SwapRequestActions({ request, onClose }: SwapRequestActionsProps
         throw new Error(error);
       }
 
-      if (!text) {
-        return { success: true };
-      }
-
-      try {
-        return JSON.parse(text);
-      } catch (e) {
-        return { message: text };
-      }
+      return res.json().catch(() => ({ success: true }));
     },
-    onSuccess: (_, { status }) => {
-      // Invalidate all related queries to force refetch
-      queryClient.invalidateQueries({ queryKey: ['/api/shifts'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/swap-requests'] });
+    onSuccess: async (_, { status }) => {
+      await invalidateAndRefetchQueries();
 
-      // Force immediate refetch
-      Promise.all([
-        queryClient.refetchQueries({ queryKey: ['/api/shifts'] }),
-        queryClient.refetchQueries({ queryKey: ['/api/swap-requests'] }),
-      ]).then(() => {
-        toast({
-          title: 'Success',
-          description: `Swap request ${status === 'accepted' ? 'accepted' : 'rejected'} successfully`,
-        });
+      toast({
+        title: 'Success',
+        description: `Successfully ${status} the shift swap request.`,
       });
 
       if (onClose) {
@@ -83,10 +90,8 @@ export function SwapRequestActions({ request, onClose }: SwapRequestActionsProps
         method: 'DELETE',
       });
 
-      const text = await res.text();
-      console.log('Server response:', text);
-
       if (!res.ok) {
+        const text = await res.text();
         let error;
         try {
           const json = JSON.parse(text);
@@ -97,28 +102,14 @@ export function SwapRequestActions({ request, onClose }: SwapRequestActionsProps
         throw new Error(error);
       }
 
-      if (!text) {
-        return { success: true };
-      }
-
-      try {
-        return JSON.parse(text);
-      } catch (e) {
-        return { message: text };
-      }
+      return res.json().catch(() => ({ success: true }));
     },
-    onSuccess: () => {
-      // Invalidate and force immediate refetch of all related queries
-      Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['/api/shifts'] }),
-        queryClient.invalidateQueries({ queryKey: ['/api/swap-requests'] }),
-        queryClient.refetchQueries({ queryKey: ['/api/shifts'] }),
-        queryClient.refetchQueries({ queryKey: ['/api/swap-requests'] }),
-      ]).then(() => {
-        toast({
-          title: 'Success',
-          description: 'Swap request cancelled successfully',
-        });
+    onSuccess: async () => {
+      await invalidateAndRefetchQueries();
+
+      toast({
+        title: 'Success',
+        description: 'Swap request cancelled successfully',
       });
 
       if (onClose) {
@@ -159,20 +150,22 @@ export function SwapRequestActions({ request, onClose }: SwapRequestActionsProps
             <X className="h-4 w-4" />
             {isPending ? 'Processing...' : 'Reject'}
           </Button>
-          <Button
-            variant="destructive"
-            size="sm"
-            className="gap-1"
-            onClick={() => {
-              if (confirm('Are you sure you want to cancel this swap request?')) {
-                cancelRequest();
-              }
-            }}
-            disabled={isPending || isCanceling}
-          >
-            <X className="h-4 w-4" />
-            {isCanceling ? 'Canceling...' : 'Cancel'}
-          </Button>
+          {request.requestorId === request.recipientId && (
+            <Button
+              variant="destructive"
+              size="sm"
+              className="gap-1"
+              onClick={() => {
+                if (confirm('Are you sure you want to cancel this swap request?')) {
+                  cancelRequest();
+                }
+              }}
+              disabled={isPending || isCanceling}
+            >
+              <X className="h-4 w-4" />
+              {isCanceling ? 'Canceling...' : 'Cancel'}
+            </Button>
+          )}
         </>
       )}
     </div>

@@ -19,7 +19,7 @@ export function SwapRequests({ userId, variant = 'dashboard' }: Props) {
   const [error, setError] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
-  // Fetch swap requests, including ones where the user is either requestor or recipient
+  // Fetch swap requests with consistent error handling
   const { data: swapRequests, isLoading } = useQuery<SwapRequest[]>({
     queryKey: ['/api/swap-requests', userId],
     queryFn: async () => {
@@ -32,56 +32,43 @@ export function SwapRequests({ userId, variant = 'dashboard' }: Props) {
         console.log('Fetching swap requests:', url.toString());
         const res = await fetch(url);
 
-        const text = await res.text();
-        console.log('Server response:', text);
-
         if (!res.ok) {
+          const text = await res.text();
           let error;
           try {
             const json = JSON.parse(text);
-            error = json.message || 'Failed to fetch swap requests';
+            error = json.message;
           } catch (e) {
-            error = text || 'Failed to fetch swap requests';
+            error = text;
           }
-          throw new Error(error);
+          throw new Error(error || 'Failed to fetch swap requests');
         }
 
-        // Handle empty response
-        if (!text) {
-          console.log('Empty response from server');
-          return [];
-        }
-
-        // Try to parse JSON response
-        try {
-          const data = JSON.parse(text);
-          console.log('Parsed swap requests:', data);
-          return data;
-        } catch (e) {
-          console.error('Error parsing swap requests:', e);
-          return [];
-        }
+        const data = await res.json();
+        console.log('Received swap requests:', data);
+        return data;
       } catch (error) {
         console.error('Error fetching swap requests:', error);
         setError(error instanceof Error ? error.message : 'Failed to fetch swap requests');
-        throw error;
+        return [];
       }
     },
-    staleTime: 1000, // Consider data fresh for 1 second
-    refetchInterval: 5000, // Refetch every 5 seconds to keep data fresh
+    staleTime: 1000,
+    refetchInterval: 5000,
   });
 
   // Filter requests based on user role and variant
   const filteredRequests = swapRequests?.filter(request => {
-    if (!userId) return true; // Show all if no userId
+    if (!userId) return true; // Show all for admin view
+
+    const isParticipant = request.recipientId === userId || request.requestorId === userId;
+
     if (variant === 'dashboard') {
-      // For dashboard, show pending requests where user is either recipient or requestor
-      const isParticipant = request.recipientId === userId || request.requestorId === userId;
-      const isPending = request.status === 'pending';
-      return isParticipant && isPending;
+      // For dashboard, show all requests where user is either recipient or requestor
+      return isParticipant;
     }
-    // For sidebar, show all requests involving the user, regardless of status
-    return request.recipientId === userId || request.requestorId === userId;
+    // For sidebar, show all requests involving the user
+    return isParticipant;
   });
 
   // Sort requests by creation date, most recent first
@@ -104,21 +91,6 @@ export function SwapRequests({ userId, variant = 'dashboard' }: Props) {
     );
   }
 
-  if (!sortedRequests?.length) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Shift Swap Requests</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center text-muted-foreground">
-            No pending swap requests
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
   return (
     <Card>
       <CardHeader>
@@ -131,31 +103,36 @@ export function SwapRequests({ userId, variant = 'dashboard' }: Props) {
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
-        <div className="space-y-4">
-          {sortedRequests.map((request) => (
-            <div 
-              key={request.id} 
-              className="p-4 border rounded-lg space-y-2"
-            >
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="font-medium">
-                    {request.requestor.name} requested to swap shift with {request.recipient.name}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {format(new Date(request.shift.startDate), 'MMM d')} - {format(new Date(request.shift.endDate), 'MMM d')}
-                  </p>
-                  {request.status !== 'pending' && (
+
+        {!sortedRequests?.length ? (
+          <div className="text-center text-muted-foreground">
+            No swap requests found
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {sortedRequests.map((request) => (
+              <div 
+                key={request.id} 
+                className="p-4 border rounded-lg space-y-2"
+              >
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="font-medium">
+                      {request.requestor.name} requested to swap shift with {request.recipient.name}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {format(new Date(request.shift.startDate), 'MMM d')} - {format(new Date(request.shift.endDate), 'MMM d')}
+                    </p>
                     <p className="text-sm font-medium mt-1 capitalize text-muted-foreground">
                       Status: {request.status}
                     </p>
-                  )}
+                  </div>
+                  <SwapRequestActions request={request} />
                 </div>
-                <SwapRequestActions request={request} />
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </CardContent>
     </Card>
   );

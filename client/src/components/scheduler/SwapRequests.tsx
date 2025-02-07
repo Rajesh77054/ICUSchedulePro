@@ -140,7 +140,10 @@ export function SwapRequests({ userId, variant = 'dashboard' }: Props) {
                       Status: {request.status || 'pending'}
                     </p>
                   </div>
-                  <SwapRequestActions request={request} />
+                  <SwapRequestActions 
+                    request={request} 
+                    currentUserId={userId} // Pass the userId as currentUserId
+                  />
                 </div>
               </div>
             ))}

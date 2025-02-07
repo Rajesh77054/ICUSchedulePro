@@ -6,33 +6,29 @@ import type { SwapRequest } from "@/lib/types";
 
 interface SwapRequestActionsProps {
   request: SwapRequest;
+  currentUserId?: number; // Add currentUserId prop to determine user role
   onClose?: () => void;
 }
 
-export function SwapRequestActions({ request, onClose }: SwapRequestActionsProps) {
+export function SwapRequestActions({ request, currentUserId, onClose }: SwapRequestActionsProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   // Helper function to invalidate and refetch all related queries
   const invalidateAndRefetchQueries = async () => {
-    // List of all related query keys that need to be updated
     const queryKeys = [
       ['/api/shifts'],
       ['/api/swap-requests'],
-      // Include queries with userId
       ['/api/swap-requests', request.requestorId],
       ['/api/swap-requests', request.recipientId],
-      // Include shifts queries with userId
       ['/api/shifts', request.requestorId],
       ['/api/shifts', request.recipientId],
     ];
 
-    // Invalidate all queries first
     await Promise.all(
       queryKeys.map(key => queryClient.invalidateQueries({ queryKey: key }))
     );
 
-    // Then force refetch all queries
     await Promise.all(
       queryKeys.map(key => queryClient.refetchQueries({ queryKey: key }))
     );
@@ -126,9 +122,39 @@ export function SwapRequestActions({ request, onClose }: SwapRequestActionsProps
     },
   });
 
+  // Check if current user is the requestor
+  const isRequestor = currentUserId === request.requestorId;
+  // Check if current user is the requestee
+  const isRequestee = currentUserId === request.recipientId;
+  // If no currentUserId is provided, assume it's admin view
+  const isAdminView = !currentUserId;
+
+  if (request.status !== 'pending') {
+    return null; // Don't show any actions for non-pending requests
+  }
+
   return (
     <div className="flex items-center gap-2">
-      {request.status === 'pending' && (
+      {/* Show Cancel button only for requestor */}
+      {isRequestor && (
+        <Button
+          variant="destructive"
+          size="sm"
+          className="gap-1"
+          onClick={() => {
+            if (confirm('Are you sure you want to cancel this swap request?')) {
+              cancelRequest();
+            }
+          }}
+          disabled={isPending || isCanceling}
+        >
+          <X className="h-4 w-4" />
+          {isCanceling ? 'Canceling...' : 'Cancel Request'}
+        </Button>
+      )}
+
+      {/* Show Accept/Reject buttons only for requestee or admin */}
+      {(isRequestee || isAdminView) && (
         <>
           <Button
             variant="outline"
@@ -150,22 +176,6 @@ export function SwapRequestActions({ request, onClose }: SwapRequestActionsProps
             <X className="h-4 w-4" />
             {isPending ? 'Processing...' : 'Reject'}
           </Button>
-          {request.requestorId === request.recipientId && (
-            <Button
-              variant="destructive"
-              size="sm"
-              className="gap-1"
-              onClick={() => {
-                if (confirm('Are you sure you want to cancel this swap request?')) {
-                  cancelRequest();
-                }
-              }}
-              disabled={isPending || isCanceling}
-            >
-              <X className="h-4 w-4" />
-              {isCanceling ? 'Canceling...' : 'Cancel'}
-            </Button>
-          )}
         </>
       )}
     </div>

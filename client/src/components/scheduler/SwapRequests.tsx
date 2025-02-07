@@ -32,6 +32,15 @@ export function SwapRequests({ userId, variant = 'dashboard' }: Props) {
         console.log('Fetching swap requests:', url.toString());
         const res = await fetch(url);
 
+        // Check content type to ensure we're getting JSON
+        const contentType = res.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          console.error('Invalid content type:', contentType);
+          const text = await res.text();
+          console.error('Response body:', text);
+          throw new Error('Server returned invalid content type');
+        }
+
         if (!res.ok) {
           const text = await res.text();
           let error;
@@ -46,7 +55,7 @@ export function SwapRequests({ userId, variant = 'dashboard' }: Props) {
 
         const data = await res.json();
         console.log('Received swap requests:', data);
-        return data;
+        return Array.isArray(data) ? data : [];
       } catch (error) {
         console.error('Error fetching swap requests:', error);
         setError(error instanceof Error ? error.message : 'Failed to fetch swap requests');
@@ -55,19 +64,13 @@ export function SwapRequests({ userId, variant = 'dashboard' }: Props) {
     },
     staleTime: 1000,
     refetchInterval: 5000,
+    retry: false // Disable retries to prevent flooding on error
   });
 
   // Filter requests based on user role and variant
   const filteredRequests = swapRequests?.filter(request => {
     if (!userId) return true; // Show all for admin view
-
     const isParticipant = request.recipientId === userId || request.requestorId === userId;
-
-    if (variant === 'dashboard') {
-      // For dashboard, show all requests where user is either recipient or requestor
-      return isParticipant;
-    }
-    // For sidebar, show all requests involving the user
     return isParticipant;
   });
 

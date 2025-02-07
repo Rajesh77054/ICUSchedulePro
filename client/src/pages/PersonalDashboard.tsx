@@ -7,7 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import { ArrowLeft, Calendar, Clock, Settings, Share2, X } from "lucide-react";
 import { Link } from "wouter";
 import { USERS } from "@/lib/constants";
-import type { Shift, TimeOffRequest } from "@/lib/types";
+import type { Shift, TimeOffRequest, SwapRequest } from "@/lib/types";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
@@ -107,8 +107,8 @@ export function PersonalDashboard() {
     console.log('handleShiftActions - shift:', shift);
 
     // Get pending requests for this shift
-    const requests = swapRequests?.filter(req => 
-      req.shiftId === shift.id && 
+    const requests = swapRequests?.filter(req =>
+      req.shiftId === shift.id &&
       req.status === 'pending'
     ) || [];
 
@@ -118,8 +118,8 @@ export function PersonalDashboard() {
   };
 
   // Get incoming swap shifts where user is recipient
-  const incomingSwapRequests = swapRequests?.filter(req => 
-    req.status === 'pending' && 
+  const incomingSwapRequests = swapRequests?.filter(req =>
+    req.status === 'pending' &&
     req.recipientId === userId
   ) || [];
 
@@ -168,6 +168,15 @@ export function PersonalDashboard() {
   }, 0);
 
   const progress = Math.min((totalDays / user.targetDays) * 100, 100);
+
+  // Add formatShiftDates helper function
+  const formatShiftDates = (request: SwapRequest) => {
+    if (!request.shift?.startDate || !request.shift?.endDate) {
+      return '';
+    }
+    return `(${format(new Date(request.shift.startDate), 'MMM d, yyyy')} - ${format(new Date(request.shift.endDate), 'MMM d, yyyy')})`;
+  };
+
 
   return (
     <div className="container mx-auto py-6 space-y-6 relative">

@@ -549,19 +549,17 @@ export function registerRoutes(app: Express) {
           throw new Error("Swap request not found");
         }
 
-        // 2. Update the swap request status (Only if rejected)
-        if (status === 'rejected') {
-          await tx
-            .update(swapRequests)
-            .set({
-              status,
-              updatedAt: new Date()
-            })
-            .where(eq(swapRequests.id, requestId));
-        }
+        // Update the swap request status
+        await tx
+          .update(swapRequests)
+          .set({
+            status,
+            updatedAt: new Date()
+          })
+          .where(eq(swapRequests.id, requestId));
 
-        // 3. If accepted, update the shift assignments
-        if (status === 'accepted') {
+        // If accepted, update the shift assignment
+        if (status === 'accepted' && request.shiftId) {
           // Get the shift details
           const [shift] = await tx
             .select()
@@ -580,16 +578,6 @@ export function registerRoutes(app: Express) {
               updatedAt: new Date()
             })
             .where(eq(shifts.id, request.shiftId));
-
-          // Update the other shift's userId to the requestor
-          const [otherShift] = await tx.query.shifts.findFirst({
-            where: eq(shifts.id, request.otherShiftId)
-          });
-          if (otherShift) {
-            await tx.update(shifts).set({ userId: request.requestorId, updatedAt: new Date() }).where(eq(shifts.id, request.otherShiftId));
-          } else {
-            console.warn("Other shift not found for swap request ID:", requestId);
-          }
         }
       });
 
@@ -607,6 +595,7 @@ export function registerRoutes(app: Express) {
       });
     }
   });
+
 }
 
 // Helper functions for pattern analysis

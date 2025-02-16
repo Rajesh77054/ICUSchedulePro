@@ -24,15 +24,18 @@ export class OpenAIChatHandler {
   }>;
 
   constructor() {
-    this.systemPrompt = `You are an advanced scheduling assistant for medical professionals that learns from historical patterns.
-    You have access to:
-    - Current and historical schedules
+    this.systemPrompt = `You are an advanced scheduling assistant for medical professionals with direct access to the ICU scheduling system.
+    You have access to and should actively use:
+    - Current shift schedule and upcoming shifts
+    - Staff information and availability
+    - Historical scheduling patterns
     - Staff preferences and past behavior patterns
     - Workload distribution history
     - Shift swap patterns
     - Consecutive shift patterns
 
     You should:
+    - Provide specific information about current and upcoming shifts when asked
     - Learn from historical scheduling patterns
     - Identify optimal shift arrangements based on past success
     - Consider staff preferences and past behavior
@@ -60,36 +63,26 @@ export class OpenAIChatHandler {
         throw new Error('OpenAI API key not found');
       }
 
-      // Sanitize context before logging
-      const sanitizedContext = {
-        shifts: context?.shifts?.map(shift => ({
-          id: shift.id,
-          startDate: shift.startDate,
-          endDate: shift.endDate,
-          status: shift.status
-        })) || [],
-        users: context?.users?.map(user => ({
-          id: user.id,
-          name: user.name,
-          title: user.title,
-          userType: user.userType
-        })) || [],
-        currentPage: context?.currentPage,
-        historicalPatterns: context?.historicalPatterns
-      };
+      // Format shifts data for better context
+      const formattedShifts = context?.shifts?.map(shift => ({
+        startDate: new Date(shift.startDate).toLocaleString(),
+        endDate: new Date(shift.endDate).toLocaleString(),
+        provider: shift.provider?.name || 'Unassigned',
+        status: shift.status
+      })) || [];
 
-      console.log('Processing chat with context:', sanitizedContext);
-
-      if (!context || (!context.shifts && !context.users)) {
-        console.warn('Missing context data');
-        return 'I apologize, but I cannot access the schedule information at the moment.';
-      }
+      // Prepare current context information
+      const currentContextInfo = `
+Current Schedule Information:
+- Number of shifts: ${formattedShifts.length}
+- Upcoming shifts: ${JSON.stringify(formattedShifts, null, 2)}
+- Current page: ${context?.currentPage}
+- Number of users: ${context?.users?.length || 0}`;
 
       // Add historical pattern analysis
       let historicalInsights = '';
       if (context.historicalPatterns) {
         const { preferredShifts, previousSwaps, workloadHistory, consecutiveShiftPatterns } = context.historicalPatterns;
-
         historicalInsights = `Based on historical data:
         - Common preferred shifts: ${JSON.stringify(preferredShifts)}
         - Previous swap patterns: ${JSON.stringify(previousSwaps)}
@@ -118,11 +111,10 @@ export class OpenAIChatHandler {
         return `It is currently ${format} Central Time`;
       }
 
-      // Add context and historical insights to the message
-      const contextStr = JSON.stringify({ ...context, historicalInsights }) || '{}';
+      // Add context information to the conversation
       const contextMessage = {
         role: 'system' as const,
-        content: `Current context: ${contextStr}\n\nHistorical Insights: ${historicalInsights}`
+        content: `${currentContextInfo}\n\n${historicalInsights}`
       };
 
       // Validate user message
@@ -173,8 +165,11 @@ export class OpenAIChatHandler {
 
       const response = completion.choices[0].message;
 
-      if (response) {
-        this.conversationHistory.push(response);
+      if (response && response.content !== null) {
+        this.conversationHistory.push({
+          role: 'assistant',
+          content: response.content
+        });
         return response.content;
       }
 

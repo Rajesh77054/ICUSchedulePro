@@ -48,6 +48,16 @@ export function AIScheduleAssistant({ currentPage, pageContext }: AIScheduleAssi
     }
   });
 
+  // Fetch users data to ensure we have provider information
+  const { data: users } = useQuery({
+    queryKey: ['/api/users'],
+    queryFn: async () => {
+      const response = await fetch('/api/users');
+      if (!response.ok) throw new Error('Failed to fetch users');
+      return response.json();
+    }
+  });
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInput(e.target.value);
   };
@@ -72,6 +82,12 @@ export function AIScheduleAssistant({ currentPage, pageContext }: AIScheduleAssi
     setIsLoading(true);
 
     try {
+      // Prepare shifts with user information
+      const shiftsWithUsers = pageContext?.shifts?.map((shift: any) => ({
+        ...shift,
+        provider: users?.find((user: any) => user.id === shift.userId)
+      }));
+
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
@@ -81,7 +97,8 @@ export function AIScheduleAssistant({ currentPage, pageContext }: AIScheduleAssi
           message: userMessage.content,
           messages: [...messages, userMessage],
           pageContext: {
-            shifts: pageContext?.shifts || [],
+            shifts: shiftsWithUsers || [],
+            users: users || [],
             currentPage,
             userId: pageContext?.userId,
             historicalPatterns: historicalPatterns || {

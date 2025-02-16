@@ -380,33 +380,44 @@ export function registerRoutes(app: Express) {
         { id: 5, name: "Mike Davis", title: "APP" }
       ];
 
-      let query = db.select().from(swapRequests);
-
-      if (userId) {
-        query = query.where(
+      // Get all swap requests with their associated shifts
+      const requests = await db.query.swapRequests.findMany({
+        where: userId ? 
           or(
             eq(swapRequests.requestorId, userId),
             eq(swapRequests.recipientId, userId)
-          )
-        );
-      }
-
-      const requests = await query.execute();
-
-      // Enhance the requests with user data
-      const enhancedRequests = requests.map(request => ({
-        ...request,
-        requestor: users.find(u => u.id === request.requestorId) || { 
-          id: request.requestorId,
-          name: `User ${request.requestorId}`,
-          title: "Unknown"
-        },
-        recipient: users.find(u => u.id === request.recipientId) || {
-          id: request.recipientId,
-          name: `User ${request.recipientId}`,
-          title: "Unknown"
+          ) : undefined,
+        with: {
+          shift: true // Include the related shift data
         }
-      }));
+      });
+
+      // Enhance the requests with user data and ensure proper date formatting
+      const enhancedRequests = requests.map(request => {
+        // Format the shift dates if they exist
+        const formattedShift = request.shift ? {
+          ...request.shift,
+          startDate: request.shift.startDate.toISOString(),
+          endDate: request.shift.endDate.toISOString()
+        } : null;
+
+        return {
+          ...request,
+          shift: formattedShift,
+          requestor: users.find(u => u.id === request.requestorId) || { 
+            id: request.requestorId,
+            name: `User ${request.requestorId}`,
+            title: "Unknown"
+          },
+          recipient: users.find(u => u.id === request.recipientId) || {
+            id: request.recipientId,
+            name: `User ${request.recipientId}`,
+            title: "Unknown"
+          }
+        };
+      });
+
+      console.log('Enhanced requests with shift data:', enhancedRequests);
 
       res.setHeader('Content-Type', 'application/json');
       res.json(enhancedRequests);

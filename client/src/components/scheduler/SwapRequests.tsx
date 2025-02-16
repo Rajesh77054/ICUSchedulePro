@@ -49,18 +49,38 @@ export function SwapRequests({ userId, variant = 'dashboard' }: Props) {
           const data = JSON.parse(text);
           console.log('Parsed swap requests:', data);
 
-          // Verify shift data for each request
-          data.forEach((request: SwapRequest, index: number) => {
-            console.log(`Request ${index} shift data:`, {
-              id: request.id,
-              shiftId: request.shiftId,
-              shift: request.shift,
-              startDate: request.shift?.startDate,
-              endDate: request.shift?.endDate
-            });
+          // Verify and format shift data for each request
+          const formattedData = data.map((request: SwapRequest) => {
+            console.log('Processing request:', request);
+
+            // Ensure shift data is present and properly formatted
+            if (request.shift) {
+              console.log('Shift data found:', request.shift);
+              try {
+                // Parse dates to ensure they're valid
+                const startDate = new Date(request.shift.startDate);
+                const endDate = new Date(request.shift.endDate);
+
+                return {
+                  ...request,
+                  shift: {
+                    ...request.shift,
+                    startDate: startDate.toISOString(),
+                    endDate: endDate.toISOString()
+                  }
+                };
+              } catch (e) {
+                console.error('Error parsing shift dates:', e);
+                return request;
+              }
+            } else {
+              console.log('No shift data found for request:', request.id);
+              return request;
+            }
           });
 
-          return Array.isArray(data) ? data : [];
+          console.log('Formatted swap requests:', formattedData);
+          return formattedData;
         } catch (e) {
           console.error('Error parsing swap requests:', e);
           return [];
@@ -108,7 +128,11 @@ export function SwapRequests({ userId, variant = 'dashboard' }: Props) {
     }
 
     try {
-      return `(${format(new Date(request.shift.startDate), 'MMM d, yyyy')} - ${format(new Date(request.shift.endDate), 'MMM d, yyyy')})`;
+      // Try to format the dates
+      const formattedStart = format(new Date(request.shift.startDate), 'MMM d, yyyy');
+      const formattedEnd = format(new Date(request.shift.endDate), 'MMM d, yyyy');
+      console.log('Formatted dates:', { formattedStart, formattedEnd });
+      return `(${formattedStart} - ${formattedEnd})`;
     } catch (error) {
       console.error('Error formatting dates:', error);
       return '(Invalid dates)';

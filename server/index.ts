@@ -62,10 +62,8 @@ if (app.get("env") === "development") {
   setupVite(app, httpServer);
 }
 
-// Update port configuration to prioritize Replit's expected port
-const port = parseInt(process.env.REPLIT_PORT || process.env.PORT || '5000', 10);
-const maxRetries = 5;
-const portRange = Array.from({ length: maxRetries }, (_, i) => port + i);
+// Update port configuration to use a single port
+const port = parseInt(process.env.PORT || '5000', 10);
 
 // Function to handle graceful shutdown
 function gracefulShutdown(server: any) {
@@ -82,41 +80,26 @@ function gracefulShutdown(server: any) {
   }, 10000);
 }
 
-// Start server with better error handling and port retry logic
+// Start server with better error handling
 const startServer = async () => {
-  for (const currentPort of portRange) {
-    try {
-      await new Promise<void>((resolve, reject) => {
-        const onError = (err: any) => {
-          if (err.code === 'EADDRINUSE') {
-            log(`Port ${currentPort} is in use, trying next port...`, 'server');
-            reject(err);
-          } else {
-            log(`Failed to start server: ${err.message}`, 'server');
-            reject(err);
-          }
-        };
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const onError = (err: any) => {
+        log(`Failed to start server: ${err.message}`, 'server');
+        reject(err);
+      };
 
-        httpServer.once('error', onError);
+      httpServer.once('error', onError);
 
-        httpServer.listen(currentPort, '0.0.0.0', () => {
-          httpServer.removeListener('error', onError);
-          log(`Server started on port ${currentPort}`, 'server');
-          // Store the actual port being used
-          (global as any).SERVER_PORT = currentPort;
-          resolve();
-        });
+      httpServer.listen(port, '0.0.0.0', () => {
+        httpServer.removeListener('error', onError);
+        log(`Server started on port ${port}`, 'server');
+        resolve();
       });
-      // If we get here, the server started successfully
-      break;
-    } catch (error) {
-      if (currentPort === portRange[portRange.length - 1]) {
-        log(`Failed to find an available port after ${maxRetries} attempts`, 'server');
-        process.exit(1);
-      }
-      // Continue to next attempt with incremented port
-      continue;
-    }
+    });
+  } catch (error) {
+    log(`Failed to start server: ${error.message}`, 'server');
+    process.exit(1);
   }
 };
 

@@ -5,17 +5,11 @@ import os from 'os';
 import { setupWebSocket } from './websocket';
 import { OpenAIChatHandler } from './openai-handler';
 import {
-  schedulingRules,
-  conflicts,
-  resolutionAttempts,
-  notifications,
-  notificationSubscriptions,
-  type ResolutionStrategy,
-  type NotificationChannel,
   shifts,
-  swapRequests
+  swapRequests,
+  sql
 } from "@db/schema";
-import { eq, and, or } from "drizzle-orm";
+import { eq, and, or, gte, desc } from "drizzle-orm";
 import { createServer, type Server } from "http";
 
 interface ServerMetrics {
@@ -135,13 +129,34 @@ export function registerRoutes(app: Express) {
   // Get all shifts - with proper implementation
   app.get("/api/shifts", async (_req, res) => {
     try {
-      const allShifts = await db.query.shifts.findMany({
-        orderBy: (shifts, { desc }) => [desc(shifts.createdAt)]
-      });
-      res.json(allShifts);
+      const now = new Date();
+      const allShifts = await db.select()
+        .from(shifts)
+        .where(
+          and(
+            gte(shifts.startDate, now.toISOString()),
+            or(
+              eq(shifts.status, "confirmed"),
+              eq(shifts.status, "pending")
+            )
+          )
+        )
+        .orderBy(shifts.startDate);
+
+      // Format the response to clearly indicate upcoming vs current shifts
+      const formattedShifts = allShifts.map(shift => ({
+        ...shift,
+        isUpcoming: new Date(shift.startDate) > now,
+        isCurrent: new Date(shift.startDate) <= now && new Date(shift.endDate) >= now
+      }));
+
+      res.json(formattedShifts);
     } catch (error) {
       console.error('Error fetching shifts:', error);
-      res.json([]); // Return empty array for now as fallback
+      res.status(500).json({
+        error: "Failed to fetch shifts",
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   });
 
@@ -277,60 +292,40 @@ export function registerRoutes(app: Express) {
   // New endpoint for historical patterns
   app.get("/api/scheduling/historical-patterns", async (_req, res) => {
     try {
-      // Fetch historical data from various sources
-      const [
-        shiftPatterns,
-        swapHistory,
-        workloadStats,
-        consecutivePatterns
-      ] = await Promise.all([
-        db.query.shifts.findMany({
-          orderBy: (shifts, { desc }) => [desc(shifts.createdAt)],
-          limit: 100
-        }),
-        db.query.swapRequests.findMany({
-          orderBy: (swaps, { desc }) => [desc(swaps.createdAt)],
-          limit: 50
-        }),
-        db.query.workloadHistory.findMany({
-          orderBy: (history, { desc }) => [desc(history.date)],
-          limit: 30
-        }),
-        db.query.consecutiveShifts.findMany({
-          orderBy: (consecutive, { desc }) => [desc(consecutive.date)],
-          limit: 20
-        })
-      ]);
+      const now = new Date();
+      const thirtyDaysAgo = new Date(now);
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+      const shiftPatterns = await db.select()
+        .from(shifts)
+        .where(
+          or(
+            gte(shifts.startDate, now.toISOString()),
+            and(
+              gte(shifts.startDate, thirtyDaysAgo.toISOString()),
+              eq(shifts.status, "confirmed")
+            )
+          )
+        )
+        .orderBy(shifts.startDate)
+        .limit(100);
 
       // Process and analyze the patterns
       const patterns = {
         preferredShifts: analyzePreferredShifts(shiftPatterns),
-        previousSwaps: analyzeSwapPatterns(swapHistory),
-        workloadHistory: summarizeWorkloadHistory(workloadStats),
-        consecutiveShiftPatterns: analyzeConsecutivePatterns(consecutivePatterns)
+        currentAndUpcomingShifts: shiftPatterns.map(shift => ({
+          ...shift,
+          isUpcoming: new Date(shift.startDate) > now,
+          isCurrent: new Date(shift.startDate) <= now && new Date(shift.endDate) >= now
+        }))
       };
 
       res.json(patterns);
     } catch (error) {
       console.error('Error fetching historical patterns:', error);
-      // Return mock data for now
-      res.json({
-        preferredShifts: [
-          { userId: 1, dayPreference: 'weekday', shiftLength: 12 },
-          { userId: 2, dayPreference: 'weekend', shiftLength: 8 }
-        ],
-        previousSwaps: [
-          { frequency: 'high', reason: 'schedule_conflict' },
-          { frequency: 'medium', reason: 'personal_preference' }
-        ],
-        workloadHistory: [
-          { period: 'last_month', averageHours: 160, satisfaction: 'high' },
-          { period: 'current_month', averageHours: 155, satisfaction: 'medium' }
-        ],
-        consecutiveShiftPatterns: [
-          { pattern: 'three_in_row', frequency: 'rare', impact: 'high' },
-          { pattern: 'two_in_row', frequency: 'common', impact: 'low' }
-        ]
+      res.status(500).json({
+        error: "Failed to fetch historical patterns",
+        details: error instanceof Error ? error.message : 'Unknown error'
       });
     }
   });

@@ -6,11 +6,11 @@ import { setupWebSocket } from './websocket';
 import { OpenAIChatHandler } from './openai-handler';
 import {
   shifts,
-  swapRequests,
-  sql
+  swapRequests
 } from "@db/schema";
 import { eq, and, or, gte, desc } from "drizzle-orm";
 import { createServer, type Server } from "http";
+import { format } from "date-fns";
 
 interface ServerMetrics {
   uptime: number;
@@ -129,12 +129,11 @@ export function registerRoutes(app: Express) {
   // Get all shifts - with proper implementation
   app.get("/api/shifts", async (_req, res) => {
     try {
-      const now = new Date();
       const allShifts = await db.select()
         .from(shifts)
         .where(
           and(
-            gte(shifts.startDate, now.toISOString()),
+            gte(shifts.startDate, format(new Date(), 'yyyy-MM-dd')),
             or(
               eq(shifts.status, "confirmed"),
               eq(shifts.status, "pending")
@@ -144,6 +143,7 @@ export function registerRoutes(app: Express) {
         .orderBy(shifts.startDate);
 
       // Format the response to clearly indicate upcoming vs current shifts
+      const now = new Date();
       const formattedShifts = allShifts.map(shift => ({
         ...shift,
         isUpcoming: new Date(shift.startDate) > now,
@@ -289,7 +289,7 @@ export function registerRoutes(app: Express) {
     }
   });
 
-  // New endpoint for historical patterns
+  // Historical patterns endpoint
   app.get("/api/scheduling/historical-patterns", async (_req, res) => {
     try {
       const now = new Date();
@@ -300,17 +300,15 @@ export function registerRoutes(app: Express) {
         .from(shifts)
         .where(
           or(
-            gte(shifts.startDate, now.toISOString()),
+            gte(shifts.startDate, format(now, 'yyyy-MM-dd')),
             and(
-              gte(shifts.startDate, thirtyDaysAgo.toISOString()),
+              gte(shifts.startDate, format(thirtyDaysAgo, 'yyyy-MM-dd')),
               eq(shifts.status, "confirmed")
             )
           )
         )
-        .orderBy(shifts.startDate)
-        .limit(100);
+        .orderBy(shifts.startDate);
 
-      // Process and analyze the patterns
       const patterns = {
         preferredShifts: analyzePreferredShifts(shiftPatterns),
         currentAndUpcomingShifts: shiftPatterns.map(shift => ({

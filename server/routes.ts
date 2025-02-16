@@ -8,9 +8,8 @@ import {
   shifts,
   swapRequests
 } from "@db/schema";
-import { eq, and, or, gte, desc } from "drizzle-orm";
-import { createServer, type Server } from "http";
-import { format } from "date-fns";
+import { eq, and, or, gte } from "drizzle-orm";
+import { format, parseISO } from "date-fns";
 
 interface ServerMetrics {
   uptime: number;
@@ -129,26 +128,32 @@ export function registerRoutes(app: Express) {
   // Get all shifts - with proper implementation
   app.get("/api/shifts", async (_req, res) => {
     try {
+      const now = new Date();
+      const currentDateStr = format(now, 'yyyy-MM-dd');
+
       const allShifts = await db.select()
         .from(shifts)
         .where(
-          and(
-            gte(shifts.startDate, format(new Date(), 'yyyy-MM-dd')),
-            or(
-              eq(shifts.status, "confirmed"),
-              eq(shifts.status, "pending")
+          or(
+            gte(shifts.startDate, currentDateStr),
+            and(
+              gte(shifts.endDate, currentDateStr),
+              eq(shifts.status, "confirmed")
             )
           )
         )
         .orderBy(shifts.startDate);
 
-      // Format the response to clearly indicate upcoming vs current shifts
-      const now = new Date();
-      const formattedShifts = allShifts.map(shift => ({
-        ...shift,
-        isUpcoming: new Date(shift.startDate) > now,
-        isCurrent: new Date(shift.startDate) <= now && new Date(shift.endDate) >= now
-      }));
+      // Format the response with proper date handling
+      const formattedShifts = allShifts.map(shift => {
+        const startDate = new Date(shift.startDate);
+        const endDate = new Date(shift.endDate);
+        return {
+          ...shift,
+          isUpcoming: startDate > now,
+          isCurrent: startDate <= now && endDate >= now
+        };
+      });
 
       res.json(formattedShifts);
     } catch (error) {
@@ -293,16 +298,17 @@ export function registerRoutes(app: Express) {
   app.get("/api/scheduling/historical-patterns", async (_req, res) => {
     try {
       const now = new Date();
-      const thirtyDaysAgo = new Date(now);
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const currentDateStr = format(now, 'yyyy-MM-dd');
+      const thirtyDaysAgo = new Date(now.setDate(now.getDate() - 30));
+      const thirtyDaysAgoStr = format(thirtyDaysAgo, 'yyyy-MM-dd');
 
       const shiftPatterns = await db.select()
         .from(shifts)
         .where(
           or(
-            gte(shifts.startDate, format(now, 'yyyy-MM-dd')),
+            gte(shifts.startDate, currentDateStr),
             and(
-              gte(shifts.startDate, format(thirtyDaysAgo, 'yyyy-MM-dd')),
+              gte(shifts.startDate, thirtyDaysAgoStr),
               eq(shifts.status, "confirmed")
             )
           )
@@ -311,11 +317,15 @@ export function registerRoutes(app: Express) {
 
       const patterns = {
         preferredShifts: analyzePreferredShifts(shiftPatterns),
-        currentAndUpcomingShifts: shiftPatterns.map(shift => ({
-          ...shift,
-          isUpcoming: new Date(shift.startDate) > now,
-          isCurrent: new Date(shift.startDate) <= now && new Date(shift.endDate) >= now
-        }))
+        currentAndUpcomingShifts: shiftPatterns.map(shift => {
+          const startDate = new Date(shift.startDate);
+          const endDate = new Date(shift.endDate);
+          return {
+            ...shift,
+            isUpcoming: startDate > now,
+            isCurrent: startDate <= now && endDate >= now
+          };
+        })
       };
 
       res.json(patterns);
@@ -618,3 +628,5 @@ export function updateMetricsConnections(count: number) {
 }
 
 export { metrics };
+
+import { createServer, type Server } from "http";

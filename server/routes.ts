@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { log } from './vite';
 import { db } from "@db";
 import os from 'os';
-import { setupWebSocket } from './websocket';
+import { setupWebSocket, type WebSocketInterface } from './websocket';
 import { OpenAIChatHandler } from './openai-handler';
 import {
   shifts,
@@ -11,6 +11,7 @@ import {
 import { eq, and, or, gte } from "drizzle-orm";
 import { format, parseISO } from "date-fns";
 import { notify } from './websocket';
+import { createServer, type Server } from "http";
 
 interface ServerMetrics {
   uptime: number;
@@ -37,6 +38,7 @@ let metrics: ServerMetrics = {
 };
 
 let metricsInterval: NodeJS.Timeout;
+let wsInterface: WebSocketInterface;
 
 export async function initializeServer(app: Express): Promise<Server> {
   // Clear existing intervals if they exist
@@ -47,7 +49,7 @@ export async function initializeServer(app: Express): Promise<Server> {
   const httpServer = createServer(app);
 
   // Initialize WebSocket server
-  const ws = await setupWebSocket(httpServer);
+  wsInterface = await setupWebSocket(httpServer);
 
   // Setup metrics update interval
   metricsInterval = setInterval(() => {
@@ -62,12 +64,12 @@ export async function initializeServer(app: Express): Promise<Server> {
         free: freeMem,
         used: totalMem - freeMem
       },
-      activeConnections: ws.clients.size,
+      activeConnections: wsInterface.clients.size,
       lastUpdated: new Date().toISOString()
     };
 
     // Broadcast metrics update
-    ws.broadcast({
+    wsInterface.broadcast({
       type: 'metrics_update',
       data: metrics,
       timestamp: new Date().toISOString()
@@ -79,13 +81,16 @@ export async function initializeServer(app: Express): Promise<Server> {
     if (metricsInterval) {
       clearInterval(metricsInterval);
     }
-    await ws.cleanup();
+    await wsInterface.cleanup();
   });
+
+  // Register routes with WebSocket interface
+  registerRoutes(app, wsInterface);
 
   return httpServer;
 }
 
-export function registerRoutes(app: Express) {
+export function registerRoutes(app: Express, ws: WebSocketInterface) {
   // Basic health check endpoint
   app.get("/api/health", (_req, res) => {
     res.json({ status: "ok" });
@@ -638,5 +643,3 @@ export function updateMetricsConnections(count: number) {
 }
 
 export { metrics };
-
-import { createServer, type Server } from "http";

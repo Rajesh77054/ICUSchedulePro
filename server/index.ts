@@ -1,11 +1,9 @@
 import express from "express";
 import cors from "cors";
-import { registerRoutes } from "./routes";
+import { registerRoutes, initializeServer } from "./routes";
 import { setupVite, log } from "./vite";
-import { createServer } from "http";
 
 const app = express();
-const httpServer = createServer(app);
 
 // Configure CORS to be more permissive in development
 app.use(cors({
@@ -59,7 +57,7 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
 
 // Setup Vite in development
 if (app.get("env") === "development") {
-  setupVite(app, httpServer);
+  setupVite(app);
 }
 
 // Update port configuration to use a single port
@@ -83,8 +81,10 @@ function gracefulShutdown(server: any) {
 // Start server with better error handling
 const startServer = async () => {
   try {
+    const httpServer = await initializeServer(app);
+
     await new Promise<void>((resolve, reject) => {
-      const onError = (err: any) => {
+      const onError = (err: Error) => {
         log(`Failed to start server: ${err.message}`, 'server');
         reject(err);
       };
@@ -97,18 +97,19 @@ const startServer = async () => {
         resolve();
       });
     });
+
+    // Handle graceful shutdown signals
+    process.on('SIGTERM', () => gracefulShutdown(httpServer));
+    process.on('SIGINT', () => gracefulShutdown(httpServer));
+
   } catch (error) {
-    log(`Failed to start server: ${error.message}`, 'server');
+    log(`Failed to start server: ${(error as Error).message}`, 'server');
     process.exit(1);
   }
 };
 
-// Handle graceful shutdown signals
-process.on('SIGTERM', () => gracefulShutdown(httpServer));
-process.on('SIGINT', () => gracefulShutdown(httpServer));
-
 // Start the server
 startServer().catch(error => {
-  log(`Failed to start server: ${error.message}`, 'server');
+  log(`Failed to start server: ${(error as Error).message}`, 'server');
   process.exit(1);
 });

@@ -35,6 +35,8 @@ export class OpenAIChatHandler {
     - Consecutive shift patterns
 
     You should:
+    - When asked about shifts, only show current and upcoming shifts (not past shifts)
+    - Sort shifts by start date when displaying them
     - Provide specific information about current and upcoming shifts when asked, including assigned providers
     - Learn from historical scheduling patterns
     - Identify optimal shift arrangements based on past success
@@ -63,21 +65,45 @@ export class OpenAIChatHandler {
         throw new Error('OpenAI API key not found');
       }
 
-      // Format shifts data for better context
-      const formattedShifts = context?.shifts?.map(shift => ({
-        startDate: new Date(shift.startDate).toLocaleString(),
-        endDate: new Date(shift.endDate).toLocaleString(),
-        provider: shift.userId ? 
-          context.users?.find(u => u.id === shift.userId)?.name || 'Unknown Provider' : 
-          'Unassigned',
-        status: shift.status
-      })) || [];
+      // Get current date at start of day for comparison
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      // Format shifts data for better context, filtering out past shifts
+      const formattedShifts = context?.shifts
+        ?.filter(shift => new Date(shift.endDate) >= today) // Filter out past shifts
+        ?.sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime()) // Sort by start date
+        ?.map(shift => {
+          const startDate = new Date(shift.startDate);
+          const endDate = new Date(shift.endDate);
+          const provider = shift.userId ? 
+            context.users?.find(u => u.id === shift.userId)?.name || 'Unknown Provider' : 
+            'Unassigned';
+
+          const isCurrentShift = startDate <= today && endDate >= today;
+
+          return {
+            startDate: startDate.toLocaleDateString('en-US', { 
+              month: 'short', 
+              day: 'numeric', 
+              year: 'numeric'
+            }),
+            endDate: endDate.toLocaleDateString('en-US', {
+              month: 'short', 
+              day: 'numeric', 
+              year: 'numeric'
+            }),
+            provider,
+            status: shift.status,
+            isCurrent: isCurrentShift
+          };
+        }) || [];
 
       // Prepare current context information
       const currentContextInfo = `
-Current Schedule Information:
-- Number of shifts: ${formattedShifts.length}
-- Upcoming shifts: ${JSON.stringify(formattedShifts, null, 2)}
+Current Schedule Information (as of ${today.toLocaleDateString()}):
+- Number of active/upcoming shifts: ${formattedShifts.length}
+- Current and upcoming shifts: ${JSON.stringify(formattedShifts, null, 2)}
 - Current page: ${context?.currentPage}
 - Number of users: ${context?.users?.length || 0}
 - Active providers: ${context?.users?.map(u => u.name).join(', ') || 'None'}`;

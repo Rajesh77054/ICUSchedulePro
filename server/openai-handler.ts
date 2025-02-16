@@ -35,13 +35,18 @@ export class OpenAIChatHandler {
     - Consecutive shift patterns
 
     You should:
-    - When asked about shifts, only show current and upcoming shifts (not past shifts)
-    - Sort shifts by start date when displaying them
-    - Provide specific information about current and upcoming shifts when asked, including assigned providers
+    - When asked about "current and upcoming shifts", ONLY show:
+      * "Ongoing shifts" (shifts that include today's date)
+      * "Upcoming shifts" (shifts that start after today)
+      DO NOT include past shifts or completed shifts in this response
+    - When explicitly asked about recent history, you may include:
+      * "Recent shifts" (completed within the last week)
+    - Always sort shifts by start date within each category
+    - Provide specific information about assigned providers
     - Learn from historical scheduling patterns
     - Identify optimal shift arrangements based on past success
     - Consider staff preferences and past behavior
-    - Detect potential scheduling conflicts before they occur
+    - Detect potential scheduling conflicts
     - Suggest improvements based on historical data
     - Provide data-driven recommendations
 
@@ -69,10 +74,17 @@ export class OpenAIChatHandler {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      // Format shifts data for better context, filtering out past shifts
-      const formattedShifts = context?.shifts
-        ?.filter(shift => new Date(shift.endDate) >= today) // Filter out past shifts
-        ?.sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime()) // Sort by start date
+      // Calculate date range for recent shifts (last 7 days)
+      const lastWeek = new Date(today);
+      lastWeek.setDate(lastWeek.getDate() - 7);
+
+      console.log('Date references:', {
+        today: today.toISOString(),
+        lastWeek: lastWeek.toISOString(),
+      });
+
+      // Format and categorize shifts
+      const categorizedShifts = context?.shifts
         ?.map(shift => {
           const startDate = new Date(shift.startDate);
           const endDate = new Date(shift.endDate);
@@ -80,7 +92,21 @@ export class OpenAIChatHandler {
             context.users?.find(u => u.id === shift.userId)?.name || 'Unknown Provider' : 
             'Unassigned';
 
+          // A shift is current if it spans today
           const isCurrentShift = startDate <= today && endDate >= today;
+          // A shift is upcoming if it starts after today
+          const isUpcomingShift = startDate > today;
+          // A shift is recent if it ended within the last week
+          const isRecentShift = endDate < today && endDate >= lastWeek;
+
+          console.log('Shift categorization:', {
+            startDate: startDate.toISOString(),
+            endDate: endDate.toISOString(),
+            provider,
+            isCurrentShift,
+            isUpcomingShift,
+            isRecentShift
+          });
 
           return {
             startDate: startDate.toLocaleDateString('en-US', { 
@@ -95,15 +121,34 @@ export class OpenAIChatHandler {
             }),
             provider,
             status: shift.status,
-            isCurrent: isCurrentShift
+            category: isCurrentShift ? 'current' : 
+                     isUpcomingShift ? 'upcoming' : 
+                     isRecentShift ? 'recent' : 'past'
           };
-        }) || [];
+        })
+        ?.filter(shift => shift.category !== 'past') // Remove old shifts
+        ?.sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
+
+      const currentShifts = categorizedShifts?.filter(s => s.category === 'current') || [];
+      const upcomingShifts = categorizedShifts?.filter(s => s.category === 'upcoming') || [];
+      const recentShifts = categorizedShifts?.filter(s => s.category === 'recent') || [];
+
+      console.log('Categorized shifts:', {
+        current: currentShifts.length,
+        upcoming: upcomingShifts.length,
+        recent: recentShifts.length
+      });
 
       // Prepare current context information
       const currentContextInfo = `
-Current Schedule Information (as of ${today.toLocaleDateString()}):
-- Number of active/upcoming shifts: ${formattedShifts.length}
-- Current and upcoming shifts: ${JSON.stringify(formattedShifts, null, 2)}
+Today's date: ${today.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+
+Current Schedule Information:
+${currentShifts.length > 0 ? `- Ongoing Shifts (${currentShifts.length}): ${JSON.stringify(currentShifts, null, 2)}` : '- No ongoing shifts'}
+${upcomingShifts.length > 0 ? `- Upcoming Shifts (${upcomingShifts.length}): ${JSON.stringify(upcomingShifts, null, 2)}` : '- No upcoming shifts'}
+${recentShifts.length > 0 ? `- Recent Shifts (${recentShifts.length}): ${JSON.stringify(recentShifts, null, 2)}` : '- No recent shifts'}
+
+Additional Context:
 - Current page: ${context?.currentPage}
 - Number of users: ${context?.users?.length || 0}
 - Active providers: ${context?.users?.map(u => u.name).join(', ') || 'None'}`;

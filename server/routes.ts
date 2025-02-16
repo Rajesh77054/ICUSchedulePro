@@ -4,8 +4,8 @@ import { db } from "@db";
 import os from 'os';
 import { setupWebSocket } from './websocket';
 import { OpenAIChatHandler } from './openai-handler';
-import { 
-  schedulingRules, 
+import {
+  schedulingRules,
   conflicts,
   resolutionAttempts,
   notifications,
@@ -13,7 +13,7 @@ import {
   type ResolutionStrategy,
   type NotificationChannel,
   shifts,
-  swapRequests  
+  swapRequests
 } from "@db/schema";
 import { eq, and, or } from "drizzle-orm";
 import { createServer, type Server } from "http";
@@ -339,9 +339,9 @@ export function registerRoutes(app: Express) {
   app.post("/api/chat", async (req, res) => {
     try {
       if (!req.body?.message) {
-        return res.status(400).json({ 
+        return res.status(400).json({
           error: "Missing message in request body",
-          content: null 
+          content: null
         });
       }
 
@@ -359,9 +359,9 @@ export function registerRoutes(app: Express) {
 
     } catch (error: any) {
       console.error('Chat API Error:', error);
-      res.status(500).json({ 
+      res.status(500).json({
         error: error.message || 'Internal server error',
-        content: null 
+        content: null
       });
     }
   });
@@ -382,7 +382,7 @@ export function registerRoutes(app: Express) {
 
       // Get all swap requests with their associated shifts
       const requests = await db.query.swapRequests.findMany({
-        where: userId ? 
+        where: userId ?
           or(
             eq(swapRequests.requestorId, userId),
             eq(swapRequests.recipientId, userId)
@@ -405,7 +405,7 @@ export function registerRoutes(app: Express) {
         return {
           ...request,
           shift: formattedShift,
-          requestor: users.find(u => u.id === request.requestorId) || { 
+          requestor: users.find(u => u.id === request.requestorId) || {
             id: request.requestorId,
             name: `User ${request.requestorId}`,
             title: "Unknown"
@@ -424,7 +424,7 @@ export function registerRoutes(app: Express) {
       res.json(enhancedRequests);
     } catch (error) {
       console.error('Error fetching swap requests:', error);
-      res.status(500).json({ 
+      res.status(500).json({
         error: "Failed to fetch swap requests",
         details: error instanceof Error ? error.message : 'Unknown error'
       });
@@ -520,6 +520,89 @@ export function registerRoutes(app: Express) {
       console.error('Error deleting swap request:', error);
       res.status(500).json({
         error: "Failed to delete swap request",
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  app.post("/api/swap-requests/:id/respond", async (req, res) => {
+    try {
+      const requestId = parseInt(req.params.id);
+      const { status } = req.body;
+
+      if (!requestId || !status || !['accepted', 'rejected'].includes(status)) {
+        return res.status(400).json({
+          error: "Invalid request",
+          details: "Request ID and valid status (accepted/rejected) are required"
+        });
+      }
+
+      // Start a transaction
+      await db.transaction(async (tx) => {
+        // 1. Get the swap request with shift details
+        const [request] = await tx
+          .select()
+          .from(swapRequests)
+          .where(eq(swapRequests.id, requestId));
+
+        if (!request) {
+          throw new Error("Swap request not found");
+        }
+
+        // 2. Update the swap request status (Only if rejected)
+        if (status === 'rejected') {
+          await tx
+            .update(swapRequests)
+            .set({
+              status,
+              updatedAt: new Date()
+            })
+            .where(eq(swapRequests.id, requestId));
+        }
+
+        // 3. If accepted, update the shift assignments
+        if (status === 'accepted') {
+          // Get the shift details
+          const [shift] = await tx
+            .select()
+            .from(shifts)
+            .where(eq(shifts.id, request.shiftId));
+
+          if (!shift) {
+            throw new Error("Associated shift not found");
+          }
+
+          // Update the shift's userId to the recipient
+          await tx
+            .update(shifts)
+            .set({
+              userId: request.recipientId,
+              updatedAt: new Date()
+            })
+            .where(eq(shifts.id, request.shiftId));
+
+          // Update the other shift's userId to the requestor
+          const [otherShift] = await tx.query.shifts.findFirst({
+            where: eq(shifts.id, request.otherShiftId)
+          });
+          if (otherShift) {
+            await tx.update(shifts).set({ userId: request.requestorId, updatedAt: new Date() }).where(eq(shifts.id, request.otherShiftId));
+          } else {
+            console.warn("Other shift not found for swap request ID:", requestId);
+          }
+        }
+      });
+
+      // Send success response
+      res.json({
+        success: true,
+        message: `Swap request ${status}`,
+      });
+
+    } catch (error) {
+      console.error('Error responding to swap request:', error);
+      res.status(500).json({
+        error: "Failed to process swap request response",
         details: error instanceof Error ? error.message : 'Unknown error'
       });
     }

@@ -26,7 +26,7 @@ export class OpenAIChatHandler {
   constructor() {
     this.systemPrompt = `You are an advanced scheduling assistant for medical professionals with direct access to the ICU scheduling system.
     You have access to and should actively use:
-    - Current shift schedule and upcoming shifts
+    - Current shift schedule and upcoming shifts with provider assignments
     - Staff information and availability
     - Historical scheduling patterns
     - Staff preferences and past behavior patterns
@@ -35,7 +35,7 @@ export class OpenAIChatHandler {
     - Consecutive shift patterns
 
     You should:
-    - Provide specific information about current and upcoming shifts when asked
+    - Provide specific information about current and upcoming shifts when asked, including assigned providers
     - Learn from historical scheduling patterns
     - Identify optimal shift arrangements based on past success
     - Consider staff preferences and past behavior
@@ -67,7 +67,9 @@ export class OpenAIChatHandler {
       const formattedShifts = context?.shifts?.map(shift => ({
         startDate: new Date(shift.startDate).toLocaleString(),
         endDate: new Date(shift.endDate).toLocaleString(),
-        provider: shift.provider?.name || 'Unassigned',
+        provider: shift.userId ? 
+          context.users?.find(u => u.id === shift.userId)?.name || 'Unknown Provider' : 
+          'Unassigned',
         status: shift.status
       })) || [];
 
@@ -77,7 +79,8 @@ Current Schedule Information:
 - Number of shifts: ${formattedShifts.length}
 - Upcoming shifts: ${JSON.stringify(formattedShifts, null, 2)}
 - Current page: ${context?.currentPage}
-- Number of users: ${context?.users?.length || 0}`;
+- Number of users: ${context?.users?.length || 0}
+- Active providers: ${context?.users?.map(u => u.name).join(', ') || 'None'}`;
 
       // Add historical pattern analysis
       let historicalInsights = '';

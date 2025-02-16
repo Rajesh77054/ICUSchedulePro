@@ -1,22 +1,32 @@
 import express from "express";
 import cors from "cors";
 import { registerRoutes } from "./routes";
-import { setupVite } from "./vite";
+import { setupVite, log } from "./vite";
 import { createServer } from "http";
 
 const app = express();
 const httpServer = createServer(app);
 
-// Configure CORS to allow Replit domains
+// Configure CORS to be more permissive in development
 app.use(cors({
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
 
-    // Allow all replit.dev subdomains
-    if (origin.endsWith('.replit.dev')) return callback(null, true);
+    // Allow all replit.dev subdomains and localhost during development
+    if (origin.endsWith('.replit.dev') || 
+        origin.startsWith('http://localhost') || 
+        origin.startsWith('http://0.0.0.0')) {
+      return callback(null, true);
+    }
 
-    callback(new Error('Not allowed by CORS'));
+    // In production, only allow specific origins
+    if (process.env.NODE_ENV === 'production') {
+      return callback(new Error('Not allowed by CORS'));
+    }
+
+    // In development, be more permissive
+    callback(null, true);
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -32,7 +42,7 @@ app.use((req, res, next) => {
   res.on("finish", () => {
     const duration = Date.now() - start;
     if (req.path.startsWith("/api")) {
-      console.log(`${req.method} ${req.path} ${res.statusCode} in ${duration}ms`);
+      log(`${req.method} ${req.path} ${res.statusCode} in ${duration}ms`, 'http');
     }
   });
   next();
@@ -52,14 +62,16 @@ if (app.get("env") === "development") {
   setupVite(app, httpServer);
 }
 
-// Get port from environment variable or use default
-const port = process.env.PORT || 5000;
+// Update port configuration to prioritize Replit's expected port
+const port = parseInt(process.env.REPLIT_PORT || process.env.PORT || '5000', 10);
+const maxRetries = 5;
+const portRange = Array.from({ length: maxRetries }, (_, i) => port + i);
 
 // Function to handle graceful shutdown
 function gracefulShutdown(server: any) {
-  console.log('Received shutdown signal, closing server...');
+  log('Received shutdown signal, closing server...', 'server');
   server.close(() => {
-    console.log('Server closed');
+    log('Server closed', 'server');
     process.exit(0);
   });
 
@@ -70,25 +82,41 @@ function gracefulShutdown(server: any) {
   }, 10000);
 }
 
-// Start server with better error handling
+// Start server with better error handling and port retry logic
 const startServer = async () => {
-  try {
-    await new Promise<void>((resolve, reject) => {
-      httpServer.listen(port, '0.0.0.0', () => {
-        console.log(`Server started on port ${port}`);
-        resolve();
-      }).on('error', (err: any) => {
-        if (err.code === 'EADDRINUSE') {
-          console.error(`Port ${port} is already in use. Please use a different port or kill the process using this port.`);
-        } else {
-          console.error('Failed to start server:', err);
-        }
-        reject(err);
+  for (const currentPort of portRange) {
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const onError = (err: any) => {
+          if (err.code === 'EADDRINUSE') {
+            log(`Port ${currentPort} is in use, trying next port...`, 'server');
+            reject(err);
+          } else {
+            log(`Failed to start server: ${err.message}`, 'server');
+            reject(err);
+          }
+        };
+
+        httpServer.once('error', onError);
+
+        httpServer.listen(currentPort, '0.0.0.0', () => {
+          httpServer.removeListener('error', onError);
+          log(`Server started on port ${currentPort}`, 'server');
+          // Store the actual port being used
+          (global as any).SERVER_PORT = currentPort;
+          resolve();
+        });
       });
-    });
-  } catch (error) {
-    console.error('Server startup failed:', error);
-    process.exit(1);
+      // If we get here, the server started successfully
+      break;
+    } catch (error) {
+      if (currentPort === portRange[portRange.length - 1]) {
+        log(`Failed to find an available port after ${maxRetries} attempts`, 'server');
+        process.exit(1);
+      }
+      // Continue to next attempt with incremented port
+      continue;
+    }
   }
 };
 
@@ -97,4 +125,7 @@ process.on('SIGTERM', () => gracefulShutdown(httpServer));
 process.on('SIGINT', () => gracefulShutdown(httpServer));
 
 // Start the server
-startServer();
+startServer().catch(error => {
+  log(`Failed to start server: ${error.message}`, 'server');
+  process.exit(1);
+});

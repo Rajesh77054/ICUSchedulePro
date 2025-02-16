@@ -15,13 +15,14 @@ interface NotificationShift {
   startDate: string;
   endDate: string;
   status: string;
+  userId: number;
 }
 
 interface NotificationMessage {
   type: 'shift_created' | 'shift_updated' | 'shift_deleted' | 'shift_swap_requested' | 
         'shift_swap_responded' | 'shift_swap_cancelled' | 'time_off_requested' | 
         'time_off_responded' | 'time_off_cancelled' | 'chat_message' | 'urgent_coverage' |
-        'metrics_update' | 'system_notification';
+        'metrics_update' | 'system_notification' | 'shift_change';
   data: any;
   timestamp: string;
 }
@@ -234,5 +235,13 @@ export const notify = {
     type: 'shift_swap_responded',
     data: { shift, requestor, recipient, status },
     timestamp: new Date().toISOString(),
-  })
+  }),
+  shiftChange: (
+    action: 'created' | 'updated' | 'deleted',
+    shift: NotificationShift
+  ): NotificationMessage => ({
+    type: 'shift_change',
+    data: { action, shift },
+    timestamp: new Date().toISOString(),
+  }),
 };

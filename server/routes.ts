@@ -10,6 +10,7 @@ import {
 } from "@db/schema";
 import { eq, and, or, gte } from "drizzle-orm";
 import { format, parseISO } from "date-fns";
+import { notify } from './websocket';
 
 interface ServerMetrics {
   uptime: number;
@@ -209,6 +210,9 @@ export function registerRoutes(app: Express) {
         throw new Error('Failed to create shift - no result returned');
       }
 
+      // Broadcast the new shift to all connected clients
+      ws.broadcast(notify.shiftChange('created', result[0]));
+
       res.status(201).json(result[0]);
     } catch (error: any) {
       console.error('Error creating shift:', error);
@@ -240,6 +244,9 @@ export function registerRoutes(app: Express) {
         return res.status(404).json({ error: "Shift not found" });
       }
 
+      // Broadcast the updated shift to all connected clients
+      ws.broadcast(notify.shiftChange('updated', result[0]));
+
       res.json(result[0]);
     } catch (error: any) {
       console.error('Error updating shift:', error);
@@ -265,6 +272,9 @@ export function registerRoutes(app: Express) {
       if (!result.length) {
         return res.status(404).json({ error: "Shift not found" });
       }
+
+      // Broadcast the deleted shift to all connected clients
+      ws.broadcast(notify.shiftChange('deleted', result[0]));
 
       res.json({ message: "Shift deleted successfully", deletedShift: result[0] });
     } catch (error: any) {

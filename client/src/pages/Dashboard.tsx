@@ -4,11 +4,14 @@ import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
 import { ListFilter, UserPlus } from "lucide-react";
 import { Loader } from "@/components/ui/loader";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Shift, User } from "@/lib/types";
 import { ChatDialog } from "@/components/scheduler/ChatDialog";
+import { useEffect } from "react";
 
 export function Dashboard() {
+  const queryClient = useQueryClient();
+
   const { data: shifts, isLoading: isLoadingShifts, error: shiftsError } = useQuery<Shift[]>({
     queryKey: ["/api/shifts"],
     queryFn: async () => {
@@ -31,6 +34,33 @@ export function Dashboard() {
     }
   });
 
+  // Setup WebSocket connection for real-time updates
+  useEffect(() => {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const websocket = new WebSocket(`${protocol}//${window.location.host}`);
+
+    websocket.onopen = () => {
+      console.log('WebSocket connected');
+      websocket.send(JSON.stringify({ type: 'auth', userId: 1 }));
+    };
+
+    websocket.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      if (data.type === 'shift_change') {
+        // Invalidate and refetch shifts query
+        queryClient.invalidateQueries({ queryKey: ["/api/shifts"] });
+      }
+    };
+
+    websocket.onerror = (error) => {
+      console.error('WebSocket error:', error);
+    };
+
+    return () => {
+      websocket.close();
+    };
+  }, [queryClient]);
+
   const isLoading = isLoadingShifts || isLoadingUsers;
   const hasError = shiftsError || usersError;
 
@@ -42,7 +72,7 @@ export function Dashboard() {
     );
   }
 
-  if (shiftsError || usersError) {
+  if (hasError) {
     console.error('Shifts error:', shiftsError);
     console.error('Users error:', usersError);
     return (

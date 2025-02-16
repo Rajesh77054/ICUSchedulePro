@@ -397,8 +397,9 @@ export function registerRoutes(app: Express) {
         // Format the shift dates if they exist
         const formattedShift = request.shift ? {
           ...request.shift,
-          startDate: request.shift.startDate.toISOString(),
-          endDate: request.shift.endDate.toISOString()
+          // Ensure dates are properly formatted strings
+          startDate: request.shift.startDate,
+          endDate: request.shift.endDate
         } : null;
 
         return {

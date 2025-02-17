@@ -6,7 +6,11 @@ import { type WebSocketInterface } from './websocket';
 import { OpenAIChatHandler } from './openai-handler';
 import {
   shifts,
-  swapRequests
+  swapRequests,
+  chatRooms,
+  users,
+  roomMembers,
+  messages
 } from "@db/schema";
 import { eq, and, or, gte, asc } from "drizzle-orm";
 import { format } from "date-fns";
@@ -651,7 +655,6 @@ export function registerRoutes(app: Express, ws: WebSocketInterface) {
   });
 
 
-  // Add these endpoints after the existing /api/swap-requests endpoints
   // Chat room endpoints
   app.get("/api/chat/rooms/:id", async (req, res) => {
     try {
@@ -660,31 +663,33 @@ export function registerRoutes(app: Express, ws: WebSocketInterface) {
         return res.status(400).json({ error: "Invalid room ID" });
       }
 
-      const room = await db.query.chatRooms.findFirst({
-        where: eq(db.chatRooms.id, roomId),
-        with: {
-          members: {
-            with: {
-              user: true
-            }
-          }
-        }
-      });
+      // Query the chat room directly from the database
+      const rooms = await db.select()
+        .from(chatRooms)
+        .where(eq(chatRooms.id, roomId));
 
-      if (!room) {
+      if (!rooms.length) {
         return res.status(404).json({ error: "Chat room not found" });
       }
+
+      const room = rooms[0];
+
+      // Get room members
+      const members = await db.select({
+        id: users.id,
+        name: users.name,
+        title: users.title
+      })
+      .from(roomMembers)
+      .innerJoin(users, eq(roomMembers.userId, users.id))
+      .where(eq(roomMembers.roomId, roomId));
 
       // Format the response
       const formattedRoom = {
         id: room.id,
         name: room.name,
         type: room.type,
-        members: room.members.map(member => ({
-          id: member.user.id,
-          name: member.user.name,
-          title: member.user.title
-        }))
+        members
       };
 
       res.json(formattedRoom);
@@ -704,25 +709,30 @@ export function registerRoutes(app: Express, ws: WebSocketInterface) {
         return res.status(400).json({ error: "Invalid room ID" });
       }
 
-      const messages = await db.query.messages.findMany({
-        where: eq(db.messages.roomId, roomId),
-        orderBy: asc(db.messages.createdAt),
-        with: {
-          sender: true
+      const messagesWithSenders = await db.select({
+        id: messages.id,
+        content: messages.content,
+        messageType: messages.messageType,
+        metadata: messages.metadata,
+        createdAt: messages.createdAt,
+        sender: {
+          name: users.name,
+          title: users.title
         }
-      });
+      })
+      .from(messages)
+      .innerJoin(users, eq(messages.senderId, users.id))
+      .where(eq(messages.roomId, roomId))
+      .orderBy(asc(messages.createdAt));
 
       // Format the response
-      const formattedMessages = messages.map(msg => ({
+      const formattedMessages = messagesWithSenders.map(msg => ({
         id: msg.id,
         content: msg.content,
         messageType: msg.messageType,
         metadata: msg.metadata,
         createdAt: msg.createdAt?.toISOString(),
-        sender: {
-          name: msg.sender.name,
-          title: msg.sender.title
-        }
+        sender: msg.sender
       }));
 
       res.json(formattedMessages);
@@ -748,7 +758,7 @@ export function registerRoutes(app: Express, ws: WebSocketInterface) {
       }
 
       // Insert the new message
-      const [newMessage] = await db.insert(db.messages)
+      const [newMessage] = await db.insert(messages)
         .values({
           roomId,
           senderId,
@@ -758,22 +768,22 @@ export function registerRoutes(app: Express, ws: WebSocketInterface) {
         })
         .returning();
 
-      // Get the sender details for the response
-      const sender = await db.query.users.findFirst({
-        where: eq(db.users.id, senderId),
-        columns: {
-          name: true,
-          title: true
-        }
-      });
+      // Get the sender details
+      const sender = await db.select({
+        name: users.name,
+        title: users.title
+      })
+      .from(users)
+      .where(eq(users.id, senderId))
+      .limit(1);
 
       // Format the response
       const formattedMessage = {
         ...newMessage,
         createdAt: newMessage.createdAt?.toISOString(),
-        sender: {
-          name: sender?.name || 'Unknown User',
-          title: sender?.title || 'Unknown'
+        sender: sender[0] || {
+          name: 'Unknown User',
+          title: 'Unknown'
         }
       };
 

@@ -14,6 +14,8 @@ export function Settings() {
 
   const clearShifts = async () => {
     try {
+      console.log('Initiating calendar clear operation...');
+
       const res = await fetch("/api/shifts", {
         method: "DELETE",
       });
@@ -23,11 +25,14 @@ export function Settings() {
         throw new Error(errorData.error || "Failed to clear shifts");
       }
 
-      // First, cancel any pending queries
+      const response = await res.json();
+      console.log('Clear shifts response:', response);
+
+      // Cancel any pending queries first
       await queryClient.cancelQueries({ queryKey: ["/api/shifts"] });
 
       // Remove all existing data from the cache
-      await queryClient.removeQueries({ queryKey: ["/api/shifts"] });
+      queryClient.removeQueries({ queryKey: ["/api/shifts"] });
 
       // Set the cache data to an empty array explicitly
       queryClient.setQueryData(["/api/shifts"], []);
@@ -39,18 +44,22 @@ export function Settings() {
         exact: false
       });
 
+      // Dispatch shifts_cleared event
+      window.dispatchEvent(new CustomEvent('shifts_cleared'));
+
       // Wait a brief moment before dispatching the refresh event
       setTimeout(() => {
-        // Dispatch event to force calendar refresh
         window.dispatchEvent(new Event('forceCalendarRefresh'));
+        console.log('Calendar refresh events dispatched');
       }, 100);
 
       toast({
         title: "Success",
-        description: "All shifts have been cleared successfully",
+        description: `Successfully cleared ${response.clearedShifts.length} shifts`,
       });
       setClearDialogOpen(false);
     } catch (error: any) {
+      console.error('Error in clearShifts:', error);
       toast({
         title: "Error",
         description: error.message,

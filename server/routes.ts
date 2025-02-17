@@ -331,6 +331,45 @@ export function registerRoutes(app: Express, ws: WebSocketInterface) {
     }
   });
 
+  // Add the clear all shifts endpoint to the existing routes
+  app.delete("/api/shifts", async (_req, res) => {
+    try {
+      console.log('Attempting to clear all shifts...');
+
+      const now = new Date();
+      const currentDateStr = format(now, 'yyyy-MM-dd');
+
+      // Delete all future shifts
+      const result = await db.delete(shifts)
+        .where(gte(shifts.startDate, currentDateStr))
+        .returning();
+
+      console.log(`Successfully cleared ${result.length} shifts`);
+
+      // Broadcast the change to all connected clients
+      ws.broadcast({
+        type: 'shifts_cleared',
+        data: {
+          clearedCount: result.length,
+          timestamp: new Date().toISOString()
+        }
+      });
+
+      res.json({
+        success: true,
+        message: `Successfully cleared ${result.length} shifts`,
+        clearedShifts: result
+      });
+    } catch (error) {
+      console.error('Error clearing shifts:', error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to clear shifts",
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
   // Get all users - with proper implementation
   app.post("/api/users", async (req, res) => {
     try {

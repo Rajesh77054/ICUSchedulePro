@@ -62,7 +62,7 @@ interface DateSelectInfo {
   end: Date;
 }
 
-// Rest of the Calendar component implementation remains the same, but with updated type annotations
+// Rest of the Calendar component implementation 
 export function Calendar({ shifts: initialShifts = [] }: { shifts?: Shift[] }) {
   const [date, setDate] = useState<Date>(new Date());
   const [view, setView] = useState<CalendarView>('dayGridMonth');
@@ -88,6 +88,7 @@ export function Calendar({ shifts: initialShifts = [] }: { shifts?: Shift[] }) {
     refetchInterval: 5000,
     retry: 3,
     onSettled: (data, error) => {
+      console.log('Shifts query settled:', { data, error });
       if (error) {
         console.error('Error fetching shifts:', error);
         toast({
@@ -194,6 +195,14 @@ export function Calendar({ shifts: initialShifts = [] }: { shifts?: Shift[] }) {
   useEffect(() => {
     const handleShiftUpdate = async () => {
       console.log('Forcing calendar refresh due to shift update');
+
+      // Cancel any pending queries first
+      await queryClient.cancelQueries({ queryKey: ["/api/shifts"] });
+
+      // Force immediate cache clear and refetch
+      queryClient.removeQueries({ queryKey: ["/api/shifts"] });
+      queryClient.setQueryData(["/api/shifts"], []);
+
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["/api/shifts"] }),
         queryClient.invalidateQueries({ queryKey: ["/api/swap-requests"] })
@@ -201,16 +210,25 @@ export function Calendar({ shifts: initialShifts = [] }: { shifts?: Shift[] }) {
 
       if (calendarRef.current) {
         const api = calendarRef.current.getApi();
+        console.log('Refreshing FullCalendar events');
         api.refetchEvents();
       }
     };
 
+    const handleShiftsCleared = async () => {
+      console.log('Received shifts_cleared event');
+      await handleShiftUpdate();
+    };
+
+    // Listen for both shift changes and manual refresh events
     window.addEventListener('shiftChange', handleShiftUpdate);
     window.addEventListener('forceCalendarRefresh', handleShiftUpdate);
+    window.addEventListener('shifts_cleared', handleShiftsCleared);
 
     return () => {
       window.removeEventListener('shiftChange', handleShiftUpdate);
       window.removeEventListener('forceCalendarRefresh', handleShiftUpdate);
+      window.removeEventListener('shifts_cleared', handleShiftsCleared);
     };
   }, [queryClient]);
 

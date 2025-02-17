@@ -339,25 +339,44 @@ export function registerRoutes(app: Express, ws: WebSocketInterface) {
       const now = new Date();
       const currentDateStr = format(now, 'yyyy-MM-dd');
 
-      // Delete all future shifts
-      const result = await db.delete(shifts)
-        .where(gte(shifts.startDate, currentDateStr))
-        .returning();
+      // Start a transaction to ensure both operations complete or neither does
+      await db.transaction(async (tx) => {
+        // First, get all future shifts
+        const futureShifts = await tx.select()
+          .from(shifts)
+          .where(gte(shifts.startDate, currentDateStr));
 
-      console.log(`Successfully cleared ${result.length} shifts`);
+        if (futureShifts.length > 0) {
+          // Delete associated swap requests first
+          await tx.delete(swapRequests)
+            .where(
+              or(
+                ...futureShifts.map(shift =>
+                  eq(swapRequests.shiftId, shift.id)
+                )
+              )
+            );
 
-      // Update the broadcast type to match expected types
-      ws.broadcast({
-        type: 'shift_change',
-        event: 'cleared',
-        data: result,
-        timestamp: new Date().toISOString()
+          // Then delete the shifts
+          const result = await tx.delete(shifts)
+            .where(gte(shifts.startDate, currentDateStr))
+            .returning();
+
+          console.log(`Successfully cleared ${result.length} shifts`);
+
+          // Broadcast the deletion
+          ws.broadcast({
+            type: 'shift_change',
+            event: 'cleared',
+            data: result,
+            timestamp: new Date().toISOString()
+          });
+        }
       });
 
       res.json({
         success: true,
-        message: `Successfully cleared ${result.length} shifts`,
-        clearedShifts: result
+        message: 'Successfully cleared all future shifts',
       });
     } catch (error) {
       console.error('Error clearing shifts:', error);

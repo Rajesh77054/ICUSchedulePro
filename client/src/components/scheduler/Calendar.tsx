@@ -7,7 +7,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { useQueryClient, useMutation } from "@tanstack/react-query";
+import { useQueryClient, useMutation, useQuery } from "@tanstack/react-query";
 import { format, differenceInDays, addDays } from "date-fns";
 import type { Shift, User } from "@/lib/types";
 import { ShiftDialog } from "./ShiftDialog";
@@ -16,15 +16,10 @@ import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import multiMonthPlugin from '@fullcalendar/multimonth';
 import interactionPlugin from '@fullcalendar/interaction';
-import type { EventDragStartArg, EventDragStopArg, EventResizeDoneArg, EventClickArg, DateSelectArg } from '@fullcalendar/interaction';
 import listPlugin from '@fullcalendar/list';
-import { useQuery } from "@tanstack/react-query";
 
+// Define types for calendar events
 type CalendarView = 'dayGridWeek' | 'dayGridMonth' | 'multiMonth' | 'listWeek';
-
-interface CalendarProps {
-  shifts?: Shift[];
-}
 
 interface SwapRequest {
   id: number;
@@ -35,7 +30,40 @@ interface SwapRequest {
   shift: Shift;
 }
 
-export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
+interface EventDropInfo {
+  event: {
+    id: string;
+    start: Date | null;
+    end: Date | null;
+  };
+  revert: () => void;
+}
+
+interface EventResizeInfo {
+  event: {
+    id: string;
+    startStr: string;
+    endStr: string;
+  };
+  revert: () => void;
+}
+
+interface EventClickInfo {
+  event: {
+    id: string;
+    extendedProps: {
+      shift: Shift;
+    };
+  };
+}
+
+interface DateSelectInfo {
+  start: Date;
+  end: Date;
+}
+
+// Rest of the Calendar component implementation remains the same, but with updated type annotations
+export function Calendar({ shifts: initialShifts = [] }: { shifts?: Shift[] }) {
   const [date, setDate] = useState<Date>(new Date());
   const [view, setView] = useState<CalendarView>('dayGridMonth');
   const [viewTitle, setViewTitle] = useState<string>("");
@@ -49,40 +77,42 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
 
   const calendarRef = useRef<FullCalendar>(null);
 
-  // Fetch users for shift assignment
-  const { data: users = [] } = useQuery<User[]>({
-    queryKey: ["/api/users"],
+  // Update query configurations with proper types
+  const { data: users = [] } = useQuery<User[], Error>({
+    queryKey: ["/api/users"]
   });
 
-  // Update shifts query configuration
-  const { data: shifts = [], error: shiftsError } = useQuery<Shift[]>({
+  const { data: shifts = [], error: shiftsError } = useQuery<Shift[], Error>({
     queryKey: ["/api/shifts"],
-    staleTime: 0, // Always fetch fresh data
-    refetchInterval: 5000, // Poll every 5 seconds
+    staleTime: 0,
+    refetchInterval: 5000,
     retry: 3,
-    onError: (error) => {
-      console.error('Error fetching shifts:', error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch shifts. Please try again.",
-        variant: "destructive",
-      });
+    onSettled: (data, error) => {
+      if (error) {
+        console.error('Error fetching shifts:', error);
+        toast({
+          title: "Error",
+          description: "Failed to fetch shifts. Please try again.",
+          variant: "destructive",
+        });
+      }
     }
   });
 
-  // Update swap requests query with better error handling
-  const { data: swapRequests = [] } = useQuery<SwapRequest[]>({
+  const { data: swapRequests = [] } = useQuery<SwapRequest[], Error>({
     queryKey: ["/api/swap-requests"],
     staleTime: 0,
     refetchInterval: 5000,
     retry: 3,
-    onError: (error) => {
-      console.error('Error fetching swap requests:', error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch swap requests. Please try again.",
-        variant: "destructive",
-      });
+    onSettled: (data, error) => {
+      if (error) {
+        console.error('Error fetching swap requests:', error);
+        toast({
+          title: "Error",
+          description: "Failed to fetch swap requests. Please try again.",
+          variant: "destructive",
+        });
+      }
     }
   });
 
@@ -91,7 +121,6 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
     return user?.color || "hsl(0, 0%, 50%)";
   };
 
-  // Update shift mutation
   const updateShiftMutation = useMutation({
     mutationFn: async (data: { id: number; startDate: string; endDate: string }) => {
       const res = await fetch(`/api/shifts/${data.id}`, {
@@ -118,7 +147,6 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
     },
   });
 
-  // Add delete shift mutation
   const deleteShiftMutation = useMutation({
     mutationFn: async (shiftId: number) => {
       const res = await fetch(`/api/shifts/${shiftId}`, {
@@ -131,27 +159,22 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
       return res.json();
     },
     onSuccess: async (response, shiftId) => {
-      // Only proceed if the deletion was successful
       if (!response.success) {
         throw new Error(response.error || 'Failed to delete shift');
       }
 
-      // Cancel any outgoing queries first
       await queryClient.cancelQueries({ queryKey: ["/api/shifts"] });
 
-      // Update the cache immediately
       queryClient.setQueryData(["/api/shifts"], (oldData: Shift[] = []) => {
         return oldData.filter(shift => shift.id !== shiftId);
       });
 
-      // Force a refresh of all shift-related queries
       await queryClient.invalidateQueries({
         queryKey: ["/api/shifts"],
         refetchType: 'all',
         exact: false
       });
 
-      // Trigger calendar refresh
       window.dispatchEvent(new Event('forceCalendarRefresh'));
 
       toast({
@@ -168,7 +191,6 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
     },
   });
 
-  // Update effect to force refresh on WebSocket updates
   useEffect(() => {
     const handleShiftUpdate = async () => {
       console.log('Forcing calendar refresh due to shift update');
@@ -177,14 +199,12 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
         queryClient.invalidateQueries({ queryKey: ["/api/swap-requests"] })
       ]);
 
-      // Force FullCalendar to refetch events
       if (calendarRef.current) {
         const api = calendarRef.current.getApi();
         api.refetchEvents();
       }
     };
 
-    // Listen for both shift changes and manual refresh events
     window.addEventListener('shiftChange', handleShiftUpdate);
     window.addEventListener('forceCalendarRefresh', handleShiftUpdate);
 
@@ -194,8 +214,6 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
     };
   }, [queryClient]);
 
-
-  // Add effect to force refresh on swap request changes
   useEffect(() => {
     const handleSwapUpdate = async () => {
       console.log('Forcing calendar refresh due to swap update');
@@ -214,7 +232,6 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
     return () => window.removeEventListener('swapRequestUpdate', handleSwapUpdate);
   }, [queryClient]);
 
-  // Update calendar events with better logging
   const calendarEvents = useMemo(() => {
     console.log('Recalculating calendar events:', { shifts, swapRequests });
 
@@ -229,8 +246,8 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
         req.status === 'accepted'
       );
 
-      console.log('Processing shift:', { 
-        shiftId: shift.id, 
+      console.log('Processing shift:', {
+        shiftId: shift.id,
         status: shift.status,
         swapRequest: swapRequest ? { id: swapRequest.id, status: swapRequest.status } : null
       });
@@ -260,7 +277,7 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
     });
   }, [shifts, users, swapRequests]);
 
-  const handleEventDrop = async (dropInfo: EventDragStopArg) => {
+  const handleEventDrop = async (dropInfo: EventDropInfo) => {
     try {
       if (!dropInfo.event) return;
 
@@ -273,7 +290,7 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
         return;
       }
 
-      const shift = shifts.find(s => s.id === shiftId);
+      const shift = shifts?.find(s => s.id === shiftId);
 
       if (!shift) {
         dropInfo.revert();
@@ -283,7 +300,7 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
       const duration = differenceInDays(new Date(shift.endDate), new Date(shift.startDate));
       const newEndDate = addDays(startDate, duration);
 
-      const otherShifts = shifts.filter(s => s.id !== shiftId);
+      const otherShifts = shifts?.filter(s => s.id !== shiftId) || [];
       const conflicts = detectShiftConflicts({
         ...shift,
         startDate: format(startDate, 'yyyy-MM-dd'),
@@ -316,21 +333,21 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
     }
   };
 
-  const handleEventResize = async (resizeInfo: EventResizeDoneArg) => {
+  const handleEventResize = async (resizeInfo: EventResizeInfo) => {
     try {
       if (!resizeInfo.event) return;
 
       const shiftId = parseInt(resizeInfo.event.id);
       const startDate = resizeInfo.event.startStr;
       const endDate = resizeInfo.event.endStr;
-      const shift = shifts.find(s => s.id === shiftId);
+      const shift = shifts?.find(s => s.id === shiftId);
 
       if (!shift) {
         resizeInfo.revert();
         return;
       }
 
-      const otherShifts = shifts.filter(s => s.id !== shiftId);
+      const otherShifts = shifts?.filter(s => s.id !== shiftId) || [];
       const conflicts = detectShiftConflicts({
         ...shift,
         startDate,
@@ -362,7 +379,7 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
     }
   };
 
-  const handleEventClick = (clickInfo: EventClickArg) => {
+  const handleEventClick = (clickInfo: EventClickInfo) => {
     const shift = clickInfo.event.extendedProps.shift;
     setSelectedShift(shift);
     setShiftActionsOpen(true);
@@ -397,7 +414,7 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
     }
   };
 
-  const handleSelect = (selectInfo: DateSelectArg) => {
+  const handleSelect = (selectInfo: DateSelectInfo) => {
     setSelectedDates({
       start: selectInfo.start,
       end: selectInfo.end,
@@ -416,7 +433,6 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
     }
   };
 
-  // Add handleDeleteShift function
   const handleDeleteShift = async (shiftId: number) => {
     try {
       await deleteShiftMutation.mutateAsync(shiftId);

@@ -1,4 +1,3 @@
-
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,20 +10,41 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 export function Settings() {
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
   const { toast } = useToast();
-
   const queryClient = useQueryClient();
-  
+
   const clearShifts = async () => {
     try {
       const res = await fetch("/api/shifts", {
         method: "DELETE",
       });
-      
-      if (!res.ok) throw new Error("Failed to clear shifts");
-      
-      // Invalidate and refetch shifts data
-      await queryClient.invalidateQueries({ queryKey: ["/api/shifts"] });
-      
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Failed to clear shifts");
+      }
+
+      // First, cancel any pending queries
+      await queryClient.cancelQueries({ queryKey: ["/api/shifts"] });
+
+      // Remove all existing data from the cache
+      await queryClient.removeQueries({ queryKey: ["/api/shifts"] });
+
+      // Set the cache data to an empty array explicitly
+      queryClient.setQueryData(["/api/shifts"], []);
+
+      // Then invalidate to trigger a refetch
+      await queryClient.invalidateQueries({ 
+        queryKey: ["/api/shifts"],
+        refetchType: 'all',
+        exact: false
+      });
+
+      // Wait a brief moment before dispatching the refresh event
+      setTimeout(() => {
+        // Dispatch event to force calendar refresh
+        window.dispatchEvent(new Event('forceCalendarRefresh'));
+      }, 100);
+
       toast({
         title: "Success",
         description: "All shifts have been cleared successfully",

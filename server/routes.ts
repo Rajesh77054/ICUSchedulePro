@@ -267,7 +267,10 @@ export function registerRoutes(app: Express, ws: WebSocketInterface) {
     try {
       const shiftId = parseInt(req.params.id);
       if (!shiftId) {
-        return res.status(400).json({ error: "Invalid shift ID" });
+        return res.status(400).json({ 
+          success: false,
+          error: "Invalid shift ID" 
+        });
       }
 
       const result = await db.delete(shifts)
@@ -275,16 +278,24 @@ export function registerRoutes(app: Express, ws: WebSocketInterface) {
         .returning();
 
       if (!result.length) {
-        return res.status(404).json({ error: "Shift not found" });
+        return res.status(404).json({ 
+          success: false,
+          error: "Shift not found" 
+        });
       }
 
       // Broadcast the deleted shift to all connected clients
       ws.broadcast(notify.shiftChange('deleted', result[0]));
 
-      res.json({ message: "Shift deleted successfully", deletedShift: result[0] });
+      res.json({ 
+        success: true,
+        message: "Shift deleted successfully", 
+        deletedShift: result[0] 
+      });
     } catch (error: any) {
       console.error('Error deleting shift:', error);
       res.status(500).json({
+        success: false,
         error: "Failed to delete shift",
         details: error.message
       });

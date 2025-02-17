@@ -130,7 +130,12 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
       }
       return res.json();
     },
-    onSuccess: async (_, shiftId) => {
+    onSuccess: async (response, shiftId) => {
+      // Only proceed if the deletion was successful
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to delete shift');
+      }
+
       // Cancel any outgoing queries first
       await queryClient.cancelQueries({ queryKey: ["/api/shifts"] });
 

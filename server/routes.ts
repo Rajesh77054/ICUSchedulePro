@@ -174,11 +174,18 @@ export function registerRoutes(app: Express, ws: WebSocketInterface) {
   // Add shift creation endpoint
   app.post("/api/shifts", async (req, res) => {
     try {
-      // Validate required fields
-      if (!req.body || !req.body.userId || !req.body.startDate || !req.body.endDate) {
+      // Enhanced validation with detailed error messages
+      const { userId, startDate, endDate, status, source, schedulingNotes } = req.body;
+
+      if (!userId || !startDate || !endDate) {
         return res.status(400).json({
+          success: false,
           error: "Missing required fields",
-          details: "userId, startDate, and endDate are required"
+          details: {
+            userId: !userId ? "User ID is required" : null,
+            startDate: !startDate ? "Start date is required" : null,
+            endDate: !endDate ? "End date is required" : null
+          }
         });
       }
 
@@ -191,21 +198,42 @@ export function registerRoutes(app: Express, ws: WebSocketInterface) {
         { id: 5, name: "Mike Davis", title: "APP", color: "#8884d8", userType: "app" }
       ];
 
-      const userExists = users.some(user => user.id === parseInt(req.body.userId));
+      const userExists = users.some(user => user.id === parseInt(userId));
       if (!userExists) {
         return res.status(400).json({
+          success: false,
           error: "Invalid user",
           details: "The specified user does not exist"
         });
       }
 
+      // Validate dates
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+
+      if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+        return res.status(400).json({
+          success: false,
+          error: "Invalid dates",
+          details: "Start date and end date must be valid dates"
+        });
+      }
+
+      if (end < start) {
+        return res.status(400).json({
+          success: false,
+          error: "Invalid date range",
+          details: "End date must be after start date"
+        });
+      }
+
       const newShift = {
-        userId: parseInt(req.body.userId),
-        startDate: req.body.startDate,
-        endDate: req.body.endDate,
-        status: req.body.status || 'confirmed',
-        source: req.body.source || 'manual',
-        schedulingNotes: req.body.schedulingNotes || {},
+        userId: parseInt(userId),
+        startDate,
+        endDate,
+        status: status || 'confirmed',
+        source: source || 'manual',
+        schedulingNotes: schedulingNotes || {},
         createdAt: new Date()
       };
 
@@ -218,10 +246,15 @@ export function registerRoutes(app: Express, ws: WebSocketInterface) {
       // Broadcast the new shift to all connected clients
       ws.broadcast(notify.shiftChange('created', result[0]));
 
-      res.status(201).json(result[0]);
+      res.status(201).json({
+        success: true,
+        message: "Shift created successfully",
+        shift: result[0]
+      });
     } catch (error: any) {
       console.error('Error creating shift:', error);
       res.status(500).json({
+        success: false,
         error: "Failed to create shift",
         details: error.message
       });

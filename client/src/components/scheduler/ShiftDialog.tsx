@@ -32,7 +32,7 @@ export function ShiftDialog({ open, onOpenChange, startDate, endDate }: ShiftDia
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch users from API instead of using constant
+  // Fetch users from API
   const { data: users = [] } = useQuery<User[]>({
     queryKey: ["/api/users"],
     queryFn: async () => {
@@ -40,17 +40,6 @@ export function ShiftDialog({ open, onOpenChange, startDate, endDate }: ShiftDia
       if (!res.ok) throw new Error("Failed to fetch users");
       return res.json();
     }
-  });
-
-  // Move useQuery to component level
-  const { data: userPrefs } = useQuery({
-    queryKey: ["/api/user-preferences", userId],
-    queryFn: async () => {
-      const res = await fetch(`/api/user-preferences/${userId}`);
-      if (!res.ok) throw new Error("Failed to fetch preferences");
-      return res.json();
-    },
-    enabled: !!userId // Only fetch when userId is set
   });
 
   // Get existing shifts for conflict detection
@@ -71,39 +60,57 @@ export function ShiftDialog({ open, onOpenChange, startDate, endDate }: ShiftDia
         body: JSON.stringify(data)
       });
 
+      const jsonResponse = await res.json();
+
       if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || 'Failed to create shift');
+        // Handle detailed error response
+        if (jsonResponse.details) {
+          if (typeof jsonResponse.details === 'object') {
+            // Handle field-specific errors
+            const errorMessages = Object.entries(jsonResponse.details)
+              .filter(([_, message]) => message !== null)
+              .map(([field, message]) => `${field}: ${message}`)
+              .join('\n');
+            throw new Error(errorMessages);
+          } else {
+            throw new Error(jsonResponse.details);
+          }
+        }
+        throw new Error(jsonResponse.error || 'Failed to create shift');
       }
 
-      return res.json();
+      return jsonResponse;
     },
-    onSuccess: async (newShift) => {
-      // Cancel any outgoing queries first
-      await queryClient.cancelQueries({ queryKey: ["/api/shifts"] });
+    onSuccess: async (response) => {
+      // Handle the new success response format
+      if (response.success && response.shift) {
+        // Cancel any outgoing queries first
+        await queryClient.cancelQueries({ queryKey: ["/api/shifts"] });
 
-      // Update the cache immediately
-      queryClient.setQueryData(["/api/shifts"], (oldData: Shift[] = []) => {
-        return [...oldData, newShift];
-      });
+        // Update the cache immediately
+        queryClient.setQueryData(["/api/shifts"], (oldData: Shift[] = []) => {
+          return [...oldData, response.shift];
+        });
 
-      // Force a refresh of all shift-related queries
-      await queryClient.invalidateQueries({
-        queryKey: ["/api/shifts"],
-        refetchType: 'all',
-        exact: false
-      });
+        // Force a refresh of all shift-related queries
+        await queryClient.invalidateQueries({
+          queryKey: ["/api/shifts"],
+          refetchType: 'all',
+          exact: false
+        });
 
-      // Trigger calendar refresh
-      window.dispatchEvent(new Event('forceCalendarRefresh'));
+        // Trigger calendar refresh
+        window.dispatchEvent(new Event('forceCalendarRefresh'));
 
-      onOpenChange(false);
-      toast({
-        title: "Success",
-        description: "Shift created successfully",
-      });
+        onOpenChange(false);
+        toast({
+          title: "Success",
+          description: response.message || "Shift created successfully",
+        });
+      }
     },
     onError: (error: Error) => {
+      console.error('Shift creation error:', error);
       toast({
         title: "Error",
         description: error.message,
@@ -143,8 +150,8 @@ export function ShiftDialog({ open, onOpenChange, startDate, endDate }: ShiftDia
     // Check for schedule rule violations
     const conflicts = detectShiftConflicts(
       newShift as Shift, 
-      existingShifts, 
-      userPrefs,
+      existingShifts,
+      undefined,
       {
         preferredStrategy: 'minimize-changes',
         allowSplitShifts: false,

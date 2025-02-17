@@ -37,7 +37,8 @@ export function Dashboard() {
   // Setup WebSocket connection for real-time updates
   useEffect(() => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const websocket = new WebSocket(`${protocol}//${window.location.host}`);
+    const wsUrl = `${protocol}//${window.location.host}/ws`;
+    const websocket = new WebSocket(wsUrl);
 
     websocket.onopen = () => {
       console.log('WebSocket connected');

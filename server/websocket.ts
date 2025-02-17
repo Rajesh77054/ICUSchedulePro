@@ -42,6 +42,7 @@ export interface WebSocketInterface {
 export async function setupWebSocket(server: Server): Promise<WebSocketInterface> {
   const wss = new WebSocketServer({ 
     noServer: true,
+    path: '/ws',
     clientTracking: true,
     perMessageDeflate: false
   });
@@ -51,8 +52,7 @@ export async function setupWebSocket(server: Server): Promise<WebSocketInterface
 
   // Handle upgrade requests
   server.on('upgrade', (request, socket, head) => {
-    // Skip Vite HMR upgrade requests
-    if (request.headers['sec-websocket-protocol'] === 'vite-hmr') {
+    if (request.url !== '/ws') {
       return;
     }
 

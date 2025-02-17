@@ -2,14 +2,14 @@ import type { Express } from "express";
 import { log } from './vite';
 import { db } from "@db";
 import os from 'os';
-import { setupWebSocket, type WebSocketInterface } from './websocket';
+import { type WebSocketInterface } from './websocket';
 import { OpenAIChatHandler } from './openai-handler';
 import {
   shifts,
   swapRequests
 } from "@db/schema";
 import { eq, and, or, gte } from "drizzle-orm";
-import { format, parseISO } from "date-fns";
+import { format } from "date-fns";
 import { notify } from './websocket';
 import { createServer, type Server } from "http";
 
@@ -38,7 +38,6 @@ let metrics: ServerMetrics = {
 };
 
 let metricsInterval: NodeJS.Timeout;
-let wsInterface: WebSocketInterface;
 
 export async function initializeServer(app: Express): Promise<Server> {
   // Clear existing intervals if they exist
@@ -48,9 +47,17 @@ export async function initializeServer(app: Express): Promise<Server> {
 
   const httpServer = createServer(app);
 
-  // Initialize WebSocket server
-  wsInterface = await setupWebSocket(httpServer);
+  // Setup cleanup handlers
+  httpServer.on('close', () => {
+    if (metricsInterval) {
+      clearInterval(metricsInterval);
+    }
+  });
 
+  return httpServer;
+}
+
+export function registerRoutes(app: Express, ws: WebSocketInterface) {
   // Setup metrics update interval
   metricsInterval = setInterval(() => {
     const totalMem = os.totalmem();
@@ -64,33 +71,18 @@ export async function initializeServer(app: Express): Promise<Server> {
         free: freeMem,
         used: totalMem - freeMem
       },
-      activeConnections: wsInterface.clients.size,
+      activeConnections: ws.clients.size,
       lastUpdated: new Date().toISOString()
     };
 
     // Broadcast metrics update
-    wsInterface.broadcast({
+    ws.broadcast({
       type: 'metrics_update',
       data: metrics,
       timestamp: new Date().toISOString()
     });
   }, 5000);
 
-  // Setup cleanup handlers
-  httpServer.on('close', async () => {
-    if (metricsInterval) {
-      clearInterval(metricsInterval);
-    }
-    await wsInterface.cleanup();
-  });
-
-  // Register routes with WebSocket interface
-  registerRoutes(app, wsInterface);
-
-  return httpServer;
-}
-
-export function registerRoutes(app: Express, ws: WebSocketInterface) {
   // Basic health check endpoint
   app.get("/api/health", (_req, res) => {
     res.json({ status: "ok" });
@@ -300,9 +292,9 @@ export function registerRoutes(app: Express, ws: WebSocketInterface) {
     try {
       const shiftId = parseInt(req.params.id);
       if (!shiftId) {
-        return res.status(400).json({ 
+        return res.status(400).json({
           success: false,
-          error: "Invalid shift ID" 
+          error: "Invalid shift ID"
         });
       }
 
@@ -311,19 +303,19 @@ export function registerRoutes(app: Express, ws: WebSocketInterface) {
         .returning();
 
       if (!result.length) {
-        return res.status(404).json({ 
+        return res.status(404).json({
           success: false,
-          error: "Shift not found" 
+          error: "Shift not found"
         });
       }
 
       // Broadcast the deleted shift to all connected clients
       ws.broadcast(notify.shiftChange('deleted', result[0]));
 
-      res.json({ 
+      res.json({
         success: true,
-        message: "Shift deleted successfully", 
-        deletedShift: result[0] 
+        message: "Shift deleted successfully",
+        deletedShift: result[0]
       });
     } catch (error: any) {
       console.error('Error deleting shift:', error);

@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import { registerRoutes, initializeServer } from "./routes";
 import { setupVite, log } from "./vite";
+import { setupWebSocket } from "./websocket";
 
 const app = express();
 
@@ -46,26 +47,18 @@ app.use((req, res, next) => {
   next();
 });
 
-// Register routes
-registerRoutes(app);
-
-// Error handling middleware
-app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  console.error('Server error:', err);
-  res.status(500).json({ message: 'Internal Server Error' });
-});
-
-// Setup Vite in development
-if (app.get("env") === "development") {
-  setupVite(app);
-}
-
 // Update port configuration to use a single port
 const port = parseInt(process.env.PORT || '5000', 10);
 
 // Function to handle graceful shutdown
-function gracefulShutdown(server: any) {
+function gracefulShutdown(server: any, wsInterface: any) {
   log('Received shutdown signal, closing server...', 'server');
+
+  // First cleanup WebSocket connections
+  if (wsInterface) {
+    wsInterface.cleanup();
+  }
+
   server.close(() => {
     log('Server closed', 'server');
     process.exit(0);
@@ -83,6 +76,17 @@ const startServer = async () => {
   try {
     const httpServer = await initializeServer(app);
 
+    // Initialize WebSocket after HTTP server is created but before routes
+    const wsInterface = await setupWebSocket(httpServer);
+
+    // Register routes with WebSocket interface
+    registerRoutes(app, wsInterface);
+
+    // Setup Vite in development
+    if (app.get("env") === "development") {
+      await setupVite(app, httpServer);
+    }
+
     await new Promise<void>((resolve, reject) => {
       const onError = (err: Error) => {
         log(`Failed to start server: ${err.message}`, 'server');
@@ -99,8 +103,8 @@ const startServer = async () => {
     });
 
     // Handle graceful shutdown signals
-    process.on('SIGTERM', () => gracefulShutdown(httpServer));
-    process.on('SIGINT', () => gracefulShutdown(httpServer));
+    process.on('SIGTERM', () => gracefulShutdown(httpServer, wsInterface));
+    process.on('SIGINT', () => gracefulShutdown(httpServer, wsInterface));
 
   } catch (error) {
     log(`Failed to start server: ${(error as Error).message}`, 'server');

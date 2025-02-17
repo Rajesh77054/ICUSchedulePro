@@ -13,9 +13,11 @@ import {
   messages
 } from "@db/schema";
 import { eq, and, or, gte, asc } from "drizzle-orm";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns"; // Added import
 import { notify } from './websocket';
 import { createServer, type Server } from "http";
+import ical from 'node-ical'; // Added import
+
 
 interface ServerMetrics {
   uptime: number;
@@ -878,6 +880,102 @@ export function registerRoutes(app: Express, ws: WebSocketInterface) {
       });
     }
   });
+
+  // Handle iCal calendar import
+  app.post("/api/integrations/qgenda/import-ical", async (req, res) => {
+    try {
+      const { subscriptionUrl, userId } = req.body;
+
+      if (!subscriptionUrl || !userId) {
+        return res.status(400).json({
+          error: "Missing required fields",
+          details: "Subscription URL and user ID are required"
+        });
+      }
+
+      // Fetch and parse the iCal feed
+      const events = await ical.async.fromURL(subscriptionUrl);
+
+      // Transform events to shifts
+      const shiftsToInsert = [];
+
+      for (const [, event] of Object.entries(events)) {
+        if (event.type !== 'VEVENT') continue;
+
+        if (event.start && event.end) {
+          const shift = {
+            userId: parseInt(userId),
+            startDate: format(event.start, 'yyyy-MM-dd'),
+            endDate: format(event.end, 'yyyy-MM-dd'),
+            status: 'confirmed',
+            source: 'qgenda',
+            schedulingNotes: {
+              importedFrom: 'qgenda',
+              summary: event.summary,
+              description: event.description
+            },
+            createdAt: new Date()
+          };
+
+          shiftsToInsert.push(shift);
+        }
+      }
+
+      // Insert the shifts into the database
+      const insertedShifts = await db.insert(shifts)
+        .values(shiftsToInsert)
+        .returning();
+
+      // Broadcast the new shifts
+      insertedShifts.forEach(shift => {
+        ws.broadcast(notify.shiftChange('created', shift));
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: `Successfully imported ${insertedShifts.length} shifts`,
+        shifts: insertedShifts
+      });
+
+    } catch (error) {
+      console.error('Error importing iCal schedule:', error);
+      return res.status(500).json({
+        error: "Failed to import schedule",
+        details: error instanceof Error ? error.message : 'Unknown error occurred'
+      });
+    }
+  });
+
+  // Get all swap requests - with proper implementation
+  app.get("/api/swap-requests", async (req, res) => {
+    try {
+      const userId = req.query.userId ? parseInt(req.query.userId as string) : undefined;
+
+      const requests = await db.query.swapRequests.findMany({
+        where: userId ?
+          or(
+            eq(swapRequests.requestorId, userId),
+            eq(swapRequests.recipientId, userId)
+          ) : undefined,
+        include: {
+          shift: true
+        }
+      });
+
+      const enhancedRequests = requests.map(request => ({
+        ...request,
+        shift: request.shift,
+        requestor: { id: request.requestorId, name: 'unknown' },
+        recipient: { id: request.recipientId, name: 'unknown' }
+      }));
+
+      res.json(enhancedRequests);
+    } catch (error) {
+      console.error('Error fetching swap requests:', error);
+      res.status(500).json({ error: "Failed to fetch swap requests" });
+    }
+  });
+
 
 }
 

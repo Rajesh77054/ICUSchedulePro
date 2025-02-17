@@ -1,55 +1,7 @@
 import { User, Holiday } from "./types";
 
-// Default users as fallback
-const DEFAULT_USERS: User[] = [
-  // Physicians
-  {
-    id: 1,
-    name: "Ashley Liou",
-    title: "MD",
-    userType: "physician",
-    targetDays: 105,
-    tolerance: 7,
-    maxConsecutiveWeeks: 1,
-    color: "hsl(230, 75%, 60%)",
-  },
-  {
-    id: 2,
-    name: "Joseph Brading",
-    title: "MD",
-    userType: "physician",
-    targetDays: 170,
-    maxConsecutiveWeeks: 2,
-    color: "hsl(160, 75%, 40%)",
-  },
-  {
-    id: 3,
-    name: "Rajesh Harrykissoon",
-    title: "MD",
-    userType: "physician",
-    targetDays: 62,
-    maxConsecutiveWeeks: 1,
-    color: "hsl(350, 75%, 50%)",
-  },
-  {
-    id: 4,
-    name: "Anthony Zachria",
-    title: "DO",
-    userType: "physician", 
-    targetDays: 150,
-    maxConsecutiveWeeks: 2,
-    color: "hsl(45, 75%, 45%)",
-  },
-  {
-    id: 5, 
-    name: "Todd Want",
-    title: "APP",
-    userType: "app",
-    targetDays: 160,
-    maxConsecutiveWeeks: 2,
-    color: "hsl(290, 75%, 45%)",
-  },
-];
+// Default empty users array
+export const DEFAULT_USERS: User[] = [];
 
 export let USERS = DEFAULT_USERS;
 

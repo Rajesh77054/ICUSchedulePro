@@ -20,13 +20,12 @@ export function Settings() {
         method: "DELETE",
       });
 
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || "Failed to clear shifts");
-      }
-
       const response = await res.json();
       console.log('Clear shifts response:', response);
+
+      if (!response.success) {
+        throw new Error(response.error || "Failed to clear shifts");
+      }
 
       // More aggressive cache handling
       await queryClient.cancelQueries();
@@ -46,14 +45,14 @@ export function Settings() {
 
       toast({
         title: "Success",
-        description: `Successfully cleared ${response.clearedShifts.length} shifts`,
+        description: response.message || `Successfully cleared shifts`,
       });
       setClearDialogOpen(false);
     } catch (error: any) {
       console.error('Error in clearShifts:', error);
       toast({
         title: "Error",
-        description: error.message,
+        description: error.message || "Failed to clear shifts",
         variant: "destructive",
       });
     }

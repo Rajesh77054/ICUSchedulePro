@@ -349,11 +349,9 @@ export function registerRoutes(app: Express, ws: WebSocketInterface) {
       // Update the broadcast type to match expected types
       ws.broadcast({
         type: 'shift_change',
-        action: 'cleared',
-        data: {
-          clearedCount: result.length,
-          timestamp: new Date().toISOString()
-        }
+        event: 'cleared',
+        data: result,
+        timestamp: new Date().toISOString()
       });
 
       res.json({

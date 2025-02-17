@@ -28,30 +28,21 @@ export function Settings() {
       const response = await res.json();
       console.log('Clear shifts response:', response);
 
-      // Cancel any pending queries first
-      await queryClient.cancelQueries({ queryKey: ["/api/shifts"] });
+      // More aggressive cache handling
+      await queryClient.cancelQueries();
+      queryClient.clear();
 
-      // Remove all existing data from the cache
-      queryClient.removeQueries({ queryKey: ["/api/shifts"] });
-
-      // Set the cache data to an empty array explicitly
+      // Reset the shifts cache explicitly
       queryClient.setQueryData(["/api/shifts"], []);
 
-      // Then invalidate to trigger a refetch
-      await queryClient.invalidateQueries({ 
-        queryKey: ["/api/shifts"],
-        refetchType: 'all',
-        exact: false
-      });
+      // Force immediate refetch
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["/api/shifts"] }),
+        queryClient.invalidateQueries({ queryKey: ["/api/swap-requests"] })
+      ]);
 
-      // Dispatch shifts_cleared event
-      window.dispatchEvent(new CustomEvent('shifts_cleared'));
-
-      // Wait a brief moment before dispatching the refresh event
-      setTimeout(() => {
-        window.dispatchEvent(new Event('forceCalendarRefresh'));
-        console.log('Calendar refresh events dispatched');
-      }, 100);
+      // Dispatch calendar refresh events
+      window.dispatchEvent(new Event('forceCalendarRefresh'));
 
       toast({
         title: "Success",
@@ -116,7 +107,7 @@ export function Settings() {
                     The calendar will automatically update when changes are made.
                   </p>
                   <div className="flex items-center gap-2">
-                    <Input 
+                    <Input
                       readOnly
                       value={`${window.location.origin}/api/schedules/export/all`}
                       className="font-mono text-sm"

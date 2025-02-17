@@ -346,9 +346,10 @@ export function registerRoutes(app: Express, ws: WebSocketInterface) {
 
       console.log(`Successfully cleared ${result.length} shifts`);
 
-      // Broadcast the change to all connected clients
+      // Update the broadcast type to match expected types
       ws.broadcast({
-        type: 'shifts_cleared',
+        type: 'shift_change',
+        action: 'cleared',
         data: {
           clearedCount: result.length,
           timestamp: new Date().toISOString()
@@ -725,9 +726,9 @@ export function registerRoutes(app: Express, ws: WebSocketInterface) {
         name: users.name,
         title: users.title
       })
-      .from(roomMembers)
-      .innerJoin(users, eq(roomMembers.userId, users.id))
-      .where(eq(roomMembers.roomId, roomId));
+        .from(roomMembers)
+        .innerJoin(users, eq(roomMembers.userId, users.id))
+        .where(eq(roomMembers.roomId, roomId));
 
       // Format the response
       const formattedRoom = {
@@ -765,10 +766,10 @@ export function registerRoutes(app: Express, ws: WebSocketInterface) {
           title: users.title
         }
       })
-      .from(messages)
-      .innerJoin(users, eq(messages.senderId, users.id))
-      .where(eq(messages.roomId, roomId))
-      .orderBy(asc(messages.createdAt));
+        .from(messages)
+        .innerJoin(users, eq(messages.senderId, users.id))
+        .where(eq(messages.roomId, roomId))
+        .orderBy(asc(messages.createdAt));
 
       // Format the response
       const formattedMessages = messagesWithSenders.map(msg => ({
@@ -818,9 +819,9 @@ export function registerRoutes(app: Express, ws: WebSocketInterface) {
         name: users.name,
         title: users.title
       })
-      .from(users)
-      .where(eq(users.id, senderId))
-      .limit(1);
+        .from(users)
+        .where(eq(users.id, senderId))
+        .limit(1);
 
       // Format the response
       const formattedMessage = {

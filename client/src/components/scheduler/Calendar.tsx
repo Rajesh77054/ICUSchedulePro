@@ -215,20 +215,14 @@ export function Calendar({ shifts: initialShifts = [] }: { shifts?: Shift[] }) {
       }
     };
 
-    const handleShiftsCleared = async () => {
-      console.log('Received shifts_cleared event');
-      await handleShiftUpdate();
-    };
-
-    // Listen for both shift changes and manual refresh events
-    window.addEventListener('shiftChange', handleShiftUpdate);
+    // Listen for calendar refresh events
     window.addEventListener('forceCalendarRefresh', handleShiftUpdate);
-    window.addEventListener('shifts_cleared', handleShiftsCleared);
+    window.addEventListener('shiftChange', handleShiftUpdate); //Retained from original
+
 
     return () => {
-      window.removeEventListener('shiftChange', handleShiftUpdate);
       window.removeEventListener('forceCalendarRefresh', handleShiftUpdate);
-      window.removeEventListener('shifts_cleared', handleShiftsCleared);
+      window.removeEventListener('shiftChange', handleShiftUpdate); //Retained from original
     };
   }, [queryClient]);
 

@@ -8,7 +8,7 @@ import {
   shifts,
   swapRequests
 } from "@db/schema";
-import { eq, and, or, gte } from "drizzle-orm";
+import { eq, and, or, gte, asc } from "drizzle-orm";
 import { format } from "date-fns";
 import { notify } from './websocket';
 import { createServer, type Server } from "http";
@@ -645,6 +645,150 @@ export function registerRoutes(app: Express, ws: WebSocketInterface) {
       console.error('Error responding to swap request:', error);
       res.status(500).json({
         error: "Failed to process swap request response",
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+
+  // Add these endpoints after the existing /api/swap-requests endpoints
+  // Chat room endpoints
+  app.get("/api/chat/rooms/:id", async (req, res) => {
+    try {
+      const roomId = parseInt(req.params.id);
+      if (isNaN(roomId)) {
+        return res.status(400).json({ error: "Invalid room ID" });
+      }
+
+      const room = await db.query.chatRooms.findFirst({
+        where: eq(db.chatRooms.id, roomId),
+        with: {
+          members: {
+            with: {
+              user: true
+            }
+          }
+        }
+      });
+
+      if (!room) {
+        return res.status(404).json({ error: "Chat room not found" });
+      }
+
+      // Format the response
+      const formattedRoom = {
+        id: room.id,
+        name: room.name,
+        type: room.type,
+        members: room.members.map(member => ({
+          id: member.user.id,
+          name: member.user.name,
+          title: member.user.title
+        }))
+      };
+
+      res.json(formattedRoom);
+    } catch (error) {
+      console.error('Error fetching chat room:', error);
+      res.status(500).json({
+        error: "Failed to fetch chat room",
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  app.get("/api/chat/rooms/:id/messages", async (req, res) => {
+    try {
+      const roomId = parseInt(req.params.id);
+      if (isNaN(roomId)) {
+        return res.status(400).json({ error: "Invalid room ID" });
+      }
+
+      const messages = await db.query.messages.findMany({
+        where: eq(db.messages.roomId, roomId),
+        orderBy: asc(db.messages.createdAt),
+        with: {
+          sender: true
+        }
+      });
+
+      // Format the response
+      const formattedMessages = messages.map(msg => ({
+        id: msg.id,
+        content: msg.content,
+        messageType: msg.messageType,
+        metadata: msg.metadata,
+        createdAt: msg.createdAt?.toISOString(),
+        sender: {
+          name: msg.sender.name,
+          title: msg.sender.title
+        }
+      }));
+
+      res.json(formattedMessages);
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+      res.status(500).json({
+        error: "Failed to fetch messages",
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  app.post("/api/chat/rooms/:id/messages", async (req, res) => {
+    try {
+      const roomId = parseInt(req.params.id);
+      const { content, senderId } = req.body;
+
+      if (!content || !senderId) {
+        return res.status(400).json({
+          error: "Missing required fields",
+          details: "Content and sender ID are required"
+        });
+      }
+
+      // Insert the new message
+      const [newMessage] = await db.insert(db.messages)
+        .values({
+          roomId,
+          senderId,
+          content,
+          messageType: 'text',
+          createdAt: new Date()
+        })
+        .returning();
+
+      // Get the sender details for the response
+      const sender = await db.query.users.findFirst({
+        where: eq(db.users.id, senderId),
+        columns: {
+          name: true,
+          title: true
+        }
+      });
+
+      // Format the response
+      const formattedMessage = {
+        ...newMessage,
+        createdAt: newMessage.createdAt?.toISOString(),
+        sender: {
+          name: sender?.name || 'Unknown User',
+          title: sender?.title || 'Unknown'
+        }
+      };
+
+      // Broadcast the new message to all connected clients
+      ws.broadcast({
+        type: 'chat_message',
+        data: formattedMessage,
+        timestamp: new Date().toISOString()
+      });
+
+      res.status(201).json(formattedMessage);
+    } catch (error) {
+      console.error('Error sending message:', error);
+      res.status(500).json({
+        error: "Failed to send message",
         details: error instanceof Error ? error.message : 'Unknown error'
       });
     }

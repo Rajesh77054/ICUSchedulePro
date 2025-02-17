@@ -341,10 +341,17 @@ export function registerRoutes(app: Express, ws: WebSocketInterface) {
 
       // Start a transaction to ensure both operations complete or neither does
       await db.transaction(async (tx) => {
-        // First, get all future shifts
+        // First, get all future shifts - include shifts that end after current date
         const futureShifts = await tx.select()
           .from(shifts)
-          .where(gte(shifts.startDate, currentDateStr));
+          .where(
+            or(
+              gte(shifts.startDate, currentDateStr),
+              gte(shifts.endDate, currentDateStr)
+            )
+          );
+
+        console.log(`Found ${futureShifts.length} shifts to clear`);
 
         if (futureShifts.length > 0) {
           // Delete associated swap requests first
@@ -359,7 +366,12 @@ export function registerRoutes(app: Express, ws: WebSocketInterface) {
 
           // Then delete the shifts
           const result = await tx.delete(shifts)
-            .where(gte(shifts.startDate, currentDateStr))
+            .where(
+              or(
+                gte(shifts.startDate, currentDateStr),
+                gte(shifts.endDate, currentDateStr)
+              )
+            )
             .returning();
 
           console.log(`Successfully cleared ${result.length} shifts`);

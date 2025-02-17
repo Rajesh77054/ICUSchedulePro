@@ -80,7 +80,6 @@ function NavItem({ href, icon, label, tooltip, active, indent }: NavItemProps) {
 export function Sidebar() {
   const [location] = useLocation();
   const [open, setOpen] = useState(false);
-  const [schedulingOpen, setSchedulingOpen] = useState(true);
   const [timeManagementOpen, setTimeManagementOpen] = useState(true);
   const [adminOpen, setAdminOpen] = useState(true);
 
@@ -100,7 +99,6 @@ export function Sidebar() {
         indent: true,
       }
     ],
-    scheduling: [],
     timeManagement: [
       {
         href: "/time-off",
@@ -174,41 +172,6 @@ export function Sidebar() {
 
       <div className="px-2 py-2">
         <div className="space-y-4">
-          <Collapsible
-            open={schedulingOpen}
-            onOpenChange={setSchedulingOpen}
-          >
-            <CollapsibleTrigger asChild>
-              <Button
-                variant="ghost"
-                className={cn(
-                  "w-full justify-between",
-                  schedulingOpen && "bg-accent/50"
-                )}
-              >
-                <span className="flex items-center gap-2">
-                  <Users className="h-4 w-4" />
-                  Scheduling
-                </span>
-                <ChevronDown
-                  className={cn(
-                    "h-4 w-4 transition-transform duration-200",
-                    schedulingOpen && "rotate-180"
-                  )}
-                />
-              </Button>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="space-y-1">
-              {navigation.scheduling.map((item) => (
-                <NavItem
-                  key={item.href}
-                  {...item}
-                  active={location === item.href}
-                />
-              ))}
-            </CollapsibleContent>
-          </Collapsible>
-
           <Collapsible
             open={timeManagementOpen}
             onOpenChange={setTimeManagementOpen}

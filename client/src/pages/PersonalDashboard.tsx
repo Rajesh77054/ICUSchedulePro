@@ -441,38 +441,49 @@ export function PersonalDashboard() {
             <div className="space-y-6">
               <div>
                 <h3 className="text-lg font-medium mb-4">Import External Calendar</h3>
-                <form onSubmit={(e) => {
+                <form onSubmit={async (e) => {
                   e.preventDefault();
                   const form = e.target as HTMLFormElement;
                   const url = new FormData(form).get('qgendaUrl') as string;
 
-                  fetch('/api/integrations/qgenda/import-ical', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      subscriptionUrl: url,
-                      userId,
-                    })
-                  })
-                    .then(res => {
-                      if (!res.ok) throw new Error('Failed to import schedule');
-                      return res.json();
-                    })
-                    .then(data => {
-                      toast({
-                        title: 'Success',
-                        description: `Successfully imported ${data.shifts?.length || 0} shifts.`,
-                      });
-                      form.reset();
-                      queryClient.invalidateQueries({ queryKey: ["/api/shifts"] });
-                    })
-                    .catch(error => {
-                      toast({
-                        title: 'Error',
-                        description: error.message,
-                        variant: 'destructive'
-                      });
+                  try {
+                    const res = await fetch('/api/integrations/qgenda/import-ical', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        subscriptionUrl: url,
+                        userId,
+                      })
                     });
+
+                    let data;
+                    const text = await res.text();
+
+                    try {
+                      data = JSON.parse(text);
+                    } catch (parseError) {
+                      console.error('Failed to parse response:', text);
+                      throw new Error('Invalid response from server');
+                    }
+
+                    if (!res.ok) {
+                      throw new Error(data.error || 'Failed to import schedule');
+                    }
+
+                    toast({
+                      title: 'Success',
+                      description: `Successfully imported ${data.shifts?.length || 0} shifts.`,
+                    });
+                    form.reset();
+                    queryClient.invalidateQueries({ queryKey: ["/api/shifts"] });
+                  } catch (error: any) {
+                    console.error('Import error:', error);
+                    toast({
+                      title: 'Error',
+                      description: error.message || 'Failed to import schedule',
+                      variant: 'destructive'
+                    });
+                  }
                 }}>
                   <div className="space-y-4">
                     <div>

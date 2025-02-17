@@ -11,6 +11,8 @@ export function Settings() {
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
   const { toast } = useToast();
 
+  const queryClient = useQueryClient();
+  
   const clearShifts = async () => {
     try {
       const res = await fetch("/api/shifts", {
@@ -18,6 +20,9 @@ export function Settings() {
       });
       
       if (!res.ok) throw new Error("Failed to clear shifts");
+      
+      // Invalidate and refetch shifts data
+      await queryClient.invalidateQueries({ queryKey: ["/api/shifts"] });
       
       toast({
         title: "Success",

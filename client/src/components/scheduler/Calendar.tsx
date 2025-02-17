@@ -168,6 +168,33 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
     },
   });
 
+  // Update effect to force refresh on WebSocket updates
+  useEffect(() => {
+    const handleShiftUpdate = async () => {
+      console.log('Forcing calendar refresh due to shift update');
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["/api/shifts"] }),
+        queryClient.invalidateQueries({ queryKey: ["/api/swap-requests"] })
+      ]);
+
+      // Force FullCalendar to refetch events
+      if (calendarRef.current) {
+        const api = calendarRef.current.getApi();
+        api.refetchEvents();
+      }
+    };
+
+    // Listen for both shift changes and manual refresh events
+    window.addEventListener('shiftChange', handleShiftUpdate);
+    window.addEventListener('forceCalendarRefresh', handleShiftUpdate);
+
+    return () => {
+      window.removeEventListener('shiftChange', handleShiftUpdate);
+      window.removeEventListener('forceCalendarRefresh', handleShiftUpdate);
+    };
+  }, [queryClient]);
+
+
   // Add effect to force refresh on swap request changes
   useEffect(() => {
     const handleSwapUpdate = async () => {
@@ -185,20 +212,6 @@ export function Calendar({ shifts: initialShifts = [] }: CalendarProps) {
 
     window.addEventListener('swapRequestUpdate', handleSwapUpdate);
     return () => window.removeEventListener('swapRequestUpdate', handleSwapUpdate);
-  }, [queryClient]);
-
-  // Add event listener for manual refresh
-  useEffect(() => {
-    const handleRefresh = async () => {
-      await queryClient.invalidateQueries({ queryKey: ["/api/shifts"] });
-      if (calendarRef.current) {
-        const api = calendarRef.current.getApi();
-        api.removeAllEvents();
-        api.refetchEvents();
-      }
-    };
-    window.addEventListener('forceCalendarRefresh', handleRefresh);
-    return () => window.removeEventListener('forceCalendarRefresh', handleRefresh);
   }, [queryClient]);
 
   // Update calendar events with better logging

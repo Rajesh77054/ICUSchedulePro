@@ -34,7 +34,7 @@ export function Dashboard() {
     }
   });
 
-  // Setup WebSocket connection for real-time updates
+  // Update WebSocket connection for real-time updates
   useEffect(() => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/ws`;
@@ -47,9 +47,16 @@ export function Dashboard() {
 
     websocket.onmessage = (event) => {
       const data = JSON.parse(event.data);
-      if (data.type === 'shift_change') {
-        // Invalidate and refetch shifts query
+      console.log('WebSocket message received:', data);
+
+      if (data.type === 'shift_change' ||
+          data.type === 'shift_swap_responded') {
+        // Dispatch event to trigger calendar refresh
+        window.dispatchEvent(new Event('shiftChange'));
+
+        // Invalidate queries to ensure data consistency
         queryClient.invalidateQueries({ queryKey: ["/api/shifts"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/swap-requests"] });
       }
     };
 
@@ -116,8 +123,8 @@ export function Dashboard() {
 
       {/* Floating AI Assistant Button */}
       <div className="fixed bottom-6 right-6 z-50">
-        <ChatDialog 
-          currentPage="dashboard" 
+        <ChatDialog
+          currentPage="dashboard"
           pageContext={{
             shifts: Array.isArray(shifts) ? shifts.filter(s => s !== null) : [],
             requests: [],
